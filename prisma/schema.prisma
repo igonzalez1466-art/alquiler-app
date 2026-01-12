@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id                    String         @id @default(cuid())
+  name                  String?
+  email                 String?        @unique
+  image                 String?
+  passwordHash          String?
+  emailVerified         Boolean        @default(false)
+  verificationCode      String?
+  verificationExpiresAt DateTime?
+
+  role                  Role         @default(USER)
+
+  accounts              Account[]
+  bookings              Booking[]
+  sellerConversations   Conversation[] @relation("SellerConversations")
+  buyerConversations    Conversation[] @relation("BuyerConversations")
+  listings              Listing[]
+  messages              Message[]
+  reviewsReceived       Review[]       @relation("UserReviewsReceived")
+  reviewsAuthored       Review[]       @relation("UserReviewsAuthored")
+  sessions              Session[]
+}
+
+model Listing {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  pricePerDay   Int
+  city          String?
+  createdAt     DateTime       @default(now())
+  userId        String
+  estado        Estado         @default(USADO)
+  fianza        Int?
+  metodoEnvio   MetodoEnvio    @default(RECOGIDA_LOCAL)
+  marca         String?
+  lat           Float?
+  lng           Float?
+  available     Boolean        @default(true)
+  country       String?
+  postalCode    String?
+  color         Color?
+  garmentType   GarmentType?
+  gender        Gender?
+  materials     Json?
+  size          String?
+  bookings      Booking[]
+  conversations Conversation[]
+  images        Image[]
+  user          User           @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([city])
+  @@index([marca])
+  @@index([lat, lng])
+  @@index([postalCode])
+  @@index([country])
+  @@index([gender])
+  @@index([size])
+  @@index([color])
+  @@index([garmentType])
+}
+
+model Image {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String?
+  order     Int      @default(0)
+  listingId String
+  createdAt DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id])
+
+  @@index([listingId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Conversation {
+  id               String    @id @default(cuid())
+  listingId        String
+  buyerId          String
+  sellerId         String
+  createdAt        DateTime  @default(now())
+  buyerLastReadAt  DateTime?
+  sellerLastReadAt DateTime?
+
+  status           ConversationStatus @default(OPEN)
+  closedAt         DateTime?
+  closedReason     ConversationCloseReason?
+
+  seller           User      @relation("SellerConversations", fields: [sellerId], references: [id])
+  buyer            User      @relation("BuyerConversations", fields: [buyerId], references: [id])
+  listing          Listing   @relation(fields: [listingId], references: [id])
+  messages         Message[]
+
+  @@unique([listingId, buyerId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([listingId])
+  @@index([status])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  text           String
+  createdAt      DateTime     @default(now())
+  sender         User         @relation(fields: [senderId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+}
+
+model Booking {
+  id                   String         @id @default(cuid())
+  listingId            String
+  renterId             String
+  startDate            DateTime
+  endDate              DateTime
+  status               BookingStatus  @default(PENDING)
+  createdAt            DateTime       @default(now())
+  paymentStatus        PaymentStatus  @default(PENDING)
+  paymentMethod        PaymentMethod?
+  paymentRef           String?
+  amountCents          Int?
+  depositCents         Int?
+  paidAt               DateTime?
+  refundedAt           DateTime?
+  shippingStatus       ShippingStatus @default(PENDING)
+  carrier              String?
+  trackingNumber       String?
+  shippedAt            DateTime?
+  deliveredAt          DateTime?
+  returnStatus         ShippingStatus @default(RETURN_PENDING)
+  returnCarrier        String?
+  returnTrackingNumber String?
+  returnShippedAt      DateTime?
+  returnDeliveredAt    DateTime?
+  listing              Listing        @relation(fields: [listingId], references: [id])
+  renter               User           @relation(fields: [renterId], references: [id])
+  reviews              Review[]
+
+  @@index([listingId])
+  @@index([renterId])
+  @@index([paymentStatus])
+  @@index([shippingStatus])
+  @@index([returnStatus])
+  @@index([carrier, trackingNumber])
+  @@index([returnCarrier, returnTrackingNumber])
+}
+
+model Review {
+  id         String     @id @default(cuid())
+  bookingId  String
+  reviewerId String
+  revieweeId String
+  role       ReviewRole
+  rating     Int
+  comment    String?
+  createdAt  DateTime   @default(now())
+  reviewee   User       @relation("UserReviewsReceived", fields: [revieweeId], references: [id])
+  reviewer   User       @relation("UserReviewsAuthored", fields: [reviewerId], references: [id])
+  booking    Booking    @relation(fields: [bookingId], references: [id])
+
+  @@unique([bookingId, reviewerId, revieweeId])
+  @@index([revieweeId])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Estado {
+  NUEVO
+  COMO_NUEVO
+  USADO
+  MUY_USADO
+}
+
+enum MetodoEnvio {
+  RECOGIDA_LOCAL
+  ENVIO_CORREOS
+  MENSAJERIA
+  OTRO
+}
+
+enum Gender {
+  WOMAN
+  MAN
+  UNISEX
+  KIDS
+}
+
+enum GarmentType {
+  ABRIGO
+  CHAQUETA
+  CAMISA
+  BLUSA
+  VESTIDO
+  PANTALON
+  FALDA
+  TRAJE
+  SUDADERA
+  JERSEY
+  MONO
+  ACCESORIO
+  CHAMARRA
+  OTRO
+  ZAPATO
+}
+
+enum Color {
+  CZARNY
+  BIALY
+  SZARY
+  BEZOWY
+  BRAZOWY
+  CZERWONY
+  ROZOWY
+  POMARANCZOWY
+  ZOLTY
+  ZIELONY
+  NIEBIESKI
+  GRANATOWY
+  FIOLETOWY
+  ZLOTY
+  SREBRNY
+  WIELOKOLOROWY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  AWAITING_PAYMENT
+  PAID
+  CANCELLED
+}
+
+enum ReviewRole {
+  OWNER
+  RENTER
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  BIZUM
+  CASH
+  OTHER
+}
+
+enum ShippingStatus {
+  NOT_REQUIRED
+  PENDING
+  READY
+  SHIPPED
+  DELIVERED
+  RETURN_PENDING
+  RETURNED
+  LOST
+  CANCELLED
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum ConversationCloseReason {
+  BOOKING_CANCELLED_BY_OWNER
+  LISTING_UNAVAILABLE
+  OTHER
+}

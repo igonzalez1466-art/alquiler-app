@@ -1,0 +1,137 @@
+"use server";
+
+import { prisma } from "@/app/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authConfig } from "@/auth.config";
+import { pusherServer } from "@/app/lib/pusher";
+import { sendMail } from "@/app/lib/mailer";
+
+const MAX_LEN = 2000;
+
+// ✅ controla si se envían emails desde .env
+// Pon EMAIL_ENABLED="false" en desarrollo para que nunca moleste.
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";
+
+export async function sendMessageAction(
+  conversationId: string,
+  formData: FormData
+) {
+  const session = await getServerSession(authConfig);
+  const userId = (session?.user as any)?.id as string | undefined;
+  if (!userId) throw new Error("Brak autoryzacji");
+
+  let text = formData.get("text")?.toString() ?? "";
+  text = text.trim().replace(/\r\n/g, "\n");
+  if (!text) return;
+  if (text.length > MAX_LEN) text = text.slice(0, MAX_LEN);
+
+  const conv = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: {
+      id: true,
+      buyerId: true,
+      sellerId: true,
+      status: true,
+      closedReason: true,
+      buyer: { select: { id: true, email: true, name: true } },
+      seller: { select: { id: true, email: true, name: true } },
+    },
+  });
+
+  if (!conv) throw new Error("Nie znaleziono rozmowy");
+
+  const isBuyer = userId === conv.buyerId;
+  const isSeller = userId === conv.sellerId;
+  if (!isBuyer && !isSeller) throw new Error("Brak uprawnień");
+
+  // ✅ Si el chat está cerrado, no permitimos enviar
+  if (conv.status === "CLOSED") {
+    return {
+      ok: false,
+      error: "CHAT_CLOSED",
+      message: "Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.",
+    } as const;
+  }
+
+  const [msg] = await prisma.$transaction([
+    prisma.message.create({
+      data: { conversationId, senderId: userId, text },
+      select: { id: true, createdAt: true, senderId: true, text: true },
+    }),
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: isBuyer
+        ? { buyerLastReadAt: new Date() }
+        : { sellerLastReadAt: new Date() },
+    }),
+  ]);
+
+  const recipient = isBuyer ? conv.seller : conv.buyer;
+
+  await pusherServer.trigger(`user-${recipient.id}`, "message:new", {
+    conversationId,
+    messageId: msg.id,
+  });
+  await pusherServer.trigger(`conversation-${conversationId}`, "message:new", {
+    messageId: msg.id,
+  });
+
+  // ✅ Email notification: best-effort (NO romper el chat si falla)
+  if (EMAIL_ENABLED) {
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const to = recipient?.email || process.env.DEV_FALLBACK_TO || "";
+
+    if (to) {
+      try {
+        await sendMail({
+          to,
+          subject: `Nowa wiadomość od ${session?.user?.name ?? "użytkownika"}`,
+          html: `
+            <p>Masz nową wiadomość w <b>Moja Szafa</b>:</p>
+            <blockquote>${text.replace(/</g, "&lt;")}</blockquote>
+            <p><a href="${baseUrl}/chat/${conversationId}">Otwórz czat</a></p>
+          `,
+          text: `Nowa wiadomość:\n\n${text}\n\nOtwórz czat: ${baseUrl}/chat/${conversationId}`,
+        });
+      } catch (e: any) {
+        const msg = String(e?.message ?? e);
+
+        // ✅ Ignora el límite del trial para no ensuciar la UX
+        if (msg.includes("unique recipients limit") || msg.includes("#MS42225")) {
+          console.warn("Email skipped (trial unique recipients limit).");
+        } else {
+          console.error("sendMail failed (ignored):", e);
+        }
+      }
+    }
+  }
+
+  revalidatePath(`/chat/${conversationId}`);
+  revalidatePath(`/chat`);
+}
+
+// ✅ markChatAsRead sin cambios funcionales (solo userId robusto)
+export async function markChatAsRead(conversationId: string) {
+  const session = await getServerSession(authConfig);
+  const userId = (session?.user as any)?.id as string | undefined;
+  if (!userId) return;
+
+  const conv = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: { buyerId: true, sellerId: true },
+  });
+  if (!conv) return;
+
+  if (userId === conv.buyerId) {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { buyerLastReadAt: new Date() },
+    });
+  } else if (userId === conv.sellerId) {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { sellerLastReadAt: new Date() },
+    });
+  }
+}

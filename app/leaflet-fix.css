@@ -1,0 +1,13 @@
+/* Fix para imágenes referenciadas por leaflet.css (control layers) */
+.leaflet-control-layers-toggle {
+  background-image: url("/leaflet/layers.png") !important;
+}
+
+.leaflet-retina .leaflet-control-layers-toggle {
+  background-image: url("/leaflet/layers-2x.png") !important;
+}
+
+/* Fix para iconos (por si Leaflet intenta resolverlos) */
+.leaflet-default-icon-path {
+  background-image: url("/leaflet/marker-icon.png");
+}

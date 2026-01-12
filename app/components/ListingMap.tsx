@@ -1,0 +1,138 @@
+// app/listing/components/ListingMap.tsx
+"use client";
+
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+// 🔹 Fix iconos: usa rutas absolutas desde la CDN (más seguro en Next.js)
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
+
+type MarkerData = {
+  id: string;
+  title: string;
+  lat: number;
+  lng: number;
+  pricePerDay?: number;
+  city?: string | null;
+  imageUrl?: string | null;
+  imageAlt?: string | null;
+};
+
+function FitToMarkers({ markers }: { markers: MarkerData[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !markers || markers.length === 0) return;
+
+    // 1) Un solo marcador → centra y acerca
+    if (markers.length === 1) {
+      const { lat, lng } = markers[0];
+      map.setView([lat, lng], 14, { animate: true });
+      return;
+    }
+
+    // 2) Varios marcadores → calcula bounds
+    const bounds = L.latLngBounds(
+      markers.map((m) => [m.lat, m.lng] as [number, number]),
+    );
+    if (!bounds.isValid()) return;
+
+    const distance = map.distance(bounds.getNorthEast(), bounds.getSouthWest());
+
+    // Si están muy juntos (<1 km), centro y zoom alto
+    if (distance < 1000) {
+      const c = bounds.getCenter();
+      map.setView([c.lat, c.lng], 15, { animate: true });
+      return;
+    }
+
+    // Si no, encaja los bounds con padding y limitando zoom máximo
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  }, [map, markers]);
+
+  return null;
+}
+
+export default function ListingMap({ markers }: { markers: MarkerData[] }) {
+  const router = useRouter();
+
+  const center: [number, number] = markers.length
+    ? [markers[0].lat, markers[0].lng]
+    : [52.2297, 21.0122]; // fallback Warsaw
+
+  return (
+    <div className="relative z-0 w-full h-72 rounded overflow-hidden border bg-gray-100">
+      <MapContainer
+        center={center}
+        zoom={6}
+        className="w-full h-full"
+        scrollWheelZoom={false}
+      >
+        <TileLayer
+          attribution='&copy; OpenStreetMap contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {/* Ajuste automático del viewport */}
+        <FitToMarkers markers={markers} />
+
+        {markers.map((m) => (
+          <Marker key={m.id} position={[m.lat, m.lng]}>
+            <Popup className="p-0">
+              <div className="w-52 md:w-64 rounded-lg bg-white shadow-md overflow-hidden border border-gray-200">
+                {/* Foto mini */}
+                {m.imageUrl && (
+                  <div className="h-24 w-full overflow-hidden">
+                    <img
+                      src={m.imageUrl}
+                      alt={m.imageAlt ?? m.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Contenido */}
+                <div className="p-2.5 space-y-1">
+                  <div className="font-semibold text-sm leading-tight line-clamp-2">
+                    {m.title}
+                  </div>
+
+                  {m.city && (
+                    <div className="text-xs text-gray-600">
+                      {m.city}
+                    </div>
+                  )}
+
+                  {/* Si algún día quieres volver a mostrar el precio: */}
+                  {/* {m.pricePerDay !== undefined && (
+                    <div className="text-xs text-gray-800 font-medium">
+                      {m.pricePerDay} zł / dzień
+                    </div>
+                  )} */}
+
+                  <button
+                    onClick={() => router.push(`/listing/${m.id}`)}
+                    className="mt-2 w-full bg-indigo-600 text-white text-xs md:text-sm font-medium px-3 py-1.5 rounded-md hover:bg-indigo-700 transition"
+                  >
+                    Zobacz
+                  </button>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
+  );
+}
