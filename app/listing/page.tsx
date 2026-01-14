@@ -201,29 +201,30 @@ export default async function ListingPage({
   /* ======================= QUERY ======================= */
 
   const listings = await prisma.listing.findMany({
-    where: where as never,
-    orderBy: { createdAt: "desc" } as never,
-    select: {
-      id: true,
-      title: true,
-      pricePerDay: true,
-      city: true,
-      postalCode: true,
-      lat: true,
-      lng: true,
-      marca: true,
-      gender: true,
-      size: true,
-      color: true,
-      garmentType: true,
-      materials: true,
-      images: {
-        select: { id: true, url: true, alt: true, order: true },
-        orderBy: { order: "asc" },
-        take: 4,
-      },
+  where: where as never,
+  orderBy: { createdAt: "desc" } as never,
+  select: {
+    id: true,
+    title: true,
+    pricePerDay: true,
+    city: true,
+    postalCode: true,
+    lat: true,
+    lng: true,
+    marca: true,
+    gender: true,
+    size: true,
+    color: true,
+    garmentType: true,
+    materials: true,
+    images: {
+      select: { id: true, url: true, alt: true, order: true },
+      orderBy: { order: "asc" } as never,
+      take: 4,
     },
-  });
+  },
+});
+
 
   const markers = listings
     .filter((l) => l.lat !== null && l.lng !== null)
