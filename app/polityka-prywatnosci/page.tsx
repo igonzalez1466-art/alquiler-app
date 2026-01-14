@@ -11,9 +11,9 @@ export default function PolitykaPrywatnosciPage() {
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">1. Administrator danych</h2>
       <p className="mb-4">
-        Administratorem danych osobowych jest właściciel serwisu.  
-        Kontakt w sprawach związanych z ochroną danych osobowych można uzyskać
-        poprzez formularz kontaktowy lub dane kontaktowe dostępne w zakładce „Kontakt”.
+        Administratorem danych osobowych jest właściciel serwisu z siedzibą w Polsce.
+        Kontakt w sprawach związanych z ochroną danych osobowych możliwy jest poprzez formularz kontaktowy lub dane dostępne w zakładce „Kontakt”.
+
       </p>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">2. Zakres przetwarzanych danych</h2>
@@ -33,32 +33,28 @@ export default function PolitykaPrywatnosciPage() {
 
       <ul className="list-disc ml-6 mb-4 space-y-2">
         <li>utworzenie i obsługa konta użytkownika,</li>
-        <li>realizacja rezerwacji oraz komunikacja z innymi użytkownikami,</li>
-        <li>obsługa płatności,</li>
-        <li>zapewnienie bezpieczeństwa i zapobieganie nadużyciom,</li>
-        <li>personalizacja funkcji serwisu,</li>
-        <li>analiza statystyczna działania platformy,</li>
-        <li>marketing — wyłącznie po wyrażeniu odpowiedniej zgody.</li>
+        <li>umożliwienie kontaktu i rezerwacji pomiędzy użytkownikami,</li>
+        <li>zapewnienie bezpieczeństwa serwisu oraz zapobieganie nadużyciom,</li>
+        <li>podstawowa analiza statystyczna działania platformy,</li>
+        <li>marketing — wyłącznie po wyrażeniu odpowiedniej zgody,</li>
       </ul>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">4. Podstawy prawne przetwarzania</h2>
-      <p className="mb-4">Dane przetwarzamy na podstawie:</p>
+      <p className="mb-4">Dane osobowe przetwarzane są na podstawie:</p>
 
       <ul className="list-disc ml-6 mb-4 space-y-2">
-        <li>art. 6 ust. 1 lit. b RODO — wykonanie umowy,</li>
-        <li>art. 6 ust. 1 lit. c RODO — obowiązki prawne,</li>
-        <li>art. 6 ust. 1 lit. f RODO — uzasadniony interes administratora,</li>
-        <li>art. 6 ust. 1 lit. a RODO — zgoda użytkownika.</li>
+        <li>art. 6 ust. 1 lit. b RODO — wykonanie umowy (korzystanie z serwisu),</li>
+        <li>art. 6 ust. 1 lit. f RODO — prawnie uzasadniony interes administratora (bezpieczeństwo serwisu),</li>
+        <li>art. 6 ust. 1 lit. a RODO — zgoda użytkownika (marketing, cookies).</li>
       </ul>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">5. Odbiorcy danych</h2>
       <p className="mb-4">Dane mogą być udostępniane:</p>
 
       <ul className="list-disc ml-6 mb-4 space-y-2">
-        <li>dostawcom usług płatniczych,</li>
-        <li>dostawcom usług hostingu,</li>
-        <li>firmom analitycznym lub marketingowym — wyłącznie za zgodą,</li>
-        <li>organom państwowym na podstawie przepisów prawa.</li>
+        <li>dostawcom usług hostingu i infrastruktury IT,</li>
+        <li>dostawcom narzędzi analitycznych — wyłącznie po wyrażeniu zgody,</li>
+        <li>organom publicznym na podstawie obowiązujących przepisów prawa.</li>
       </ul>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">6. Prawa użytkownika</h2>
@@ -72,12 +68,12 @@ export default function PolitykaPrywatnosciPage() {
         <li>przenoszenia danych,</li>
         <li>wniesienia sprzeciwu wobec przetwarzania,</li>
         <li>wycofania zgody w dowolnym momencie.</li>
+        <li>Użytkownik ma prawo wniesienia skargi do Prezesa Urzędu Ochrony Danych Osobowych (UODO).</li>
       </ul>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">7. Przechowywanie danych</h2>
       <p className="mb-4">
-        Dane przechowujemy przez okres nie dłuższy niż jest to konieczne do
-        realizacji celów przetwarzania lub do momentu zgłoszenia żądania usunięcia danych.
+        Dane osobowe przechowywane są przez okres trwania konta użytkownika oraz po jego usunięciu przez czas niezbędny do realizacji obowiązków prawnych lub zabezpieczenia roszczeń.
       </p>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">8. Pliki cookie</h2>

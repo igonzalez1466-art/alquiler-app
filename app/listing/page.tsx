@@ -28,7 +28,7 @@ const enumLabels: Record<string, string> = {
   MONO: "Kombinezon",
   CHAMARRA: "Kurtka",
   ACCESORIO: "Akcesoria",
-  OTRO: "Inne",
+  ZAPATO: "Buty",
 };
 
 /* ===================== ALLOWED ENUM VALUES ===================== */

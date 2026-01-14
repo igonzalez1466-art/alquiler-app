@@ -48,8 +48,8 @@ export default function RegulaminPage() {
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">6. Płatności</h2>
       <p className="mb-4">
-        Jeśli korzystasz z płatnych funkcji serwisu, płatności mogą być obsługiwane przez
-        zewnętrznych operatorów zgodnie z ich regulaminem.
+        Obecnie serwis nie obsługuje płatności pomiędzy użytkownikami.
+        W przyszłości Administrator może wprowadzić płatne funkcje serwisu, o czym użytkownicy zostaną poinformowani z wyprzedzeniem..
       </p>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">7. Rozwiązanie umowy</h2>
@@ -62,6 +62,22 @@ export default function RegulaminPage() {
       <p className="mb-4">
         Administrator może zmienić regulamin. O zmianach użytkownicy zostaną poinformowani
         z odpowiednim wyprzedzeniem.
+      </p>
+
+         <h2 className="text-2xl font-semibold mt-8 mb-4">9. Bezpieczeństwo i odpowiedzialność</h2>
+      <p className="mb-4">
+        Serwis nie ponosi odpowiedzialności za wypadki, uszkodzenia mienia, kradzieże ani inne szkody powstałe w wyniku korzystania z ogłoszeń.
+        Użytkownicy korzystają z serwisu na własną odpowiedzialność.
+      </p>
+
+       <h2 className="text-2xl font-semibold mt-8 mb-4">10. Dane osobowe</h2>
+      <p className="mb-4">
+       Zasady przetwarzania danych osobowych określa Polityka prywatności dostępna w serwisie.
+      </p>
+
+      <h2 className="text-2xl font-semibold mt-8 mb-4">11. Wiek użytkownika</h2>
+      <p className="mb-4">
+       Korzystanie z serwisu dozwolone jest wyłącznie dla osób, które ukończyły 18 lat..
       </p>
 
       <p className="mt-10 text-sm text-gray-500">
