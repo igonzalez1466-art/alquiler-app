@@ -1,7 +1,7 @@
 // app/api/bookings/[id]/approve/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";        // ajusta si tu export es distinto
-import { sendMail } from "@/lib/mailer";      // asumo que tienes sendMail({ to, subject, html, replyTo? })
+import { prisma } from "@lib/prisma";        // ajusta si tu export es distinto
+import { sendMail } from "@lib/mailer";      // asumo que tienes sendMail({ to, subject, html, replyTo? })
 export const runtime = "nodejs";              // importante: no usar Edge para email
 
 export async function PATCH(
