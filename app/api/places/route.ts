@@ -1,5 +1,5 @@
 // app/api/places/route.ts
-export const runtime = "node"; // o "edge" si prefieres
+export const runtime = "nodejs"; // o "edge" si prefieres
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
