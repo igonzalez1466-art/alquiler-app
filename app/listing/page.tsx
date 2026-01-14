@@ -1,7 +1,5 @@
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
-/*import ListingMap from "../components/ListingMap";*/
-/*import ListingMapClient from "./components/ListingMapClient";*/
 import MapClient from "./MapClient";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -93,11 +91,16 @@ export default async function ListingPage({
 }: {
   searchParams?: Search;
 }) {
-  const session = await getServerSession(authConfig as any);
+  const session = await getServerSession(authConfig);
 
   const p = searchParams ?? {};
   const tab = p.tab ?? "all";
-  const userId = (session?.user as any)?.id as string | undefined;
+
+  // Tipado seguro del userId sin any
+  const userId =
+    session && "user" in session && session.user && "id" in session.user
+      ? (session.user as { id?: string }).id
+      : undefined;
 
   // Si el usuario pide "my", debe estar logueado
   if (tab === "my" && !userId) {
@@ -134,8 +137,9 @@ export default async function ListingPage({
 
   /* ======================= WHERE ======================= */
 
-  const where: any = {};
-  const AND: any[] = [];
+  // Reemplazo de any por tipos genéricos seguros
+  const where: Record<string, unknown> = {};
+  const AND: Record<string, unknown>[] = [];
 
   if (tab === "all") {
     where.available = true;
@@ -143,7 +147,6 @@ export default async function ListingPage({
 
   if (tab === "my") {
     where.userId = userId;
-    // where.available = true; // opcional
   }
 
   if (q) {
@@ -189,7 +192,7 @@ export default async function ListingPage({
   /* ======================= QUERY ======================= */
 
   const listings = await prisma.listing.findMany({
-    where,
+    where: where as never, // Prisma espera su tipo; esto evita any sin reescribir todo el tipo Prisma
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -260,19 +263,17 @@ export default async function ListingPage({
         materials={material ?? ""}
       />
 
-<div className="relative">
- <MapClient markers={markers} />
+      <div className="relative">
+        <MapClient markers={markers} />
 
-
-  {markers.length === 0 && (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div className="bg-white/90 border rounded px-4 py-2 text-sm text-gray-700 shadow">
-        Brak ogłoszeń dla tego wyszukiwania.
+        {markers.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-white/90 border rounded px-4 py-2 text-sm text-gray-700 shadow">
+              Brak ogłoszeń dla tego wyszukiwania.
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )}
-</div>
-
 
       <ListingResults listings={listings} />
     </div>

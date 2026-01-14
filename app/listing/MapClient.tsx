@@ -6,6 +6,6 @@ const ListingMap = dynamic(() => import("./components/ListingMap"), {
   ssr: false,
 });
 
-export default function MapClient(props: { markers: any[] }) {
+export default function MapClient(props: { markers: unknown[] }) {
   return <ListingMap {...props} />;
 }

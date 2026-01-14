@@ -25,11 +25,10 @@ export async function POST(req: Request) {
       const paymentIntentId = session.payment_intent as string | undefined;
 
       if (bookingId) {
-        // Marca como pagado y guarda referencia/importe
         await prisma.booking.update({
           where: { id: bookingId },
           data: {
-            status: "PAID",               // si prefieres mantener tu flujo: "CONFIRMED"
+            status: "PAID",
             paymentStatus: "PAID",
             paymentMethod: "CARD",
             paymentRef: paymentIntentId ?? session.id,
@@ -42,14 +41,16 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ received: true });
-  } catch (err: any) {
-    console.error("❌ Webhook error:", err.message);
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("❌ Webhook error:", message);
+    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
   }
 }
 
+// Nota: en App Router este config no suele ser necesario, pero si lo dejas no molesta.
 export const config = {
   api: {
-    bodyParser: false, // Next 13/14 (por compatibilidad); en app router usamos req.text()
+    bodyParser: false,
   },
 };
