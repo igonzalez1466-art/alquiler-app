@@ -4,6 +4,24 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 
+type AppRole = "USER" | "ADMIN";
+
+type AuthorizedUser = {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+  role: AppRole;
+};
+
+type TokenWithRole = {
+  sub?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  role?: AppRole;
+};
+
 export const authConfig = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.AUTH_SECRET,
@@ -33,14 +51,27 @@ export const authConfig = {
           throw new Error("EMAIL_NOT_VERIFIED");
         }
 
-        // ✅ IMPORTANTE: devolvemos también role
-        return {
-          id: user.id,
-          email: user.email!,
+        // ✅ devolvemos datos extra
+        // Nota: si tu modelo Prisma tiene image/role, TS ya te lo dejará usar.
+        // Si no los tiene tipados (por schema viejo), hacemos lectura segura:
+        const image =
+          typeof (user as unknown as { image?: unknown }).image === "string"
+            ? (user as unknown as { image: string }).image
+            : undefined;
+
+        const roleRaw = (user as unknown as { role?: unknown }).role;
+        const role: AppRole =
+          roleRaw === "ADMIN" || roleRaw === "USER" ? roleRaw : "USER";
+
+        const out: AuthorizedUser = {
+          id: String(user.id),
+          email: user.email ?? "",
           name: user.name ?? undefined,
-          image: (user as any).image ?? undefined,
-          role: (user as any).role ?? "USER",
+          image,
+          role,
         };
+
+        return out;
       },
     }),
   ],
@@ -49,30 +80,42 @@ export const authConfig = {
     async jwt({ token, user }) {
       // En el primer login, "user" viene de authorize()
       if (user) {
-        token.sub = (user as any).id?.toString?.() ?? (user as any).id;
-        token.email = (user as any).email;
-        token.name = (user as any).name;
-        token.picture = (user as any).image;
+        const u = user as unknown as Partial<AuthorizedUser>;
+
+        if (typeof u.id === "string") token.sub = u.id;
+        if (typeof u.email === "string") token.email = u.email;
+        if (typeof u.name === "string") token.name = u.name;
+        if (typeof u.image === "string") token.picture = u.image;
 
         // ✅ guardamos role en el JWT
-        token.role = (user as any).role ?? "USER";
+        const role: AppRole =
+          u.role === "ADMIN" || u.role === "USER" ? u.role : "USER";
+        (token as unknown as TokenWithRole).role = role;
       }
-
-      // (Opcional pero útil) si quieres mantenerlo siempre consistente,
-      // podrías reconsultar DB aquí, pero no hace falta para empezar.
 
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.sub as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string | undefined;
-        session.user.image = token.picture as string | undefined;
+        // añadimos id y role a session.user sin any
+        const su = session.user as unknown as {
+          id?: string;
+          role?: AppRole;
+          email?: string;
+          name?: string;
+          image?: string;
+        };
 
-        // ✅ exponemos role en session.user
-        (session.user as any).role = (token as any).role ?? "USER";
+        if (typeof token.sub === "string") su.id = token.sub;
+        if (typeof token.email === "string") session.user.email = token.email;
+        session.user.name =
+          typeof token.name === "string" ? token.name : undefined;
+        session.user.image =
+          typeof token.picture === "string" ? token.picture : undefined;
+
+        const t = token as unknown as TokenWithRole;
+        su.role = t.role ?? "USER";
       }
       return session;
     },

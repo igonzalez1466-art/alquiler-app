@@ -1,12 +1,24 @@
-// app/chat/page.tsx  (o donde tengas tu inbox, según tu estructura)
+// app/chat/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import Link from "next/link";
 
+function getUserId(session: unknown): string | undefined {
+  if (!session || typeof session !== "object") return undefined;
+  if (!("user" in session)) return undefined;
+
+  const user = (session as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return undefined;
+
+  const id = (user as { id?: unknown }).id;
+  return typeof id === "string" ? id : undefined;
+}
+
 export default async function ChatInboxPage() {
   const session = await getServerSession(authConfig);
-  const userId = session?.user?.id;
+  const userId = getUserId(session);
+
   if (!userId) {
     return <p className="p-6">Musisz się zalogować, aby zobaczyć czaty.</p>;
   }
@@ -50,10 +62,16 @@ export default async function ChatInboxPage() {
     } else if (msgDate.getTime() === yesterday.getTime()) {
       dayLabel = "Wczoraj";
     } else {
-      dayLabel = date.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
+      dayLabel = date.toLocaleDateString("pl-PL", {
+        day: "2-digit",
+        month: "2-digit",
+      });
     }
 
-    const timeLabel = date.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+    const timeLabel = date.toLocaleTimeString("pl-PL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
     return `${dayLabel} ${timeLabel}`;
   }
@@ -85,9 +103,9 @@ export default async function ChatInboxPage() {
             }
           }
 
-          // ✅ Si está cerrado, lo marcamos visualmente
-          const isClosed = (c as any).status === "CLOSED"; // (si TS te molesta, tipa el include con Prisma types)
-          // Nota: si ya tienes status en el type, quita el "as any"
+          // ✅ Si está cerrado, lo marcamos visualmente (sin any)
+          const status = (c as unknown as { status?: unknown }).status;
+          const isClosed = status === "CLOSED";
 
           return (
             <li

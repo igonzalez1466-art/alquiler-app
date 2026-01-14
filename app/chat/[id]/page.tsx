@@ -6,11 +6,33 @@ import { sendMessageAction, markChatAsRead } from "./actions";
 
 type PageProps = { params: Promise<{ id: string }> }; // Next 15: params es Promise
 
+type AppRole = "USER" | "ADMIN";
+
+type SessionUser = {
+  id?: string;
+  role?: AppRole;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
+
+function getUserId(session: unknown): string | undefined {
+  if (!session || typeof session !== "object") return undefined;
+  if (!("user" in session)) return undefined;
+
+  const user = (session as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return undefined;
+
+  const id = (user as { id?: unknown }).id;
+  return typeof id === "string" ? id : undefined;
+}
+
 export default async function ChatDetailPage({ params }: PageProps) {
   const { id } = await params; // conversationId
 
   const session = await getServerSession(authConfig);
-  const userId = session?.user?.id;
+
+  const userId = getUserId(session);
   if (!userId) {
     return <p className="p-6">Musisz się zalogować, aby zobaczyć ten czat.</p>;
   }
@@ -38,8 +60,9 @@ export default async function ChatDetailPage({ params }: PageProps) {
 
   const other = userId === convo.buyerId ? convo.seller : convo.buyer;
 
-  // ✅ Detectar si el chat está cerrado
-  const isClosed = (convo as any).status === "CLOSED"; // si TS se queja, deja el as any
+  // ✅ Detectar si el chat está cerrado (sin any)
+  const convoStatus = (convo as unknown as { status?: unknown }).status;
+  const isClosed = convoStatus === "CLOSED";
 
   // 🔧 Función helper para mostrar "Dzisiaj", "Wczoraj" o fecha
   function formatDateTime(date: Date): string {
@@ -56,10 +79,16 @@ export default async function ChatDetailPage({ params }: PageProps) {
     } else if (msgDate.getTime() === yesterday.getTime()) {
       dayLabel = "Wczoraj";
     } else {
-      dayLabel = date.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
+      dayLabel = date.toLocaleDateString("pl-PL", {
+        day: "2-digit",
+        month: "2-digit",
+      });
     }
 
-    const timeLabel = date.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+    const timeLabel = date.toLocaleTimeString("pl-PL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
     return `${dayLabel} ${timeLabel}`;
   }
