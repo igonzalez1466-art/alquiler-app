@@ -4,7 +4,7 @@ import { useState } from "react";
 export default function ContactPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [bookingNumber, setBookingNumber] = useState(""); // ✅ NUEVO
+  const [bookingNumber, setBookingNumber] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,19 +18,27 @@ export default function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, bookingNumber, message }), // ✅ envía bookingNumber
+        body: JSON.stringify({ name, email, bookingNumber, message }),
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || "Nie udało się wysłać");
+      if (!res.ok) {
+        const msg =
+          typeof (data as { message?: unknown })?.message === "string"
+            ? (data as { message: string }).message
+            : "Nie udało się wysłać";
+        throw new Error(msg);
+      }
 
       setStatus("✅ Wiadomość wysłana");
       setName("");
       setEmail("");
-      setBookingNumber(""); // ✅ reset
+      setBookingNumber("");
       setMessage("");
-    } catch (err: any) {
-      setStatus("❌ " + (err?.message || "Błąd sieci"));
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Błąd sieci";
+      setStatus("❌ " + message);
     } finally {
       setLoading(false);
     }
@@ -60,7 +68,6 @@ export default function ContactPage() {
           required
         />
 
-        {/* ✅ NUEVO: Número de reserva */}
         <input
           name="bookingNumber"
           value={bookingNumber}

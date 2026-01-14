@@ -22,8 +22,12 @@ export default function RejectButton({ bookingId }: { bookingId: string }) {
 
         setDone(true);
         router.refresh();
-      } catch (e: any) {
-        setError(e?.message || "Nie udało się odrzucić rezerwacji");
+      } catch (e: unknown) {
+        const message =
+          e instanceof Error
+            ? e.message
+            : "Nie udało się odrzucić rezerwacji";
+        setError(message);
       }
     });
   };

@@ -22,9 +22,13 @@ export async function updateShippingAction(formData: FormData) {
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
-  const shippingStatus = String(formData.get("shippingStatus") || "") as ShippingStatus;
+  const shippingStatus = String(
+    formData.get("shippingStatus") || ""
+  ) as ShippingStatus;
   const carrier = String(formData.get("carrier") || "").trim();
-  const trackingNumber = String(formData.get("trackingNumber") || "").trim();
+  const trackingNumber = String(
+    formData.get("trackingNumber") || ""
+  ).trim();
 
   if (!bookingId) throw new Error("Brak bookingId");
 
@@ -59,7 +63,7 @@ export async function updateShippingAction(formData: FormData) {
 
   const now = new Date();
 
-  const data: any = {
+  const data: Record<string, unknown> = {
     shippingStatus,
     carrier: carrier || null,
     trackingNumber: trackingNumber || null,
@@ -75,11 +79,10 @@ export async function updateShippingAction(formData: FormData) {
 
   await prisma.booking.update({
     where: { id: bookingId },
-    data,
+    data: data as never,
   });
 
   // ✅ refresca UI
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath(`/bookings`);
 }
-

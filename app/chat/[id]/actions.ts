@@ -13,12 +13,34 @@ const MAX_LEN = 2000;
 // Pon EMAIL_ENABLED="false" en desarrollo para que nunca moleste.
 const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";
 
+function getUserIdFromSession(session: unknown): string | undefined {
+  if (!session || typeof session !== "object") return undefined;
+  if (!("user" in session)) return undefined;
+
+  const user = (session as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return undefined;
+
+  const id = (user as { id?: unknown }).id;
+  return typeof id === "string" ? id : undefined;
+}
+
+function getUserNameFromSession(session: unknown): string | undefined {
+  if (!session || typeof session !== "object") return undefined;
+  if (!("user" in session)) return undefined;
+
+  const user = (session as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return undefined;
+
+  const name = (user as { name?: unknown }).name;
+  return typeof name === "string" ? name : undefined;
+}
+
 export async function sendMessageAction(
   conversationId: string,
   formData: FormData
 ) {
   const session = await getServerSession(authConfig);
-  const userId = (session?.user as any)?.id as string | undefined;
+  const userId = getUserIdFromSession(session);
   if (!userId) throw new Error("Brak autoryzacji");
 
   let text = formData.get("text")?.toString() ?? "";
@@ -54,7 +76,7 @@ export async function sendMessageAction(
     } as const;
   }
 
-  const [msg] = await prisma.$transaction([
+  const [createdMsg] = await prisma.$transaction([
     prisma.message.create({
       data: { conversationId, senderId: userId, text },
       select: { id: true, createdAt: true, senderId: true, text: true },
@@ -71,10 +93,10 @@ export async function sendMessageAction(
 
   await pusherServer.trigger(`user-${recipient.id}`, "message:new", {
     conversationId,
-    messageId: msg.id,
+    messageId: createdMsg.id,
   });
   await pusherServer.trigger(`conversation-${conversationId}`, "message:new", {
-    messageId: msg.id,
+    messageId: createdMsg.id,
   });
 
   // ✅ Email notification: best-effort (NO romper el chat si falla)
@@ -86,7 +108,9 @@ export async function sendMessageAction(
       try {
         await sendMail({
           to,
-          subject: `Nowa wiadomość od ${session?.user?.name ?? "użytkownika"}`,
+          subject: `Nowa wiadomość od ${
+            getUserNameFromSession(session) ?? "użytkownika"
+          }`,
           html: `
             <p>Masz nową wiadomość w <b>Moja Szafa</b>:</p>
             <blockquote>${text.replace(/</g, "&lt;")}</blockquote>
@@ -94,11 +118,14 @@ export async function sendMessageAction(
           `,
           text: `Nowa wiadomość:\n\n${text}\n\nOtwórz czat: ${baseUrl}/chat/${conversationId}`,
         });
-      } catch (e: any) {
-        const msg = String(e?.message ?? e);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
 
         // ✅ Ignora el límite del trial para no ensuciar la UX
-        if (msg.includes("unique recipients limit") || msg.includes("#MS42225")) {
+        if (
+          message.includes("unique recipients limit") ||
+          message.includes("#MS42225")
+        ) {
           console.warn("Email skipped (trial unique recipients limit).");
         } else {
           console.error("sendMail failed (ignored):", e);
@@ -114,7 +141,7 @@ export async function sendMessageAction(
 // ✅ markChatAsRead sin cambios funcionales (solo userId robusto)
 export async function markChatAsRead(conversationId: string) {
   const session = await getServerSession(authConfig);
-  const userId = (session?.user as any)?.id as string | undefined;
+  const userId = getUserIdFromSession(session);
   if (!userId) return;
 
   const conv = await prisma.conversation.findUnique({
