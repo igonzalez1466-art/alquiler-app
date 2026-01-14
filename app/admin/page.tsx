@@ -5,8 +5,14 @@ import { requireAdmin } from "./_lib/requireAdmin";
 type DayPoint = { day: string; count: number };
 type KV = { label: string; count: number };
 
-function toInt(x: any) {
-  const n = Number(x);
+function toInt(x: unknown): number {
+  const n =
+    typeof x === "number"
+      ? x
+      : typeof x === "string"
+      ? Number(x)
+      : NaN;
+
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -38,7 +44,9 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
     <div className="rounded-lg border p-4 bg-white">
       <div className="mb-2 flex items-center justify-between">
         <p className="font-semibold">{title}</p>
-        <p className="text-xs text-gray-500">Últimos {points.length} días</p>
+        <p className="text-xs text-gray-500">
+          Últimos {points.length} días
+        </p>
       </div>
 
       <div className="flex items-end gap-1 h-28">
@@ -46,7 +54,9 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
           <div key={p.day} className="group relative flex-1">
             <div
               className="w-full rounded-sm bg-indigo-500/80"
-              style={{ height: `${Math.round((p.count / max) * 100)}%` }}
+              style={{
+                height: `${Math.round((p.count / max) * 100)}%`,
+              }}
               title={`${p.day}: ${p.count}`}
             />
             <div className="pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 rounded bg-black px-2 py-1 text-xs text-white group-hover:block">
@@ -106,9 +116,12 @@ export default async function AdminDashboard({
   await requireAdmin();
 
   const days =
-    searchParams?.days === "7" ? 7 : searchParams?.days === "90" ? 90 : 30;
+    searchParams?.days === "7"
+      ? 7
+      : searchParams?.days === "90"
+      ? 90
+      : 30;
 
-  // Totales + KPIs
   const [
     usersCount,
     listingsCount,
@@ -128,7 +141,6 @@ export default async function AdminDashboard({
     prisma.review.aggregate({ _avg: { rating: true } }),
     prisma.booking.aggregate({ _sum: { amountCents: true } }),
     prisma.review.count({ where: { rating: { lte: 2 } } }),
-    // ✅ Postgres: duración media en días
     prisma.$queryRaw<Array<{ avgDays: number | null }>>`
       SELECT AVG(EXTRACT(EPOCH FROM ("endDate" - "startDate")) / 86400.0) AS "avgDays"
       FROM "Booking";
@@ -144,8 +156,6 @@ export default async function AdminDashboard({
       ? ((bookingsCount / listingsCount) * 100).toFixed(1)
       : "0";
 
-  // Series por día (últimos N días)
-  // ✅ Postgres: generate_series para calendario
   const [bookingsSeriesRaw, listingsSeriesRaw] = await Promise.all([
     prisma.$queryRaw<Array<{ day: string; count: number }>>`
       WITH dates AS (
@@ -193,12 +203,12 @@ export default async function AdminDashboard({
     day: r.day,
     count: toInt(r.count),
   }));
+
   const listingsSeries: DayPoint[] = listingsSeriesRaw.map((r) => ({
     day: r.day,
     count: toInt(r.count),
   }));
 
-  // Reservas por estado
   const bookingsByStatusRaw = await prisma.$queryRaw<
     Array<{ label: string; count: number }>
   >`
@@ -207,12 +217,12 @@ export default async function AdminDashboard({
     GROUP BY "status"
     ORDER BY count DESC;
   `;
+
   const bookingsByStatus: KV[] = bookingsByStatusRaw.map((r) => ({
     label: r.label,
     count: toInt(r.count),
   }));
 
-  // Top ciudades y marcas
   const [topCitiesRaw, topBrandsRaw] = await Promise.all([
     prisma.$queryRaw<Array<{ label: string; count: number }>>`
       SELECT COALESCE("city", '') as label, COUNT(*)::int as count
@@ -234,12 +244,12 @@ export default async function AdminDashboard({
     label: r.label,
     count: toInt(r.count),
   }));
+
   const topBrands: KV[] = topBrandsRaw.map((r) => ({
     label: r.label,
     count: toInt(r.count),
   }));
 
-  // Últimos usuarios (sin createdAt, ordenamos por id para tener algo)
   const latestUsers = await prisma.user.findMany({
     orderBy: { id: "desc" },
     take: 5,
@@ -248,14 +258,15 @@ export default async function AdminDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Filtro días */}
       <div className="flex flex-wrap gap-2">
         {[7, 30, 90].map((d) => (
           <Link
             key={d}
             href={`/admin?days=${d}`}
             className={`rounded-md border px-3 py-1 text-sm transition ${
-              days === d ? "bg-indigo-600 text-white" : "hover:bg-gray-100"
+              days === d
+                ? "bg-indigo-600 text-white"
+                : "hover:bg-gray-100"
             }`}
           >
             {d} días
@@ -263,57 +274,47 @@ export default async function AdminDashboard({
         ))}
       </div>
 
-      {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat title="Usuarios" value={usersCount} sub="Sin series (User no tiene createdAt)" />
-        <Stat title="Anuncios" value={listingsCount} sub={`Últimos ${days} días: ver gráfica`} />
-        <Stat title="Reservas" value={bookingsCount} sub={`Pendientes: ${bookingsPending}`} />
-        <Stat title="Reviews" value={reviewsCount} sub={`Media: ${avgRating.toFixed(2)} | Negativas (≤2): ${badReviewsCount}`} />
+        <Stat title="Usuarios" value={usersCount} />
+        <Stat title="Anuncios" value={listingsCount} />
+        <Stat
+          title="Reservas"
+          value={bookingsCount}
+          sub={`Pendientes: ${bookingsPending}`}
+        />
+        <Stat
+          title="Reviews"
+          value={reviewsCount}
+          sub={`Media: ${avgRating.toFixed(
+            2
+          )} | Negativas (≤2): ${badReviewsCount}`}
+        />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat title="Conversión" value={`${conversion}%`} sub="reservas / anuncios" />
-        <Stat title="Duración media" value={`${avgDuration.toFixed(1)} días`} sub="(Booking endDate-startDate)" />
-        <Stat title="Ingresos (si aplica)" value={`${(sumAmountCents / 100).toFixed(2)}`} sub="suma amountCents / 100" />
-        <Stat title="Periodo" value={`${days} días`} sub="filtro actual" />
-      </div>
-
-      {/* Gráficas */}
       <div className="grid gap-4 lg:grid-cols-2">
         <BarChart title="Reservas por día" points={bookingsSeries} />
         <BarChart title="Anuncios por día" points={listingsSeries} />
       </div>
 
-      {/* Tablas de breakdown */}
       <div className="grid gap-4 lg:grid-cols-3">
         <SimpleTable title="Reservas por estado" rows={bookingsByStatus} />
-        <SimpleTable title="Top ciudades (anuncios)" rows={topCities} />
-        <SimpleTable title="Top marcas (anuncios)" rows={topBrands} />
+        <SimpleTable title="Top ciudades" rows={topCities} />
+        <SimpleTable title="Top marcas" rows={topBrands} />
       </div>
 
-      {/* Últimos usuarios */}
       <div className="rounded-lg border p-4 bg-white">
         <p className="font-semibold mb-2">Últimos usuarios</p>
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-gray-600">
-              <tr>
-                <th className="py-2">Email</th>
-                <th className="py-2">Nombre</th>
-                <th className="py-2">Role</th>
+        <table className="w-full text-sm">
+          <tbody>
+            {latestUsers.map((u) => (
+              <tr key={u.id} className="border-t">
+                <td className="py-2">{u.email ?? "-"}</td>
+                <td className="py-2">{u.name ?? "-"}</td>
+                <td className="py-2">{u.role}</td>
               </tr>
-            </thead>
-            <tbody>
-              {latestUsers.map((u) => (
-                <tr key={u.id} className="border-t">
-                  <td className="py-2">{u.email ?? "-"}</td>
-                  <td className="py-2">{u.name ?? "-"}</td>
-                  <td className="py-2">{u.role}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
