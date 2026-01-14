@@ -8,7 +8,10 @@ import ListingFilters from "./ListingFilters";
 import ListingResults from "./ListingResults";
 
 /* ===================== LABELS ===================== */
-const enumLabels: Record<string, string> = {
+/** Usamos `as const` para que `keyof typeof enumLabels` funcione
+ *  y además NO salga el warning de "assigned a value but only used as a type".
+ */
+const enumLabels = {
   WOMAN: "Kobieta",
   MAN: "Mężczyzna",
   UNISEX: "Uniseks",
@@ -27,7 +30,7 @@ const enumLabels: Record<string, string> = {
   CHAMARRA: "Kurtka",
   ACCESORIO: "Akcesoria",
   ZAPATO: "Buty",
-};
+} as const;
 
 /* ===================== ALLOWED ENUM VALUES ===================== */
 const ALLOWED_COLORS = new Set([
@@ -86,6 +89,17 @@ const parseNum = (v?: string) => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+function getUserId(session: unknown): string | undefined {
+  if (!session || typeof session !== "object") return undefined;
+  if (!("user" in session)) return undefined;
+
+  const user = (session as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return undefined;
+
+  const id = (user as { id?: unknown }).id;
+  return typeof id === "string" ? id : undefined;
+}
+
 export default async function ListingPage({
   searchParams,
 }: {
@@ -96,11 +110,7 @@ export default async function ListingPage({
   const p = searchParams ?? {};
   const tab = p.tab ?? "all";
 
-  // Tipado seguro del userId sin any
-  const userId =
-    session && "user" in session && session.user && "id" in session.user
-      ? (session.user as { id?: string }).id
-      : undefined;
+  const userId = getUserId(session);
 
   // Si el usuario pide "my", debe estar logueado
   if (tab === "my" && !userId) {
@@ -137,9 +147,8 @@ export default async function ListingPage({
 
   /* ======================= WHERE ======================= */
 
-  // Reemplazo de any por tipos genéricos seguros
   const where: Record<string, unknown> = {};
-  const AND: Record<string, unknown>[] = [];
+  const AND: Array<Record<string, unknown>> = [];
 
   if (tab === "all") {
     where.available = true;
@@ -192,8 +201,8 @@ export default async function ListingPage({
   /* ======================= QUERY ======================= */
 
   const listings = await prisma.listing.findMany({
-    where: where as never, // Prisma espera su tipo; esto evita any sin reescribir todo el tipo Prisma
-    orderBy: { createdAt: "desc" },
+    where: where as never,
+    orderBy: { createdAt: "desc" } as never,
     select: {
       id: true,
       title: true,
