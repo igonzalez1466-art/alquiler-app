@@ -47,14 +47,15 @@ export default function ResetPasswordPage() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setErr(data?.message || "Password could not be reset");
+        setErr((data as { message?: string })?.message || "Password could not be reset");
       } else {
         setMsg("Hasło zostało zresetowane. Możesz się teraz zalogować.");
-        // opcional: redirigir después de unos segundos
         setTimeout(() => router.push("/login"), 1500);
       }
-    } catch (e: any) {
-      setErr(e?.message || "Error de red");
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error ? e.message : "Error de red";
+      setErr(message);
     } finally {
       setLoading(false);
     }
