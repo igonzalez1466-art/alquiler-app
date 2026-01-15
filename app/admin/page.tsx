@@ -5,17 +5,19 @@ import { requireAdmin } from "./_lib/requireAdmin";
 /* ===================== TYPES ===================== */
 
 type DayPoint = { day: string; count: number };
-type KV = { label: string; count: number };
+
+type AdminSearchParams = { days?: string };
+
+type PageProps = {
+  // Next 15: a veces Next tipa searchParams como Promise en .next/types
+  searchParams?: Promise<AdminSearchParams> | AdminSearchParams;
+};
 
 /* ===================== HELPERS ===================== */
 
 function toInt(x: unknown): number {
   const n =
-    typeof x === "number"
-      ? x
-      : typeof x === "string"
-      ? Number(x)
-      : NaN;
+    typeof x === "number" ? x : typeof x === "string" ? Number(x) : NaN;
 
   return Number.isFinite(n) ? n : 0;
 }
@@ -51,9 +53,7 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
     <div className="rounded-lg border p-4 bg-white">
       <div className="mb-2 flex items-center justify-between">
         <p className="font-semibold">{title}</p>
-        <p className="text-xs text-gray-500">
-          Últimos {points.length} días
-        </p>
+        <p className="text-xs text-gray-500">Últimos {points.length} días</p>
       </div>
 
       <div className="flex items-end gap-1 h-28">
@@ -81,55 +81,18 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
   );
 }
 
-function SimpleTable({ title, rows }: { title: string; rows: KV[] }) {
-  return (
-    <div className="rounded-lg border p-4 bg-white">
-      <p className="font-semibold mb-2">{title}</p>
-      <div className="overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-gray-600">
-            <tr>
-              <th className="py-2">Valor</th>
-              <th className="py-2">Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr className="border-t">
-                <td className="py-2" colSpan={2}>
-                  —
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.label} className="border-t">
-                  <td className="py-2">{r.label || "—"}</td>
-                  <td className="py-2">{r.count}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 /* ===================== PAGE ===================== */
 
-export default async function AdminDashboard({
-  searchParams,
-}: {
-  searchParams?: { days?: string };
-}) {
+export default async function AdminDashboard({ searchParams }: PageProps) {
   await requireAdmin();
 
-  const days =
-    searchParams?.days === "7"
-      ? 7
-      : searchParams?.days === "90"
-      ? 90
-      : 30;
+  // ✅ soporta objeto o Promise (Next 15)
+  const sp: AdminSearchParams =
+    searchParams instanceof Promise
+      ? (await searchParams) ?? {}
+      : searchParams ?? {};
+
+  const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
 
   const [
     usersCount,
@@ -204,20 +167,6 @@ export default async function AdminDashboard({
     count: toInt(r.count),
   }));
 
-  const bookingsByStatusRaw = await prisma.$queryRaw<
-    Array<{ label: string; count: number }>
-  >`
-    SELECT "status" as label, COUNT(*)::int as count
-    FROM "Booking"
-    GROUP BY "status"
-    ORDER BY count DESC;
-  `;
-
-  const bookingsByStatus: KV[] = bookingsByStatusRaw.map((r) => ({
-    label: r.label,
-    count: toInt(r.count),
-  }));
-
   const latestUsers = await prisma.user.findMany({
     orderBy: { id: "desc" },
     take: 5,
@@ -232,9 +181,7 @@ export default async function AdminDashboard({
             key={d}
             href={`/admin?days=${d}`}
             className={`rounded-md border px-3 py-1 text-sm transition ${
-              days === d
-                ? "bg-indigo-600 text-white"
-                : "hover:bg-gray-100"
+              days === d ? "bg-indigo-600 text-white" : "hover:bg-gray-100"
             }`}
           >
             {d} días
@@ -253,9 +200,7 @@ export default async function AdminDashboard({
         <Stat
           title="Reviews"
           value={reviewsCount}
-          sub={`Media: ${avgRating.toFixed(
-            2
-          )} | Negativas (≤2): ${badReviewsCount}`}
+          sub={`Media: ${avgRating.toFixed(2)} | Negativas (≤2): ${badReviewsCount}`}
         />
       </div>
 
