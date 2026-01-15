@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
-import { requireAdmin } from "./_lib/requireAdmin";
+import { requireAdmin } from "@/app/admin/_lib/requireAdmin";
 
 /* ===================== TYPES ===================== */
 type DayPoint = { day: string; count: number };
@@ -107,7 +107,7 @@ function SimpleTable({ title, rows }: { title: string; rows: KV[] }) {
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams?: Promise<AdminSearchParams> | AdminSearchParams;
+  searchParams?: AdminSearchParams;
 }) {
   await requireAdmin();
 
