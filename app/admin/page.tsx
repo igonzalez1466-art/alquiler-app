@@ -2,21 +2,29 @@ import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "./_lib/requireAdmin";
 
-type PageProps = {
-  searchParams?: { days?: string };
-};
+/* ===================== TYPES ===================== */
 
 type DayPoint = { day: string; count: number };
 type KV = { label: string; count: number };
 
+/* ===================== HELPERS ===================== */
+
 function toInt(x: unknown): number {
-  const n = typeof x === "number" ? x : typeof x === "string" ? Number(x) : NaN;
+  const n =
+    typeof x === "number"
+      ? x
+      : typeof x === "string"
+      ? Number(x)
+      : NaN;
+
   return Number.isFinite(n) ? n : 0;
 }
 
 function maxCount(points: DayPoint[]) {
   return points.reduce((m, p) => Math.max(m, p.count), 0) || 1;
 }
+
+/* ===================== COMPONENTS ===================== */
 
 function Stat({
   title,
@@ -43,7 +51,9 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
     <div className="rounded-lg border p-4 bg-white">
       <div className="mb-2 flex items-center justify-between">
         <p className="font-semibold">{title}</p>
-        <p className="text-xs text-gray-500">Últimos {points.length} días</p>
+        <p className="text-xs text-gray-500">
+          Últimos {points.length} días
+        </p>
       </div>
 
       <div className="flex items-end gap-1 h-28">
@@ -51,7 +61,9 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
           <div key={p.day} className="group relative flex-1">
             <div
               className="w-full rounded-sm bg-indigo-500/80"
-              style={{ height: `${Math.round((p.count / max) * 100)}%` }}
+              style={{
+                height: `${Math.round((p.count / max) * 100)}%`,
+              }}
               title={`${p.day}: ${p.count}`}
             />
             <div className="pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 rounded bg-black px-2 py-1 text-xs text-white group-hover:block">
@@ -103,11 +115,21 @@ function SimpleTable({ title, rows }: { title: string; rows: KV[] }) {
   );
 }
 
-export default async function AdminDashboard({ searchParams }: PageProps) {
+/* ===================== PAGE ===================== */
+
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams?: { days?: string };
+}) {
   await requireAdmin();
 
   const days =
-    searchParams?.days === "7" ? 7 : searchParams?.days === "90" ? 90 : 30;
+    searchParams?.days === "7"
+      ? 7
+      : searchParams?.days === "90"
+      ? 90
+      : 30;
 
   const [
     usersCount,
@@ -116,9 +138,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
     reviewsCount,
     bookingsPending,
     avgRatingAgg,
-    // sumAmountAgg,    // (warning si no lo usas)
     badReviewsCount,
-    // avgDurationRaw,  // (warning si no lo usas)
   ] = await Promise.all([
     prisma.user.count(),
     prisma.listing.count(),
@@ -126,12 +146,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
     prisma.review.count(),
     prisma.booking.count({ where: { status: "PENDING" } }),
     prisma.review.aggregate({ _avg: { rating: true } }),
-    // prisma.booking.aggregate({ _sum: { amountCents: true } }),
     prisma.review.count({ where: { rating: { lte: 2 } } }),
-    // prisma.$queryRaw<Array<{ avgDays: number | null }>>`
-    //   SELECT AVG(EXTRACT(EPOCH FROM ("endDate" - "startDate")) / 86400.0) AS "avgDays"
-    //   FROM "Booking";
-    // `,
   ]);
 
   const avgRating = avgRatingAgg._avg.rating ?? 0;
@@ -203,33 +218,6 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
     count: toInt(r.count),
   }));
 
-  const [topCitiesRaw, topBrandsRaw] = await Promise.all([
-    prisma.$queryRaw<Array<{ label: string; count: number }>>`
-      SELECT COALESCE("city", '') as label, COUNT(*)::int as count
-      FROM "Listing"
-      GROUP BY "city"
-      ORDER BY count DESC
-      LIMIT 10;
-    `,
-    prisma.$queryRaw<Array<{ label: string; count: number }>>`
-      SELECT COALESCE("marca", '') as label, COUNT(*)::int as count
-      FROM "Listing"
-      GROUP BY "marca"
-      ORDER BY count DESC
-      LIMIT 10;
-    `,
-  ]);
-
-  const topCities: KV[] = topCitiesRaw.map((r) => ({
-    label: r.label,
-    count: toInt(r.count),
-  }));
-
-  const topBrands: KV[] = topBrandsRaw.map((r) => ({
-    label: r.label,
-    count: toInt(r.count),
-  }));
-
   const latestUsers = await prisma.user.findMany({
     orderBy: { id: "desc" },
     take: 5,
@@ -244,7 +232,9 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
             key={d}
             href={`/admin?days=${d}`}
             className={`rounded-md border px-3 py-1 text-sm transition ${
-              days === d ? "bg-indigo-600 text-white" : "hover:bg-gray-100"
+              days === d
+                ? "bg-indigo-600 text-white"
+                : "hover:bg-gray-100"
             }`}
           >
             {d} días
@@ -263,19 +253,15 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
         <Stat
           title="Reviews"
           value={reviewsCount}
-          sub={`Media: ${avgRating.toFixed(2)} | Negativas (≤2): ${badReviewsCount}`}
+          sub={`Media: ${avgRating.toFixed(
+            2
+          )} | Negativas (≤2): ${badReviewsCount}`}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <BarChart title="Reservas por día" points={bookingsSeries} />
         <BarChart title="Anuncios por día" points={listingsSeries} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <SimpleTable title="Reservas por estado" rows={bookingsByStatus} />
-        <SimpleTable title="Top ciudades" rows={topCities} />
-        <SimpleTable title="Top marcas" rows={topBrands} />
       </div>
 
       <div className="rounded-lg border p-4 bg-white">
