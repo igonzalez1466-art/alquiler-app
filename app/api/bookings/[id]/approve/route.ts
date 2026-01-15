@@ -1,13 +1,17 @@
 // app/api/bookings/[id]/approve/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { sendMail } from "@/app/lib/mailer";
-import { prisma } from "@/app/lib/prisma";     // asumo que tienes sendMail({ to, subject, html, replyTo? })
-export const runtime = "nodejs";              // importante: no usar Edge para email
+import { prisma } from "@/app/lib/prisma";
 
-export async function PATCH(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export const runtime = "nodejs"; // importante: no usar Edge para email
+
+type RouteContext = {
+  params: {
+    id: string;
+  };
+};
+
+export async function PATCH(_req: NextRequest, { params }: RouteContext) {
   const bookingId = params.id;
 
   // 1) Traer datos necesarios
@@ -20,7 +24,10 @@ export async function PATCH(
   });
 
   if (!booking) {
-    return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Reserva no encontrada" },
+      { status: 404 }
+    );
   }
   if (!booking.bike?.owner?.email || !booking.renter?.email) {
     return NextResponse.json({ error: "Faltan emails" }, { status: 400 });
@@ -45,8 +52,12 @@ export async function PATCH(
       notificationApprovedToOwnerSent: true,
     },
   });
+
   if (!fresh) {
-    return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Reserva no encontrada" },
+      { status: 404 }
+    );
   }
 
   const start = fmt(fresh.startDate);
@@ -80,6 +91,7 @@ export async function PATCH(
   };
 
   const results: { renter?: boolean; owner?: boolean } = {};
+
   try {
     if (!fresh.notificationApprovedToRenterSent) {
       await sendMail(toRenter);
@@ -89,6 +101,7 @@ export async function PATCH(
       });
       results.renter = true;
     }
+
     if (!fresh.notificationApprovedToOwnerSent) {
       await sendMail(toOwner);
       await prisma.booking.update({
@@ -106,23 +119,34 @@ export async function PATCH(
     );
   }
 
-  return NextResponse.json({ bookingId, status: "accepted", results }, { status: 200 });
+  return NextResponse.json(
+    { bookingId, status: "accepted", results },
+    { status: 200 }
+  );
 }
 
 function fmt(d: Date) {
   const dt = new Date(d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
-    dt.getDate()
-  ).padStart(2, "0")}`;
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(dt.getDate()).padStart(2, "0")}`;
 }
 
 function renterApprovedHtml(p: {
-  renterName: string; bikeTitle: string; ownerName: string; startDate: string; endDate: string; bookingId: string;
+  renterName: string;
+  bikeTitle: string;
+  ownerName: string;
+  startDate: string;
+  endDate: string;
+  bookingId: string;
 }) {
   return `
   <div style="font-family:Arial,sans-serif">
     <h2>¡Listo, ${esc(p.renterName)}! 🎉</h2>
-    <p>Tu reserva de <strong>${esc(p.bikeTitle)}</strong> ha sido confirmada por ${esc(p.ownerName)}.</p>
+    <p>Tu reserva de <strong>${esc(
+      p.bikeTitle
+    )}</strong> ha sido confirmada por ${esc(p.ownerName)}.</p>
     <p><b>Fechas:</b> ${p.startDate} → ${p.endDate}</p>
     <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/bookings/${p.bookingId}"
           style="display:inline-block;padding:10px 12px;border:1px solid #222;border-radius:8px;text-decoration:none">
@@ -132,12 +156,19 @@ function renterApprovedHtml(p: {
 }
 
 function ownerApprovedHtml(p: {
-  ownerName: string; renterName: string; bikeTitle: string; startDate: string; endDate: string; bookingId: string;
+  ownerName: string;
+  renterName: string;
+  bikeTitle: string;
+  startDate: string;
+  endDate: string;
+  bookingId: string;
 }) {
   return `
   <div style="font-family:Arial,sans-serif">
     <h2>Gracias, ${esc(p.ownerName)} 👍</h2>
-    <p>Has confirmado la reserva de <strong>${esc(p.bikeTitle)}</strong> para ${esc(p.renterName)}.</p>
+    <p>Has confirmado la reserva de <strong>${esc(
+      p.bikeTitle
+    )}</strong> para ${esc(p.renterName)}.</p>
     <p><b>Fechas:</b> ${p.startDate} → ${p.endDate}</p>
     <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/bookings/${p.bookingId}"
           style="display:inline-block;padding:10px 12px;border:1px solid #222;border-radius:8px;text-decoration:none">
@@ -147,5 +178,15 @@ function ownerApprovedHtml(p: {
 }
 
 function esc(s: string) {
-  return s.replace(/[&<>"']/g, (m) => ({ "&": "&amp;","<": "&lt;",">": "&gt;",'"': "&quot;","'": "&#39;" }[m]!));
+  return s.replace(/[&<>"']/g, (m) =>
+    (
+      {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      } as const
+    )[m]
+  );
 }
