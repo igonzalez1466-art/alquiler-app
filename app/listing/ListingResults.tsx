@@ -24,11 +24,11 @@ const enumLabels: Record<string, string> = {
   ACCESORIO: "Akcesoria",
   ZAPATO: "Buty",
 };
+
 const label = (v?: string | null) => {
   const key = (v ?? "").trim().toUpperCase();
   return key ? enumLabels[key] ?? key : "—";
 };
-
 
 const colorMap: Record<string, string> = {
   negro: "#111111",
@@ -108,18 +108,22 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
                   <p className="text-[11px] text-gray-500">Marka</p>
                   <p className="truncate">{l.marca ?? "—"}</p>
                 </div>
+
                 <div className="rounded-lg border px-2 py-1 bg-white">
                   <p className="text-[11px] text-gray-500">Typ ubrania</p>
-                  <p className="truncate">{label(l.garmentType as any)}</p>
+                  <p className="truncate">{label(l.garmentType)}</p>
                 </div>
+
                 <div className="rounded-lg border px-2 py-1 bg-white">
                   <p className="text-[11px] text-gray-500">Płeć</p>
-                  <p className="truncate">{label(l.gender as any)}</p>
+                  <p className="truncate">{label(l.gender)}</p>
                 </div>
+
                 <div className="rounded-lg border px-2 py-1 bg-white">
                   <p className="text-[11px] text-gray-500">Rozmiar</p>
                   <p className="truncate">{l.size ?? "—"}</p>
                 </div>
+
                 <div className="rounded-lg border px-2 py-1 bg-white">
                   <p className="text-[11px] text-gray-500">Kolor</p>
                   <div className="flex items-center gap-1">
@@ -130,6 +134,7 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
                     <span className="truncate">{l.color ?? "—"}</span>
                   </div>
                 </div>
+
                 <div className="rounded-lg border px-2 py-1 bg-white col-span-2 md:col-span-1">
                   <p className="text-[11px] text-gray-500">Materiały</p>
                   {Array.isArray(l.materials) && l.materials.length ? (

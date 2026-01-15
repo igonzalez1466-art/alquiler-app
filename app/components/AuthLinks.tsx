@@ -1,10 +1,11 @@
-// app/components/AuthLinks.tsx  (Server, NextAuth v4)
+// app/components/AuthLinks.tsx  (Server Component)
 import { getServerSession } from "next-auth";
+import type { NextAuthConfig } from "next-auth";
 import { authConfig } from "@/auth.config";
 import Link from "next/link";
 
 export default async function AuthLinks() {
-  const session = await getServerSession(authConfig as any);
+  const session = await getServerSession(authConfig as NextAuthConfig);
 
   if (session?.user) {
     return (
@@ -13,11 +14,15 @@ export default async function AuthLinks() {
           {session.user.name ?? session.user.email}
         </span>
 
-        <Link href="/account" className="underline">Moje konto</Link>
+        <Link href="/account" className="underline">
+          Moje konto
+        </Link>
 
-        {/* v4: logout via endpoint */}
+        {/* NextAuth v4: logout por endpoint */}
         <form action="/api/auth/signout" method="post">
-          <button className="underline">Wyloguj się</button>
+          <button type="submit" className="underline">
+            Wyloguj się
+          </button>
         </form>
       </div>
     );
@@ -25,8 +30,12 @@ export default async function AuthLinks() {
 
   return (
     <div className="flex items-center gap-4">
-      <Link href="/login" className="underline">Zaloguj się</Link>
-      <Link href="/register" className="underline">Rejestracja</Link>
+      <Link href="/login" className="underline">
+        Zaloguj się
+      </Link>
+      <Link href="/register" className="underline">
+        Rejestracja
+      </Link>
     </div>
   );
 }

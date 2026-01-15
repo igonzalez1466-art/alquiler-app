@@ -5,12 +5,14 @@ import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { ShippingStatus } from "@prisma/client"; // ✅ nuevo
 
 /* ===============================
    UPDATE SHIPPING
 ================================ */
 
-const ALLOWED_SHIPPING = new Set([
+// ✅ tipamos el Set con el enum real de Prisma
+const ALLOWED_SHIPPING: ReadonlySet<ShippingStatus> = new Set([
   "NOT_REQUIRED",
   "PENDING",
   "READY",
@@ -24,7 +26,7 @@ const ALLOWED_SHIPPING = new Set([
 
 export async function updateShippingAction(formData: FormData) {
   const session = await getServerSession(authConfig);
-  const userId = session?.user?.id as string | undefined;
+  const userId = session?.user?.id;
   if (!userId) throw new Error("Brak autoryzacji");
 
   const bookingId = String(formData.get("bookingId") || "");
@@ -42,8 +44,12 @@ export async function updateShippingAction(formData: FormData) {
   }
 
   const shippingStatusRaw = String(formData.get("shippingStatus") || "").trim();
-  const shippingStatus = ALLOWED_SHIPPING.has(shippingStatusRaw)
-    ? shippingStatusRaw
+
+  // ✅ validamos y tipamos sin any
+  const shippingStatus: ShippingStatus | undefined = ALLOWED_SHIPPING.has(
+    shippingStatusRaw as ShippingStatus
+  )
+    ? (shippingStatusRaw as ShippingStatus)
     : undefined;
 
   const carrier = String(formData.get("carrier") || "").trim() || null;
@@ -55,15 +61,13 @@ export async function updateShippingAction(formData: FormData) {
   const shippedAt = shippedAtStr ? new Date(shippedAtStr) : null;
   const deliveredAt = deliveredAtStr ? new Date(deliveredAtStr) : null;
 
-  if (shippedAt && isNaN(shippedAt.getTime()))
-    throw new Error("Nieprawidłowa data wysyłki");
-  if (deliveredAt && isNaN(deliveredAt.getTime()))
-    throw new Error("Nieprawidłowa data dostarczenia");
+  if (shippedAt && isNaN(shippedAt.getTime())) throw new Error("Nieprawidłowa data wysyłki");
+  if (deliveredAt && isNaN(deliveredAt.getTime())) throw new Error("Nieprawidłowa data dostarczenia");
 
   await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      ...(shippingStatus ? { shippingStatus: shippingStatus as any } : {}),
+      ...(shippingStatus ? { shippingStatus } : {}), // ✅ sin "as any"
       carrier,
       trackingNumber,
       shippedAt,
@@ -76,9 +80,6 @@ export async function updateShippingAction(formData: FormData) {
 
 /* ===============================
    OPEN CHAT FROM BOOKING ✅
-   - solo si booking sigue "viva"
-   - conversación única listing+renter
-   - si el chat está CLOSED -> permite leer, no escribir (eso se bloquea en sendMessage)
 ================================ */
 
 export async function openChatFromBookingAction(formData: FormData) {
@@ -103,7 +104,6 @@ export async function openChatFromBookingAction(formData: FormData) {
 
   if (!booking) redirect("/bookings");
 
-  // ✅ regla: chat solo para reservas que siguen adelante
   if (booking.status === "CANCELLED") {
     redirect(`/bookings/${bookingId}?error=chat-closed`);
   }
@@ -111,13 +111,10 @@ export async function openChatFromBookingAction(formData: FormData) {
   const ownerId = booking.listing.userId;
   const renterId = booking.renterId;
 
-  // Seguridad: solo owner o renter
   if (currentUserId !== ownerId && currentUserId !== renterId) {
     redirect("/bookings");
   }
 
-  // 🔑 Conversación ÚNICA por listing + renter
-  // Importante: no reabrimos un chat cerrado
   const conversation = await prisma.conversation.upsert({
     where: {
       listingId_buyerId: {
@@ -125,15 +122,11 @@ export async function openChatFromBookingAction(formData: FormData) {
         buyerId: renterId,
       },
     },
-    update: {
-      // ❗ NO reabrir automáticamente
-      // status: "OPEN"  <-- NO
-    },
+    update: {},
     create: {
       listingId: booking.listingId,
       buyerId: renterId,
       sellerId: ownerId,
-      // status: "OPEN"  // default
     },
     select: { id: true },
   });

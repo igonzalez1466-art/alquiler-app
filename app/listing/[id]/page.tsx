@@ -7,10 +7,12 @@ import BookingForm from "./BookingForm";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { toggleListingAvailable } from "@/app/listing/actions";
+import type { NextAuthConfig } from "next-auth";
+import type { Estado, MetodoEnvio } from "@prisma/client";
 
 type PageProps = {
-  params: Promise<{ id: string }>;
-  searchParams?: Promise<{ error?: string }>; // ✅ Next 15: también Promise
+  params: { id: string };
+  searchParams?: { error?: string };
 };
 
 // Etiquetas legibles para enums (polaco, pero claves siguen en español)
@@ -36,28 +38,31 @@ const enumLabels: Record<string, string> = {
   ZAPATO: "Buty",
   OTRO: "Inne",
 };
+
 const label = (v?: string | null) => {
   const key = (v ?? "").trim().toUpperCase();
   return key ? enumLabels[key] ?? key : "—";
 };
 
 // Estado del artículo (en DB: NUEVO, COMO_NUEVO, USADO, MUY_USADO)
-const estadoLabels: Record<string, string> = {
+const estadoLabels: Record<Estado, string> = {
   NUEVO: "Nowy",
   COMO_NUEVO: "Jak nowy",
   USADO: "Używany",
   MUY_USADO: "Bardzo zużyty",
 };
-const labelEstado = (v?: string | null) => (v ? estadoLabels[v] ?? v : "—");
+
+const labelEstado = (v?: Estado | null) => (v ? estadoLabels[v] ?? v : "—");
 
 // Método de envío (en DB: RECOGIDA_LOCAL, ENVIO_CORREOS, MENSAJERIA, OTRO)
-const envioLabels: Record<string, string> = {
+const envioLabels: Record<MetodoEnvio, string> = {
   RECOGIDA_LOCAL: "Odbiór osobisty",
   ENVIO_CORREOS: "Wysyłka pocztą",
   MENSAJERIA: "Kurier",
   OTRO: "Inne",
 };
-const labelEnvio = (v?: string | null) => (v ? envioLabels[v] ?? v : "—");
+
+const labelEnvio = (v?: MetodoEnvio | null) => (v ? envioLabels[v] ?? v : "—");
 
 // Colores para el swatch
 const colorMap: Record<string, string> = {
@@ -85,12 +90,16 @@ function plOceny(n: number) {
   return "ocen";
 }
 
-export default async function ListingDetail({ params, searchParams }: PageProps) {
-  const { id } = await params;
+function materialsToStringArray(materials: unknown): string[] {
+  // en tu schema: materials Json?
+  // guardamos solo si es array de strings
+  if (!Array.isArray(materials)) return [];
+  return materials.filter((x): x is string => typeof x === "string");
+}
 
-  // ✅ leer searchParams (Next 15)
-  const sp = (await searchParams) ?? {};
-  const error = sp.error;
+export default async function ListingDetail({ params, searchParams }: PageProps) {
+  const { id } = params;
+  const error = searchParams?.error;
 
   const [listing, session] = await Promise.all([
     prisma.listing.findUnique({
@@ -119,7 +128,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         materials: true,
       },
     }),
-    getServerSession(authConfig),
+    getServerSession(authConfig as NextAuthConfig),
   ]);
 
   if (!listing) {
@@ -143,7 +152,9 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
   const ownerAvg = ownerStats._avg.rating ?? 0;
   const ownerCount = ownerStats._count.rating ?? 0;
 
-  const isOwner = (session?.user as any)?.id === listing.userId;
+  const isOwner = session?.user?.id === listing.userId;
+
+  const materials = materialsToStringArray(listing.materials);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-4">
@@ -184,13 +195,14 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
           <strong>Miasto:</strong> {listing.city ?? "—"}
           {listing.postalCode ? ` (${listing.postalCode})` : ""}
         </p>
+
         <p>
-          <strong>Stan:</strong> {labelEstado(listing.estado as any)}
+          <strong>Stan:</strong> {labelEstado(listing.estado)}
         </p>
 
         <p>
           <strong>Preferowana metoda dostawy:</strong>{" "}
-          {labelEnvio(listing.metodoEnvio as any)}
+          {labelEnvio(listing.metodoEnvio)}
         </p>
 
         {/* ✅ owner + rating */}
@@ -229,12 +241,12 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
           <div className="rounded-xl border bg-white px-3 py-2">
             <p className="text-xs text-gray-500">Kategoria</p>
-            <p className="text-sm">{label(listing.garmentType as any)}</p>
+            <p className="text-sm">{label(listing.garmentType)}</p>
           </div>
 
           <div className="rounded-xl border bg-white px-3 py-2">
             <p className="text-xs text-gray-500">Płeć</p>
-            <p className="text-sm">{label(listing.gender as any)}</p>
+            <p className="text-sm">{label(listing.gender)}</p>
           </div>
 
           <div className="rounded-xl border bg-white px-3 py-2">
@@ -249,7 +261,8 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 className="inline-block h-3.5 w-3.5 rounded-full border"
                 style={{
                   backgroundColor:
-                    colorMap[(listing.color ?? "").toLowerCase()] ?? "transparent",
+                    colorMap[(listing.color ?? "").toLowerCase()] ??
+                    "transparent",
                 }}
                 title={listing.color ?? ""}
               />
@@ -259,9 +272,10 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
           <div className="rounded-xl border bg-white px-3 py-2 col-span-2 md:col-span-2 min-h-[72px] flex flex-col justify-center">
             <p className="text-xs text-gray-500 mb-1">Materiały</p>
+
             <div className="flex flex-wrap gap-1.5">
-              {Array.isArray(listing.materials) && (listing.materials as string[]).length ? (
-                (listing.materials as string[]).map((m) => (
+              {materials.length ? (
+                materials.map((m) => (
                   <span
                     key={m}
                     className="text-xs rounded-full border px-2 py-1 bg-gray-50"
@@ -338,12 +352,17 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
 // SEO dinámico
 export async function generateMetadata({ params }: PageProps) {
-  const { id } = await params;
+  const { id } = params;
+
   const listing = await prisma.listing.findUnique({
     where: { id },
     select: { title: true, city: true, postalCode: true },
   });
-  const baseTitle = listing ? `${listing.title} | Ogłoszenia` : "Ogłoszenie | Ogłoszenia";
+
+  const baseTitle = listing
+    ? `${listing.title} | Ogłoszenia`
+    : "Ogłoszenie | Ogłoszenia";
+
   const desc = listing?.city
     ? listing.postalCode
       ? `Ogłoszenie w ${listing.city} (${listing.postalCode})`

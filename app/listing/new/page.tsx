@@ -7,6 +7,8 @@ import path from "node:path";
 import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import { sendMail } from "@/app/lib/mailer";
+import type { NextAuthConfig } from "next-auth";
+import type { Gender, GarmentType } from "@prisma/client";
 
 /* ===================== CONSTANTES ===================== */
 
@@ -33,11 +35,36 @@ const MATERIALS = [
   { value: "INNE", label: "inne" },
 ] as const;
 
-const ALLOWED_COLORS = new Set(COLORS.map(c => c.value));
-const ALLOWED_MATERIALS = new Set(MATERIALS.map(m => m.value));
+const ALLOWED_COLORS = new Set(COLORS.map((c) => c.value));
+const ALLOWED_MATERIALS = new Set(MATERIALS.map((m) => m.value));
 
-const err = (msg: string) =>
-  `/listing/new?error=${encodeURIComponent(msg)}`;
+// ✅ enums Prisma (para validar sin any)
+const ALLOWED_GENDERS: ReadonlySet<Gender> = new Set([
+  "WOMAN",
+  "MAN",
+  "UNISEX",
+  "KIDS",
+]);
+
+const ALLOWED_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set([
+  "ABRIGO",
+  "CHAQUETA",
+  "CAMISA",
+  "BLUSA",
+  "VESTIDO",
+  "PANTALON",
+  "FALDA",
+  "TRAJE",
+  "SUDADERA",
+  "JERSEY",
+  "MONO",
+  "ACCESORIO",
+  "CHAMARRA",
+  "OTRO",
+  "ZAPATO",
+]);
+
+const err = (msg: string) => `/listing/new?error=${encodeURIComponent(msg)}`;
 
 /* ===================== PAGE ===================== */
 
@@ -48,7 +75,7 @@ export default async function NewListingPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
-  const session = await getServerSession(authConfig);
+  const session = await getServerSession(authConfig as NextAuthConfig);
   if (!session?.user) redirect("/login?callbackUrl=/listing/new");
 
   const sp = (await searchParams) ?? {};
@@ -59,8 +86,8 @@ export default async function NewListingPage({
   async function createListing(formData: FormData) {
     "use server";
 
-    const session = await getServerSession(authConfig);
-    const userId = (session?.user as any)?.id;
+    const session = await getServerSession(authConfig as NextAuthConfig);
+    const userId = session?.user?.id;
     if (!userId) redirect("/login?callbackUrl=/listing/new");
 
     const title = String(formData.get("title") || "").trim();
@@ -72,11 +99,13 @@ export default async function NewListingPage({
     const lng = Number(formData.get("lng"));
 
     const marca = String(formData.get("marca") || "").trim();
-    const gender = String(formData.get("gender") || "");
-    const size = String(formData.get("size") || "");
-    const color = String(formData.get("color") || "");
-    const garmentType = String(formData.get("garmentType") || "");
-    const material = String(formData.get("material") || "");
+
+    const genderRaw = String(formData.get("gender") || "").trim();
+    const garmentTypeRaw = String(formData.get("garmentType") || "").trim();
+
+    const size = String(formData.get("size") || "").trim();
+    const color = String(formData.get("color") || "").trim();
+    const material = String(formData.get("material") || "").trim();
 
     /* ===== VALIDACIONES ===== */
 
@@ -86,11 +115,28 @@ export default async function NewListingPage({
       redirect(err("Wybierz lokalizację z listy"));
     }
 
-    if (!ALLOWED_COLORS.has(color))
+    if (!ALLOWED_COLORS.has(color as (typeof COLORS)[number]["value"])) {
       redirect(err("Nieprawidłowy kolor"));
+    }
 
-    if (!ALLOWED_MATERIALS.has(material))
+    if (!ALLOWED_MATERIALS.has(material as (typeof MATERIALS)[number]["value"])) {
       redirect(err("Nieprawidłowy materiał"));
+    }
+
+    const gender: Gender | null = ALLOWED_GENDERS.has(genderRaw as Gender)
+      ? (genderRaw as Gender)
+      : null;
+
+    const garmentType: GarmentType | null = ALLOWED_GARMENT_TYPES.has(
+      garmentTypeRaw as GarmentType
+    )
+      ? (garmentTypeRaw as GarmentType)
+      : null;
+
+    if (!gender) redirect(err("Nieprawidłowa płeć"));
+    if (!garmentType) redirect(err("Nieprawidłowy typ ubrania"));
+
+    if (!size) redirect(err("Rozmiar jest obowiązkowy"));
 
     /* ===== CREAR LISTING ===== */
 
@@ -106,10 +152,10 @@ export default async function NewListingPage({
         country: "PL",
         lat,
         lng,
-        gender: gender as any,
+        gender,
         size,
         color,
-        garmentType: garmentType as any,
+        garmentType,
         materials: [material],
       },
     });
@@ -119,24 +165,23 @@ export default async function NewListingPage({
       select: { email: true, name: true },
     });
 
- if (owner?.email) {
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    if (owner?.email) {
+      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
-  try {
-    await sendMail({
-      to: owner.email,
-      subject: `Ogłoszenie opublikowane: ${listing.title}`,
-      html: `
-        <p>Cześć ${owner.name ?? ""},</p>
-        <p>Twoje ogłoszenie <strong>${listing.title}</strong> zostało opublikowane.</p>
-        <p><a href="${baseUrl}/listing/${listing.id}">Zobacz ogłoszenie</a></p>
-      `,
-    });
-  } catch (e) {
-    console.error("sendMail failed (ignored):", e);
-    // ✅ NO hacemos throw, no interrumpimos el flujo
-  }
-}
+      try {
+        await sendMail({
+          to: owner.email,
+          subject: `Ogłoszenie opublikowane: ${listing.title}`,
+          html: `
+            <p>Cześć ${owner.name ?? ""},</p>
+            <p>Twoje ogłoszenie <strong>${listing.title}</strong> zostało opublikowane.</p>
+            <p><a href="${baseUrl}/listing/${listing.id}">Zobacz ogłoszenie</a></p>
+          `,
+        });
+      } catch (e) {
+        console.error("sendMail failed (ignored):", e);
+      }
+    }
 
     /* ===== FOTOS ===== */
 
@@ -198,11 +243,7 @@ export default async function NewListingPage({
         <LocationField />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            name="marca"
-            placeholder="Marka"
-            className="border p-2"
-          />
+          <input name="marca" placeholder="Marka" className="border p-2" />
 
           <select name="gender" required className="border p-2">
             <option value="">Płeć</option>
@@ -232,7 +273,7 @@ export default async function NewListingPage({
 
           <select name="color" required className="border p-2">
             <option value="">Kolor</option>
-            {COLORS.map(c => (
+            {COLORS.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
@@ -257,13 +298,9 @@ export default async function NewListingPage({
             <option value="ZAPATO">Buty</option>
           </select>
 
-          <select
-            name="material"
-            required
-            className="border p-2 md:col-span-2"
-          >
+          <select name="material" required className="border p-2 md:col-span-2">
             <option value="">Materiał główny</option>
-            {MATERIALS.map(m => (
+            {MATERIALS.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
               </option>
