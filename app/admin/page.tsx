@@ -5,20 +5,13 @@ import { requireAdmin } from "./_lib/requireAdmin";
 /* ===================== TYPES ===================== */
 
 type DayPoint = { day: string; count: number };
-
 type AdminSearchParams = { days?: string };
-
-type PageProps = {
-  // Next 15: a veces Next tipa searchParams como Promise en .next/types
-  searchParams?: Promise<AdminSearchParams> | AdminSearchParams;
-};
 
 /* ===================== HELPERS ===================== */
 
 function toInt(x: unknown): number {
   const n =
     typeof x === "number" ? x : typeof x === "string" ? Number(x) : NaN;
-
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -83,15 +76,15 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
 
 /* ===================== PAGE ===================== */
 
-export default async function AdminDashboard({ searchParams }: PageProps) {
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  // ✅ así lo exige el tipo autogenerado en tu build: Promise o undefined
+  searchParams?: Promise<AdminSearchParams>;
+}) {
   await requireAdmin();
 
-  // ✅ soporta objeto o Promise (Next 15)
-  const sp: AdminSearchParams =
-    searchParams instanceof Promise
-      ? (await searchParams) ?? {}
-      : searchParams ?? {};
-
+  const sp = (await searchParams) ?? {};
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
 
   const [
