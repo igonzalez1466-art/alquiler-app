@@ -7,12 +7,13 @@ import BookingForm from "./BookingForm";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { toggleListingAvailable } from "@/app/listing/actions";
-import type { NextAuthConfig } from "next-auth";
 import type { Estado, MetodoEnvio } from "@prisma/client";
 
 type PageProps = {
-  params: { id: string };
-  searchParams?: { error?: string };
+  // ✅ Next 15: params viene como Promise
+  params: Promise<{ id: string }>;
+  // ✅ Next 15: searchParams también (en tu proyecto)
+  searchParams?: Promise<{ error?: string }>;
 };
 
 // Etiquetas legibles para enums (polaco, pero claves siguen en español)
@@ -92,14 +93,17 @@ function plOceny(n: number) {
 
 function materialsToStringArray(materials: unknown): string[] {
   // en tu schema: materials Json?
-  // guardamos solo si es array de strings
   if (!Array.isArray(materials)) return [];
   return materials.filter((x): x is string => typeof x === "string");
 }
 
 export default async function ListingDetail({ params, searchParams }: PageProps) {
-  const { id } = params;
-  const error = searchParams?.error;
+  // ✅ Next 15
+  const { id } = await params;
+
+  // ✅ Next 15
+  const sp = (await searchParams) ?? {};
+  const error = sp.error;
 
   const [listing, session] = await Promise.all([
     prisma.listing.findUnique({
@@ -120,7 +124,6 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         marca: true,
         available: true,
         images: true,
-        // Nuevos campos
         gender: true,
         size: true,
         color: true,
@@ -128,7 +131,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         materials: true,
       },
     }),
-    getServerSession(authConfig as NextAuthConfig),
+    getServerSession(authConfig),
   ]);
 
   if (!listing) {
@@ -201,8 +204,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         </p>
 
         <p>
-          <strong>Preferowana metoda dostawy:</strong>{" "}
-          {labelEnvio(listing.metodoEnvio)}
+          <strong>Preferowana metoda dostawy:</strong> {labelEnvio(listing.metodoEnvio)}
         </p>
 
         {/* ✅ owner + rating */}
@@ -261,8 +263,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 className="inline-block h-3.5 w-3.5 rounded-full border"
                 style={{
                   backgroundColor:
-                    colorMap[(listing.color ?? "").toLowerCase()] ??
-                    "transparent",
+                    colorMap[(listing.color ?? "").toLowerCase()] ?? "transparent",
                 }}
                 title={listing.color ?? ""}
               />
@@ -329,6 +330,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
       {listing.images.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {listing.images
+            .slice()
             .sort((a, b) => a.order - b.order)
             .map((img) => (
               <div
@@ -352,16 +354,14 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
 // SEO dinámico
 export async function generateMetadata({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   const listing = await prisma.listing.findUnique({
     where: { id },
     select: { title: true, city: true, postalCode: true },
   });
 
-  const baseTitle = listing
-    ? `${listing.title} | Ogłoszenia`
-    : "Ogłoszenie | Ogłoszenia";
+  const baseTitle = listing ? `${listing.title} | Ogłoszenia` : "Ogłoszenie | Ogłoszenia";
 
   const desc = listing?.city
     ? listing.postalCode
