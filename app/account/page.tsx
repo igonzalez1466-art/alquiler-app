@@ -1,15 +1,12 @@
-// app/account/page.tsx
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authConfig } from "@/auth.config";
-import type { NextAuthConfig } from "next-auth";
 
 export default async function AccountPage() {
-  const session = await getServerSession(authConfig as NextAuthConfig);
+  const session = await getServerSession(authConfig);
 
-  // 🔒 Si no hay sesión → redirige a login
-  if (!session?.user) redirect("/login?callbackUrl=/account");
+  if (!session) redirect("/login?callbackUrl=/account");
 
   const user = session.user;
 
@@ -19,10 +16,10 @@ export default async function AccountPage() {
 
       <div className="rounded border p-4 space-y-2 bg-white">
         <p>
-          <strong>Imię:</strong> {user.name ?? "—"}
+          <strong>Imię:</strong> {user?.name ?? "—"}
         </p>
         <p>
-          <strong>E-mail:</strong> {user.email ?? "—"}
+          <strong>E-mail:</strong> {user?.email ?? "—"}
         </p>
       </div>
 
@@ -47,7 +44,7 @@ export default async function AccountPage() {
           </li>
           <li>
             <Link
-              href={`/users/${user.id}`}
+              href={`/users/${user?.id}`}
               className="block rounded border border-gray-200 bg-white px-3 py-2 hover:bg-gray-100 transition"
             >
               ⭐ Mój profil (oceny)
