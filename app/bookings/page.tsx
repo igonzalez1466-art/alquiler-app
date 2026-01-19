@@ -54,11 +54,7 @@ function StatusBadge({ status }: { status: string }) {
       ? statusLabel[status as keyof typeof statusLabel]
       : status;
 
-  return (
-    <span className={cx("text-xs px-2 py-1 rounded border", cls)}>
-      {label}
-    </span>
-  );
+  return <span className={cx("text-xs px-2 py-1 rounded border", cls)}>{label}</span>;
 }
 
 /* ============ Search Params ============ */
@@ -99,8 +95,9 @@ async function createReviewAction(formData: FormData) {
   const rating = Number(formData.get("rating") || "0");
   const comment = String(formData.get("comment") || "").trim();
 
-  if (!bookingId || !["OWNER", "RENTER"].includes(role))
+  if (!bookingId || !["OWNER", "RENTER"].includes(role)) {
     throw new Error("Datos inválidos");
+  }
   if (!(rating >= 1 && rating <= 5)) throw new Error("Rating fuera de rango");
 
   const booking = await prisma.booking.findUnique({
@@ -111,16 +108,14 @@ async function createReviewAction(formData: FormData) {
 
   const now = new Date();
   const isParticipant =
-    booking.renterId === reviewerId ||
-    booking.listing.userId === reviewerId;
+    booking.renterId === reviewerId || booking.listing.userId === reviewerId;
 
   if (!isParticipant) throw new Error("No autorizado");
   if (booking.status !== "CONFIRMED" || booking.endDate > now) {
     throw new Error("Solo se puede valorar reservas confirmadas y finalizadas");
   }
 
-  const revieweeId =
-    role === "OWNER" ? booking.listing.userId : booking.renterId;
+  const revieweeId = role === "OWNER" ? booking.listing.userId : booking.renterId;
 
   const existing = await prisma.review.findFirst({
     where: { bookingId, reviewerId, revieweeId },
@@ -144,7 +139,8 @@ async function createReviewAction(formData: FormData) {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<SP> | SP;
+  // ✅ Next 15: en tu proyecto el tipo generado exige Promise
+  searchParams?: Promise<SP>;
 }) {
   const p: SP = (await searchParams) ?? {};
 
@@ -172,8 +168,7 @@ export default async function BookingsPage({
 
   const madeWhere: Record<string, unknown> = { renterId: userId };
   if (mStatus !== "all") madeWhere.status = mStatus;
-  if (mFrom || mTo)
-    madeWhere.startDate = { gte: mFrom, lte: mTo };
+  if (mFrom || mTo) madeWhere.startDate = { gte: mFrom, lte: mTo };
 
   let madeOrderBy: Record<string, "asc" | "desc"> = { startDate: "desc" };
   if (mSort === "start_asc") madeOrderBy = { startDate: "asc" };
@@ -188,8 +183,7 @@ export default async function BookingsPage({
 
   const ownerWhere: Record<string, unknown> = { listing: { userId } };
   if (oStatus !== "all") ownerWhere.status = oStatus;
-  if (oFrom || oTo)
-    ownerWhere.startDate = { gte: oFrom, lte: oTo };
+  if (oFrom || oTo) ownerWhere.startDate = { gte: oFrom, lte: oTo };
 
   let ownerOrderBy: Record<string, "asc" | "desc"> = { startDate: "desc" };
   if (oSort === "start_asc") ownerOrderBy = { startDate: "asc" };
