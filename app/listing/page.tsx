@@ -107,15 +107,12 @@ function SimpleTable({ title, rows }: { title: string; rows: KV[] }) {
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams?: AdminSearchParams;
+  // ✅ Next 15 (en tu proyecto): searchParams viene como Promise
+  searchParams?: Promise<AdminSearchParams>;
 }) {
   await requireAdmin();
 
-  const sp: AdminSearchParams =
-    searchParams instanceof Promise
-      ? (await searchParams) ?? {}
-      : searchParams ?? {};
-
+  const sp = (await searchParams) ?? {};
   const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
 
   /* ===================== KPIs ===================== */
@@ -149,9 +146,7 @@ export default async function AdminDashboard({
   const avgDuration = avgDurationRaw[0]?.avgDays ?? 0;
 
   const conversion =
-    listingsCount > 0
-      ? ((bookingsCount / listingsCount) * 100).toFixed(1)
-      : "0";
+    listingsCount > 0 ? ((bookingsCount / listingsCount) * 100).toFixed(1) : "0";
 
   /* ===================== SERIES ===================== */
   const [bookingsSeriesRaw, listingsSeriesRaw] = await Promise.all([
@@ -197,12 +192,12 @@ export default async function AdminDashboard({
     `,
   ]);
 
-  const bookingsSeries = bookingsSeriesRaw.map((r) => ({
+  const bookingsSeries: DayPoint[] = bookingsSeriesRaw.map((r) => ({
     day: r.day,
     count: toInt(r.count),
   }));
 
-  const listingsSeries = listingsSeriesRaw.map((r) => ({
+  const listingsSeries: DayPoint[] = listingsSeriesRaw.map((r) => ({
     day: r.day,
     count: toInt(r.count),
   }));
@@ -227,14 +222,30 @@ export default async function AdminDashboard({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat title="Usuarios" value={usersCount} />
         <Stat title="Anuncios" value={listingsCount} />
-        <Stat title="Reservas" value={bookingsCount} sub={`Pendientes: ${bookingsPending}`} />
-        <Stat title="Reviews" value={reviewsCount} sub={`Media: ${avgRating.toFixed(2)}`} />
+        <Stat
+          title="Reservas"
+          value={bookingsCount}
+          sub={`Pendientes: ${bookingsPending}`}
+        />
+        <Stat
+          title="Reviews"
+          value={reviewsCount}
+          sub={`Media: ${avgRating.toFixed(2)} | Negativas (≤2): ${badReviewsCount}`}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <BarChart title="Reservas por día" points={bookingsSeries} />
         <BarChart title="Anuncios por día" points={listingsSeries} />
       </div>
+
+      {/* Si quieres usar los KPIs extra (para que no te salten warnings), descomenta esto:
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat title="Ingresos (cents)" value={sumAmountCents} />
+        <Stat title="Duración media (días)" value={avgDuration.toFixed(1)} />
+        <Stat title="Conversión (%)" value={conversion} />
+      </div>
+      */}
     </div>
   );
 }
