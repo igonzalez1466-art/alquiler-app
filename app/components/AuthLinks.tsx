@@ -1,11 +1,11 @@
 // app/components/AuthLinks.tsx  (Server Component)
-import { getServerSession } from "next-auth";
-import type { NextAuthConfig } from "next-auth";
-import { authConfig } from "@/auth.config";
 import Link from "next/link";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
+import { authConfig } from "@/auth.config";
 
 export default async function AuthLinks() {
-  const session = await getServerSession(authConfig as NextAuthConfig);
+  const session = (await getServerSession(authConfig)) as Session | null;
 
   if (session?.user) {
     return (

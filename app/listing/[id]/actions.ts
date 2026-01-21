@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma, initSqlitePragmas } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -18,8 +19,8 @@ function diffDaysInclusive(a: Date, b: Date) {
 export async function startChatAction(formData: FormData) {
   await initSqlitePragmas(); // ✅ importante para evitar locks/timeout en SQLite
 
-  const session = await getServerSession(authConfig);
-  const currentUserId = session?.user?.id as string | undefined;
+  const session = (await getServerSession(authConfig)) as Session | null;
+  const currentUserId = session?.user?.id;
   if (!currentUserId) redirect("/api/auth/signin");
 
   const listingId = formData.get("listingId")?.toString();
@@ -45,8 +46,8 @@ export async function startChatAction(formData: FormData) {
 export async function createBookingAction(formData: FormData) {
   await initSqlitePragmas(); // ✅ importante para evitar locks/timeout en SQLite
 
-  const session = await getServerSession(authConfig);
-  const renterId = session?.user?.id as string | undefined;
+  const session = (await getServerSession(authConfig)) as Session | null;
+  const renterId = session?.user?.id;
   if (!renterId) redirect("/api/auth/signin");
 
   const listingId = formData.get("listingId")?.toString();
@@ -118,7 +119,6 @@ export async function createBookingAction(formData: FormData) {
 
   // Desglose (lo seguimos calculando por si lo necesitas en el futuro)
   const days = diffDaysInclusive(startDate, endDate);
-  // Si pricePerDay está oculto pero existe, esto sigue ok
   const alquiler = days * listing.pricePerDay;
   const comision = +(alquiler * 0.1).toFixed(2);
   const fianza = listing.fianza ?? 0;

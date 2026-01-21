@@ -1,15 +1,17 @@
 "use server";
 
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
-import type { NextAuthConfig } from "next-auth";
 import type { ReviewRole } from "@prisma/client";
 
 export async function createReviewAction(formData: FormData) {
-  const session = await getServerSession(authConfig as NextAuthConfig);
-  if (!session?.user?.id) throw new Error("No autorizado");
+  const session = (await getServerSession(authConfig)) as Session | null;
+
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No autorizado");
 
   const bookingId = String(formData.get("bookingId") || "");
   const rating = Number(formData.get("rating") || "0");
@@ -32,7 +34,6 @@ export async function createReviewAction(formData: FormData) {
     throw new Error("Aún no puedes valorar esta reserva");
   }
 
-  const userId = session.user.id;
   const ownerId = booking.listing.userId;
   const renterId = booking.renterId;
 

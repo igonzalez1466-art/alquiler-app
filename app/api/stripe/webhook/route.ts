@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-09-30.clover",
 });
 
 export async function POST(req: Request) {
@@ -48,9 +48,7 @@ export async function POST(req: Request) {
   }
 }
 
-// Nota: en App Router este config no suele ser necesario, pero si lo dejas no molesta.
+// Nota: en App Router este config no se usa, pero dejarlo no rompe nada.
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
 };

@@ -6,13 +6,9 @@ import { createBookingAction } from "./actions";
 
 export default function BookingForm({
   listingId,
-  pricePerDay,
-  fianza,
   isLoggedIn,
 }: {
   listingId: string;
-  pricePerDay: number;
-  fianza?: number | null;
   isLoggedIn: boolean;
 }) {
   const router = useRouter();
@@ -30,7 +26,6 @@ export default function BookingForm({
 
   const days = getDays();
 
-  // 🔹 Si no está logueado, redirigimos a NextAuth con callbackUrl
   if (!isLoggedIn) {
     return (
       <button
@@ -39,10 +34,8 @@ export default function BookingForm({
           const current =
             typeof window !== "undefined"
               ? window.location.href
-              : `/listing/${listingId}`; // fallback en SSR
-          router.push(
-            `/api/auth/signin?callbackUrl=${encodeURIComponent(current)}`
-          );
+              : `/listing/${listingId}`;
+          router.push(`/api/auth/signin?callbackUrl=${encodeURIComponent(current)}`);
         }}
         className="px-4 py-2 rounded bg-indigo-600 text-white w-full"
       >
@@ -80,8 +73,6 @@ export default function BookingForm({
           required
         />
       </label>
-
-      {/* 👇 Ya no hay cuadro de resumen de precios */}
 
       <button
         type="submit"

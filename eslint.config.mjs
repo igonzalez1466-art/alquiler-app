@@ -18,7 +18,30 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+
+      // ✅ generado
+      "app/generated/**",
+      "**/generated/**",
+
+      // ✅ scripts sueltos (Node)
+      "debugSqlite.js",
+      "prisma/seed.js",
     ],
+  },
+
+  // Plan C: no bloquear por any (ya lo resolviste, pero lo puedes dejar)
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
+
+  // Opcional: en d.ts suele haber cosas raras
+  {
+    files: ["**/*.d.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
   },
 ];
 

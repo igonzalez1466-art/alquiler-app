@@ -1,36 +1,39 @@
-import type { NextAuthConfig } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+// auth.config.ts
+import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
-
-type AppRole = "USER" | "ADMIN";
+import { Role } from "@prisma/client";
 
 type AuthorizedUser = {
   id: string;
   email: string;
-  name?: string;
-  image?: string;
-  role: AppRole;
+  name?: string | null;
+  image?: string | null;
+  role: Role;
 };
 
-export const authConfig = {
+type JWTWithRole = JWT & { role?: Role };
+
+export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.AUTH_SECRET,
+
+  // 👇 importante: literal "jwt" (con NextAuthOptions tipado ya no se convierte en string)
   session: { strategy: "jwt" },
 
   providers: [
-    Credentials({
+    CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-
       async authorize(creds) {
         const email = String(creds?.email || "").toLowerCase().trim();
         const password = String(creds?.password || "");
-
         if (!email || !password) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
@@ -39,18 +42,14 @@ export const authConfig = {
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
 
-        // ⛔️ bloquea si email no verificado
-        if (!user.emailVerified) {
-          throw new Error("EMAIL_NOT_VERIFIED");
-        }
+        if (!user.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
 
-        // Prisma ya tipa image y role si existen en el schema
         const out: AuthorizedUser = {
-          id: String(user.id),
+          id: user.id,
           email: user.email ?? "",
-          name: user.name ?? undefined,
-          image: user.image ?? undefined,
-          role: user.role as AppRole,
+          name: user.name ?? null,
+          image: user.image ?? null,
+          role: user.role,
         };
 
         return out;
@@ -60,28 +59,28 @@ export const authConfig = {
 
   callbacks: {
     async jwt({ token, user }) {
-      // solo en el primer login
       if (user) {
-        const u = user as AuthorizedUser;
+        // id
+        if (typeof user.id === "string") token.sub = user.id;
 
-        token.sub = u.id;
-        token.email = u.email;
-        token.name = u.name;
-        token.picture = u.image;
-        token.role = u.role;
+        // role (solo seguro en tu AuthorizedUser)
+        const role = (user as Partial<AuthorizedUser>).role;
+        if (role) (token as JWTWithRole).role = role;
       }
-
       return token;
     },
 
     async session({ session, token }) {
+      const t = token as JWTWithRole;
+
       if (session.user) {
-        session.user.id = token.sub ?? "";
-        session.user.role = token.role ?? "USER";
+        session.user.id = typeof t.sub === "string" ? t.sub : "";
+        session.user.role = t.role ?? Role.USER;
       }
+
       return session;
     },
   },
 
   debug: process.env.NODE_ENV !== "production",
-} satisfies NextAuthConfig;
+};

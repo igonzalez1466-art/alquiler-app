@@ -1,6 +1,6 @@
 // app/chat/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import Link from "next/link";
 

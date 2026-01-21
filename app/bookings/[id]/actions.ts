@@ -1,17 +1,17 @@
 "use server";
 
 import { prisma, initSqlitePragmas } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth"; // ✅ AÑADIR
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ShippingStatus } from "@prisma/client"; // ✅ nuevo
+import type { ShippingStatus } from "@prisma/client";
 
 /* ===============================
    UPDATE SHIPPING
 ================================ */
 
-// ✅ tipamos el Set con el enum real de Prisma
 const ALLOWED_SHIPPING: ReadonlySet<ShippingStatus> = new Set([
   "NOT_REQUIRED",
   "PENDING",
@@ -25,7 +25,7 @@ const ALLOWED_SHIPPING: ReadonlySet<ShippingStatus> = new Set([
 ]);
 
 export async function updateShippingAction(formData: FormData) {
-  const session = await getServerSession(authConfig);
+  const session = (await getServerSession(authConfig)) as Session | null; // ✅ CAMBIO
   const userId = session?.user?.id;
   if (!userId) throw new Error("Brak autoryzacji");
 
@@ -45,7 +45,6 @@ export async function updateShippingAction(formData: FormData) {
 
   const shippingStatusRaw = String(formData.get("shippingStatus") || "").trim();
 
-  // ✅ validamos y tipamos sin any
   const shippingStatus: ShippingStatus | undefined = ALLOWED_SHIPPING.has(
     shippingStatusRaw as ShippingStatus
   )
@@ -62,12 +61,13 @@ export async function updateShippingAction(formData: FormData) {
   const deliveredAt = deliveredAtStr ? new Date(deliveredAtStr) : null;
 
   if (shippedAt && isNaN(shippedAt.getTime())) throw new Error("Nieprawidłowa data wysyłki");
-  if (deliveredAt && isNaN(deliveredAt.getTime())) throw new Error("Nieprawidłowa data dostarczenia");
+  if (deliveredAt && isNaN(deliveredAt.getTime()))
+    throw new Error("Nieprawidłowa data dostarczenia");
 
   await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      ...(shippingStatus ? { shippingStatus } : {}), // ✅ sin "as any"
+      ...(shippingStatus ? { shippingStatus } : {}),
       carrier,
       trackingNumber,
       shippedAt,
@@ -85,7 +85,7 @@ export async function updateShippingAction(formData: FormData) {
 export async function openChatFromBookingAction(formData: FormData) {
   await initSqlitePragmas();
 
-  const session = await getServerSession(authConfig);
+  const session = (await getServerSession(authConfig)) as Session | null; // ✅ CAMBIO
   const currentUserId = session?.user?.id;
   if (!currentUserId) redirect("/api/auth/signin");
 
@@ -98,7 +98,7 @@ export async function openChatFromBookingAction(formData: FormData) {
       status: true,
       renterId: true,
       listingId: true,
-      listing: { select: { userId: true } }, // owner
+      listing: { select: { userId: true } },
     },
   });
 

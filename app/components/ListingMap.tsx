@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 // 🔹 Fix iconos Leaflet (SIN any)
 const iconProto = L.Icon.Default.prototype as unknown as {
@@ -43,24 +44,19 @@ function FitToMarkers({ markers }: { markers: MarkerData[] }) {
   useEffect(() => {
     if (!map || markers.length === 0) return;
 
-    // 1️⃣ Un solo marcador
     if (markers.length === 1) {
       const { lat, lng } = markers[0];
       map.setView([lat, lng], 14, { animate: true });
       return;
     }
 
-    // 2️⃣ Varios marcadores → bounds
     const bounds = L.latLngBounds(
       markers.map((m) => [m.lat, m.lng] as [number, number])
     );
 
     if (!bounds.isValid()) return;
 
-    const distance = map.distance(
-      bounds.getNorthEast(),
-      bounds.getSouthWest()
-    );
+    const distance = map.distance(bounds.getNorthEast(), bounds.getSouthWest());
 
     if (distance < 1000) {
       const c = bounds.getCenter();
@@ -80,7 +76,7 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
 
   const center: [number, number] = markers.length
     ? [markers[0].lat, markers[0].lng]
-    : [52.2297, 21.0122]; // fallback Warsaw
+    : [52.2297, 21.0122];
 
   return (
     <div className="relative z-0 w-full h-72 rounded overflow-hidden border bg-gray-100">
@@ -95,20 +91,20 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Ajuste automático del viewport */}
         <FitToMarkers markers={markers} />
 
         {markers.map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]}>
             <Popup className="p-0">
               <div className="w-52 md:w-64 rounded-lg bg-white shadow-md overflow-hidden border border-gray-200">
-                {/* Imagen */}
                 {m.imageUrl && (
-                  <div className="h-24 w-full overflow-hidden">
-                    <img
+                  <div className="relative h-24 w-full overflow-hidden">
+                    <Image
                       src={m.imageUrl}
                       alt={m.imageAlt ?? m.title}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="256px"
+                      className="object-cover"
                     />
                   </div>
                 )}
@@ -118,9 +114,7 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
                     {m.title}
                   </div>
 
-                  {m.city && (
-                    <div className="text-xs text-gray-600">{m.city}</div>
-                  )}
+                  {m.city && <div className="text-xs text-gray-600">{m.city}</div>}
 
                   <button
                     onClick={() => router.push(`/listing/${m.id}`)}

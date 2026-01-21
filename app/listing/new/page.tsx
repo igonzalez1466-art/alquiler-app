@@ -1,14 +1,13 @@
+// app/listing/new/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/auth.config";
+import { getSession } from "@/app/lib/auth";
 import { redirect } from "next/navigation";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import { sendMail } from "@/app/lib/mailer";
-import type { NextAuthConfig } from "next-auth";
-import type { Gender, GarmentType } from "@prisma/client";
+import type { Gender, GarmentType, Color } from "@prisma/client";
 
 /* ===================== CONSTANTES ===================== */
 
@@ -35,10 +34,21 @@ const MATERIALS = [
   { value: "INNE", label: "inne" },
 ] as const;
 
-const ALLOWED_COLORS = new Set(COLORS.map((c) => c.value));
+// ✅ Prisma enums (validación sin any)
+const ALLOWED_COLORS: ReadonlySet<Color> = new Set([
+  "CZARNY",
+  "BIALY",
+  "SZARY",
+  "BEZOWY",
+  "BRAZOWY",
+  "CZERWONY",
+  "ROZOWY",
+  "ZIELONY",
+  "NIEBIESKI",
+]);
+
 const ALLOWED_MATERIALS = new Set(MATERIALS.map((m) => m.value));
 
-// ✅ enums Prisma (para validar sin any)
 const ALLOWED_GENDERS: ReadonlySet<Gender> = new Set([
   "WOMAN",
   "MAN",
@@ -75,23 +85,26 @@ export default async function NewListingPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
-  const session = await getServerSession(authConfig as NextAuthConfig);
-  if (!session?.user) redirect("/login?callbackUrl=/listing/new");
+  const session = await getSession();
+  if (!session?.user?.id) redirect("/login?callbackUrl=/listing/new");
 
   const sp = (await searchParams) ?? {};
   const errorMsg = sp.error;
 
   /* ===================== SERVER ACTION ===================== */
 
-  async function createListing(formData: FormData) {
+  async function createListingAction(formData: FormData) {
     "use server";
 
-    const session = await getServerSession(authConfig as NextAuthConfig);
+    const session = await getSession();
     const userId = session?.user?.id;
     if (!userId) redirect("/login?callbackUrl=/listing/new");
 
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
+
+    const pricePerDayRaw = String(formData.get("pricePerDay") || "").trim();
+    const pricePerDay = Number(pricePerDayRaw);
 
     const city = String(formData.get("city") || "").trim();
     const postalCode = String(formData.get("postalCode") || "").trim();
@@ -104,20 +117,30 @@ export default async function NewListingPage({
     const garmentTypeRaw = String(formData.get("garmentType") || "").trim();
 
     const size = String(formData.get("size") || "").trim();
-    const color = String(formData.get("color") || "").trim();
+    const colorRaw = String(formData.get("color") || "").trim();
     const material = String(formData.get("material") || "").trim();
 
     /* ===== VALIDACIONES ===== */
 
     if (!title) redirect(err("Tytuł jest obowiązkowy"));
 
+    if (
+      !Number.isFinite(pricePerDay) ||
+      !Number.isInteger(pricePerDay) ||
+      pricePerDay <= 0
+    ) {
+      redirect(err("Cena za dzień musi być liczbą całkowitą > 0"));
+    }
+
     if (!city || Number.isNaN(lat) || Number.isNaN(lng)) {
       redirect(err("Wybierz lokalizację z listy"));
     }
 
-    if (!ALLOWED_COLORS.has(color as (typeof COLORS)[number]["value"])) {
-      redirect(err("Nieprawidłowy kolor"));
-    }
+    // ✅ Color (enum Prisma Color)
+    const color: Color | null = ALLOWED_COLORS.has(colorRaw as Color)
+      ? (colorRaw as Color)
+      : null;
+    if (!color) redirect(err("Nieprawidłowy kolor"));
 
     if (!ALLOWED_MATERIALS.has(material as (typeof MATERIALS)[number]["value"])) {
       redirect(err("Nieprawidłowy materiał"));
@@ -144,8 +167,7 @@ export default async function NewListingPage({
       data: {
         title,
         description: description || null,
-        pricePerDay: 0,
-        userId,
+        pricePerDay,
         marca: marca || null,
         city,
         postalCode: postalCode || null,
@@ -157,7 +179,10 @@ export default async function NewListingPage({
         color,
         garmentType,
         materials: [material],
+        available: true,
+        user: { connect: { id: userId } },
       },
+      select: { id: true, title: true },
     });
 
     const owner = await prisma.user.findUnique({
@@ -194,9 +219,10 @@ export default async function NewListingPage({
 
     let order = 0;
     for (const file of files) {
-      if (!file || file.size === 0) continue;
+      if (file.size === 0) continue;
 
       const filename = `${crypto.randomUUID()}.jpg`;
+
       await fs.writeFile(
         path.join(uploadDir, filename),
         Buffer.from(await file.arrayBuffer())
@@ -226,7 +252,7 @@ export default async function NewListingPage({
         </div>
       )}
 
-      <form action={createListing} className="space-y-4">
+      <form action={createListingAction} className="space-y-4">
         <input
           name="title"
           placeholder="Tytuł"
@@ -237,6 +263,16 @@ export default async function NewListingPage({
         <textarea
           name="description"
           placeholder="Opis"
+          className="border p-2 w-full"
+        />
+
+        <input
+          name="pricePerDay"
+          type="number"
+          min={1}
+          step={1}
+          required
+          placeholder="Cena za dzień (PLN)"
           className="border p-2 w-full"
         />
 
@@ -296,6 +332,7 @@ export default async function NewListingPage({
             <option value="CHAMARRA">Kurtka</option>
             <option value="ACCESORIO">Akcesoria</option>
             <option value="ZAPATO">Buty</option>
+            <option value="OTRO">Inne</option>
           </select>
 
           <select name="material" required className="border p-2 md:col-span-2">

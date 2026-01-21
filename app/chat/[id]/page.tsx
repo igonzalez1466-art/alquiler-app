@@ -1,20 +1,10 @@
 // app/chat/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import { sendMessageAction, markChatAsRead } from "./actions";
 
 type PageProps = { params: Promise<{ id: string }> }; // Next 15: params es Promise
-
-type AppRole = "USER" | "ADMIN";
-
-type SessionUser = {
-  id?: string;
-  role?: AppRole;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-};
 
 function getUserId(session: unknown): string | undefined {
   if (!session || typeof session !== "object") return undefined;
@@ -60,11 +50,10 @@ export default async function ChatDetailPage({ params }: PageProps) {
 
   const other = userId === convo.buyerId ? convo.seller : convo.buyer;
 
-  // ✅ Detectar si el chat está cerrado (sin any)
+  // ✅ Detectar si el chat está cerrado
   const convoStatus = (convo as unknown as { status?: unknown }).status;
   const isClosed = convoStatus === "CLOSED";
 
-  // 🔧 Función helper para mostrar "Dzisiaj", "Wczoraj" o fecha
   function formatDateTime(date: Date): string {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -100,14 +89,12 @@ export default async function ChatDetailPage({ params }: PageProps) {
       </h1>
       <p className="text-sm text-gray-600">Czat z {other?.name ?? "Użytkownik"}</p>
 
-      {/* ✅ Aviso si está cerrado */}
       {isClosed && (
         <div className="border rounded bg-amber-50 text-amber-900 px-3 py-2 text-sm">
           Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.
         </div>
       )}
 
-      {/* Mensajes */}
       <div className="space-y-2 border rounded p-3 bg-white">
         {convo.messages.length === 0 && (
           <p className="text-gray-500 text-sm">Brak wiadomości.</p>
@@ -143,7 +130,6 @@ export default async function ChatDetailPage({ params }: PageProps) {
         })}
       </div>
 
-      {/* Enviar mensaje */}
       <form action={sendMessageAction.bind(null, id)} className="flex gap-2">
         <input
           type="text"

@@ -2,7 +2,7 @@
 
 import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import { pusherServer } from "@/app/lib/pusher";
 import { sendMail } from "@/app/lib/mailer";
@@ -38,7 +38,7 @@ function getUserNameFromSession(session: unknown): string | undefined {
 export async function sendMessageAction(
   conversationId: string,
   formData: FormData
-) {
+): Promise<void> {
   const session = await getServerSession(authConfig);
   const userId = getUserIdFromSession(session);
   if (!userId) throw new Error("Brak autoryzacji");
@@ -68,12 +68,9 @@ export async function sendMessageAction(
   if (!isBuyer && !isSeller) throw new Error("Brak uprawnień");
 
   // ✅ Si el chat está cerrado, no permitimos enviar
+  // IMPORTANTE: no devolver objetos desde una action usada en <form action={...}>
   if (conv.status === "CLOSED") {
-    return {
-      ok: false,
-      error: "CHAT_CLOSED",
-      message: "Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.",
-    } as const;
+    throw new Error("CHAT_CLOSED");
   }
 
   const [createdMsg] = await prisma.$transaction([
@@ -139,7 +136,7 @@ export async function sendMessageAction(
 }
 
 // ✅ markChatAsRead sin cambios funcionales (solo userId robusto)
-export async function markChatAsRead(conversationId: string) {
+export async function markChatAsRead(conversationId: string): Promise<void> {
   const session = await getServerSession(authConfig);
   const userId = getUserIdFromSession(session);
   if (!userId) return;
