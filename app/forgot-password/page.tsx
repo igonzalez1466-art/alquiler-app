@@ -21,21 +21,30 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      // ⚠️ Asegúrate de parsear solo si hay JSON
-      let data: any = {};
+      // Parseo seguro del JSON (sin any)
+      let data: unknown = {};
       try {
         data = await res.json();
       } catch {
-        /* si la respuesta no es JSON, no rompas */
+        // si la respuesta no es JSON, seguimos sin romper
       }
 
       if (!res.ok) {
-        setErr(data?.message || "Error enviando el enlace");
+        const message =
+          typeof (data as { message?: unknown })?.message === "string"
+            ? (data as { message: string }).message
+            : "Error enviando el enlace";
+        setErr(message);
       } else {
-        setMsg(data?.message || "If the email address exist, you will receive an email.");
+        const message =
+          typeof (data as { message?: unknown })?.message === "string"
+            ? (data as { message: string }).message
+            : "If the email address exists, you will receive an email.";
+        setMsg(message);
       }
-    } catch (e: any) {
-      setErr(e?.message || "Error de red");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Error de red";
+      setErr(message);
     } finally {
       setLoading(false);
     }
@@ -58,7 +67,7 @@ export default function ForgotPasswordPage() {
           </label>
           <input
             id="email"
-            name="email" // 👈 añade el name, ayuda a server y accesibilidad
+            name="email"
             type="email"
             required
             className="w-full border rounded p-2 mt-1"

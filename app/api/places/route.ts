@@ -1,5 +1,20 @@
 // app/api/places/route.ts
-export const runtime = "node"; // o "edge" si prefieres
+export const runtime = "nodejs"; // o "edge" si prefieres
+
+type NominatimItem = {
+  place_id: string | number;
+  display_name?: string;
+  lat: string;
+  lon: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    county?: string;
+    postcode?: string;
+  };
+};
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -24,28 +39,33 @@ export async function GET(req: Request) {
 
   if (!res.ok) return Response.json([]);
 
-  const data: any[] = await res.json();
-  const items = data.map((d) => {
-    const a = d.address ?? {};
-    const city =
-      a.city ||
-      a.town ||
-      a.village ||
-      a.municipality ||
-      a.county ||
-      "";
-    const postalCode = a.postcode || "";
-    return {
-      id: String(d.place_id),
-      label: city
-        ? `${city}${postalCode ? ` (${postalCode})` : ""}`
-        : d.display_name,
-      city,
-      postalCode,
-      lat: parseFloat(d.lat),
-      lng: parseFloat(d.lon),
-    };
-  });
+  const data = (await res.json()) as unknown;
+
+  const items = (Array.isArray(data) ? (data as NominatimItem[]) : []).map(
+    (d) => {
+      const a = d.address ?? {};
+      const city =
+        a.city ||
+        a.town ||
+        a.village ||
+        a.municipality ||
+        a.county ||
+        "";
+
+      const postalCode = a.postcode || "";
+
+      return {
+        id: String(d.place_id),
+        label: city
+          ? `${city}${postalCode ? ` (${postalCode})` : ""}`
+          : (d.display_name ?? ""),
+        city,
+        postalCode,
+        lat: parseFloat(d.lat),
+        lng: parseFloat(d.lon),
+      };
+    }
+  );
 
   return Response.json(items);
 }

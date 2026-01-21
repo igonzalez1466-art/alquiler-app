@@ -1,16 +1,31 @@
-import type { NextAuthConfig } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+// auth.config.ts
+import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
 
-export const authConfig = {
+type AuthorizedUser = {
+  id: string;
+  email: string;
+  name?: string | null;
+  image?: string | null;
+  role: Role;
+};
+
+type JWTWithRole = JWT & { role?: Role };
+
+export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.AUTH_SECRET,
+
+  // 👇 importante: literal "jwt" (con NextAuthOptions tipado ya no se convierte en string)
   session: { strategy: "jwt" },
 
   providers: [
-    Credentials({
+    CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "text" },
@@ -19,7 +34,6 @@ export const authConfig = {
       async authorize(creds) {
         const email = String(creds?.email || "").toLowerCase().trim();
         const password = String(creds?.password || "");
-
         if (!email || !password) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
@@ -28,55 +42,45 @@ export const authConfig = {
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
 
-        // ⛔️ Bloquea si el e-mail NO está verificado
-        if (!user.emailVerified) {
-          throw new Error("EMAIL_NOT_VERIFIED");
-        }
+        if (!user.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
 
-        // ✅ IMPORTANTE: devolvemos también role
-        return {
+        const out: AuthorizedUser = {
           id: user.id,
-          email: user.email!,
-          name: user.name ?? undefined,
-          image: (user as any).image ?? undefined,
-          role: (user as any).role ?? "USER",
+          email: user.email ?? "",
+          name: user.name ?? null,
+          image: user.image ?? null,
+          role: user.role,
         };
+
+        return out;
       },
     }),
   ],
 
   callbacks: {
     async jwt({ token, user }) {
-      // En el primer login, "user" viene de authorize()
       if (user) {
-        token.sub = (user as any).id?.toString?.() ?? (user as any).id;
-        token.email = (user as any).email;
-        token.name = (user as any).name;
-        token.picture = (user as any).image;
+        // id
+        if (typeof user.id === "string") token.sub = user.id;
 
-        // ✅ guardamos role en el JWT
-        token.role = (user as any).role ?? "USER";
+        // role (solo seguro en tu AuthorizedUser)
+        const role = (user as Partial<AuthorizedUser>).role;
+        if (role) (token as JWTWithRole).role = role;
       }
-
-      // (Opcional pero útil) si quieres mantenerlo siempre consistente,
-      // podrías reconsultar DB aquí, pero no hace falta para empezar.
-
       return token;
     },
 
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.sub as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string | undefined;
-        session.user.image = token.picture as string | undefined;
+      const t = token as JWTWithRole;
 
-        // ✅ exponemos role en session.user
-        (session.user as any).role = (token as any).role ?? "USER";
+      if (session.user) {
+        session.user.id = typeof t.sub === "string" ? t.sub : "";
+        session.user.role = t.role ?? Role.USER;
       }
+
       return session;
     },
   },
 
   debug: process.env.NODE_ENV !== "production",
-} satisfies NextAuthConfig;
+};

@@ -1,16 +1,18 @@
 "use server";
 
 import { prisma, initSqlitePragmas } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth"; // ✅ AÑADIR
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { ShippingStatus } from "@prisma/client";
 
 /* ===============================
    UPDATE SHIPPING
 ================================ */
 
-const ALLOWED_SHIPPING = new Set([
+const ALLOWED_SHIPPING: ReadonlySet<ShippingStatus> = new Set([
   "NOT_REQUIRED",
   "PENDING",
   "READY",
@@ -23,8 +25,8 @@ const ALLOWED_SHIPPING = new Set([
 ]);
 
 export async function updateShippingAction(formData: FormData) {
-  const session = await getServerSession(authConfig);
-  const userId = session?.user?.id as string | undefined;
+  const session = (await getServerSession(authConfig)) as Session | null; // ✅ CAMBIO
+  const userId = session?.user?.id;
   if (!userId) throw new Error("Brak autoryzacji");
 
   const bookingId = String(formData.get("bookingId") || "");
@@ -42,8 +44,11 @@ export async function updateShippingAction(formData: FormData) {
   }
 
   const shippingStatusRaw = String(formData.get("shippingStatus") || "").trim();
-  const shippingStatus = ALLOWED_SHIPPING.has(shippingStatusRaw)
-    ? shippingStatusRaw
+
+  const shippingStatus: ShippingStatus | undefined = ALLOWED_SHIPPING.has(
+    shippingStatusRaw as ShippingStatus
+  )
+    ? (shippingStatusRaw as ShippingStatus)
     : undefined;
 
   const carrier = String(formData.get("carrier") || "").trim() || null;
@@ -55,15 +60,14 @@ export async function updateShippingAction(formData: FormData) {
   const shippedAt = shippedAtStr ? new Date(shippedAtStr) : null;
   const deliveredAt = deliveredAtStr ? new Date(deliveredAtStr) : null;
 
-  if (shippedAt && isNaN(shippedAt.getTime()))
-    throw new Error("Nieprawidłowa data wysyłki");
+  if (shippedAt && isNaN(shippedAt.getTime())) throw new Error("Nieprawidłowa data wysyłki");
   if (deliveredAt && isNaN(deliveredAt.getTime()))
     throw new Error("Nieprawidłowa data dostarczenia");
 
   await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      ...(shippingStatus ? { shippingStatus: shippingStatus as any } : {}),
+      ...(shippingStatus ? { shippingStatus } : {}),
       carrier,
       trackingNumber,
       shippedAt,
@@ -76,15 +80,12 @@ export async function updateShippingAction(formData: FormData) {
 
 /* ===============================
    OPEN CHAT FROM BOOKING ✅
-   - solo si booking sigue "viva"
-   - conversación única listing+renter
-   - si el chat está CLOSED -> permite leer, no escribir (eso se bloquea en sendMessage)
 ================================ */
 
 export async function openChatFromBookingAction(formData: FormData) {
   await initSqlitePragmas();
 
-  const session = await getServerSession(authConfig);
+  const session = (await getServerSession(authConfig)) as Session | null; // ✅ CAMBIO
   const currentUserId = session?.user?.id;
   if (!currentUserId) redirect("/api/auth/signin");
 
@@ -97,13 +98,12 @@ export async function openChatFromBookingAction(formData: FormData) {
       status: true,
       renterId: true,
       listingId: true,
-      listing: { select: { userId: true } }, // owner
+      listing: { select: { userId: true } },
     },
   });
 
   if (!booking) redirect("/bookings");
 
-  // ✅ regla: chat solo para reservas que siguen adelante
   if (booking.status === "CANCELLED") {
     redirect(`/bookings/${bookingId}?error=chat-closed`);
   }
@@ -111,13 +111,10 @@ export async function openChatFromBookingAction(formData: FormData) {
   const ownerId = booking.listing.userId;
   const renterId = booking.renterId;
 
-  // Seguridad: solo owner o renter
   if (currentUserId !== ownerId && currentUserId !== renterId) {
     redirect("/bookings");
   }
 
-  // 🔑 Conversación ÚNICA por listing + renter
-  // Importante: no reabrimos un chat cerrado
   const conversation = await prisma.conversation.upsert({
     where: {
       listingId_buyerId: {
@@ -125,15 +122,11 @@ export async function openChatFromBookingAction(formData: FormData) {
         buyerId: renterId,
       },
     },
-    update: {
-      // ❗ NO reabrir automáticamente
-      // status: "OPEN"  <-- NO
-    },
+    update: {},
     create: {
       listingId: booking.listingId,
       buyerId: renterId,
       sellerId: ownerId,
-      // status: "OPEN"  // default
     },
     select: { id: true },
   });

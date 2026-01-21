@@ -2,7 +2,8 @@
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
 import Image from "next/image";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -37,8 +38,8 @@ function Stars({ value }: { value: number }) {
 export default async function UserProfile({ params }: PageProps) {
   const { id } = await params;
 
-  // ✅ quién está viendo la página
-  const session = await getServerSession(authConfig);
+  // ✅ quién está viendo la página (FIX typing)
+  const session = (await getServerSession(authConfig)) as Session | null;
   const viewerId = session?.user?.id ?? null;
   const isMe = !!viewerId && viewerId === id;
 
@@ -200,9 +201,7 @@ export default async function UserProfile({ params }: PageProps) {
                     </span>
                   </div>
 
-                  {r.comment && (
-                    <p className="mt-2 text-sm text-gray-800">{r.comment}</p>
-                  )}
+                  {r.comment && <p className="mt-2 text-sm text-gray-800">{r.comment}</p>}
 
                   <p className="mt-1 text-xs text-gray-500">
                     {new Date(r.createdAt).toLocaleDateString("pl-PL")}

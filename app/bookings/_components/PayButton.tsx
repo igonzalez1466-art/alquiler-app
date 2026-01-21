@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 
-export function PayButton({ bookingId }: { bookingId: string }) {
-  // bookingId lo dejamos por si en el futuro activamos pagos.
+export function PayButton() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const onClick = () => {

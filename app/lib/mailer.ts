@@ -83,3 +83,4 @@ export async function sendMail(opts: {
     throw err;
   }
 }
+export { sendMail as sendEmail };

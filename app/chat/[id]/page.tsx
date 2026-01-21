@@ -1,16 +1,28 @@
 // app/chat/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import { sendMessageAction, markChatAsRead } from "./actions";
 
 type PageProps = { params: Promise<{ id: string }> }; // Next 15: params es Promise
 
+function getUserId(session: unknown): string | undefined {
+  if (!session || typeof session !== "object") return undefined;
+  if (!("user" in session)) return undefined;
+
+  const user = (session as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return undefined;
+
+  const id = (user as { id?: unknown }).id;
+  return typeof id === "string" ? id : undefined;
+}
+
 export default async function ChatDetailPage({ params }: PageProps) {
   const { id } = await params; // conversationId
 
   const session = await getServerSession(authConfig);
-  const userId = session?.user?.id;
+
+  const userId = getUserId(session);
   if (!userId) {
     return <p className="p-6">Musisz się zalogować, aby zobaczyć ten czat.</p>;
   }
@@ -39,9 +51,9 @@ export default async function ChatDetailPage({ params }: PageProps) {
   const other = userId === convo.buyerId ? convo.seller : convo.buyer;
 
   // ✅ Detectar si el chat está cerrado
-  const isClosed = (convo as any).status === "CLOSED"; // si TS se queja, deja el as any
+  const convoStatus = (convo as unknown as { status?: unknown }).status;
+  const isClosed = convoStatus === "CLOSED";
 
-  // 🔧 Función helper para mostrar "Dzisiaj", "Wczoraj" o fecha
   function formatDateTime(date: Date): string {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -56,10 +68,16 @@ export default async function ChatDetailPage({ params }: PageProps) {
     } else if (msgDate.getTime() === yesterday.getTime()) {
       dayLabel = "Wczoraj";
     } else {
-      dayLabel = date.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
+      dayLabel = date.toLocaleDateString("pl-PL", {
+        day: "2-digit",
+        month: "2-digit",
+      });
     }
 
-    const timeLabel = date.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+    const timeLabel = date.toLocaleTimeString("pl-PL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
     return `${dayLabel} ${timeLabel}`;
   }
@@ -71,14 +89,12 @@ export default async function ChatDetailPage({ params }: PageProps) {
       </h1>
       <p className="text-sm text-gray-600">Czat z {other?.name ?? "Użytkownik"}</p>
 
-      {/* ✅ Aviso si está cerrado */}
       {isClosed && (
         <div className="border rounded bg-amber-50 text-amber-900 px-3 py-2 text-sm">
           Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.
         </div>
       )}
 
-      {/* Mensajes */}
       <div className="space-y-2 border rounded p-3 bg-white">
         {convo.messages.length === 0 && (
           <p className="text-gray-500 text-sm">Brak wiadomości.</p>
@@ -114,7 +130,6 @@ export default async function ChatDetailPage({ params }: PageProps) {
         })}
       </div>
 
-      {/* Enviar mensaje */}
       <form action={sendMessageAction.bind(null, id)} className="flex gap-2">
         <input
           type="text"

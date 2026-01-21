@@ -1,13 +1,18 @@
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/auth.config";
+// app/admin/_lib/requireAdmin.ts
 import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
+import { getSession } from "@/app/lib/auth";
 
 export async function requireAdmin() {
-  const session = await getServerSession(authConfig);
-  const role = (session?.user as any)?.role;
+  const session = await getSession();
 
-  if (!session?.user) redirect("/login?callbackUrl=/admin");
-  if (role !== "ADMIN") redirect("/");
+  if (!session?.user?.id) {
+    redirect("/login?callbackUrl=/admin");
+  }
+
+  if (session.user.role !== Role.ADMIN) {
+    redirect("/"); // o "/account"
+  }
 
   return session;
 }

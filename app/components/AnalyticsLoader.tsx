@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Script from "next/script";
 
 const STORAGE_KEY = "cookie-consent-v2";
 
@@ -31,24 +32,22 @@ export default function AnalyticsLoader() {
 
   if (!allowed) return null;
 
-  // aquí pondrías tu código de GA o el de la lib que uses
+  const GA_ID = "G-XXXXXXX"; // 🔴 pon aquí tu ID real
+
   return (
     <>
-      {/* Ejemplo con gtag "manual" (rellena tu ID) */}
-      <script
-        async
-        src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        strategy="afterInteractive"
       />
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-XXXXXXX');
-          `,
-        }}
-      />
+      <Script id="ga-consent" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_ID}');
+        `}
+      </Script>
     </>
   );
 }

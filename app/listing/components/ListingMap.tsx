@@ -7,13 +7,20 @@ import "@/app/leaflet-fix.css";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+// ✅ Leaflet icon fix (SIN any)
+const iconProto = L.Icon.Default.prototype as unknown as {
+  _getIconUrl?: () => string;
+};
+
+if (iconProto._getIconUrl) {
+  delete iconProto._getIconUrl;
+}
+
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "/leaflet/marker-icon-2x.png",
   iconUrl: "/leaflet/marker-icon.png",
   shadowUrl: "/leaflet/marker-shadow.png",
 });
-
 
 type MarkerData = {
   id: string;
@@ -54,7 +61,6 @@ function FitToMarkers({ markers }: { markers: MarkerData[] }) {
  * para que no se pisen y puedas clickar todos.
  */
 function spreadOverlappingMarkers(markers: MarkerData[]) {
-  // Agrupamos por coordenada redondeada para detectar “mismos puntos”
   const groups = new Map<string, MarkerData[]>();
 
   for (const m of markers) {
@@ -64,7 +70,7 @@ function spreadOverlappingMarkers(markers: MarkerData[]) {
     groups.set(key, arr);
   }
 
-  const R = 0.00018; // ~15-25m aprox (ajusta si quieres más/menos separación)
+  const R = 0.00018; // ~15-25m aprox
   const out: MarkerData[] = [];
 
   for (const arr of groups.values()) {
@@ -73,7 +79,6 @@ function spreadOverlappingMarkers(markers: MarkerData[]) {
       continue;
     }
 
-    // Repartimos en círculo alrededor del punto real
     arr.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / arr.length;
       out.push({
@@ -90,7 +95,6 @@ function spreadOverlappingMarkers(markers: MarkerData[]) {
 export default function ListingMap({ markers }: { markers: MarkerData[] }) {
   const router = useRouter();
 
-  // ✅ Calcula markers “separados” solo cuando cambie el array original
   const spreadMarkers = useMemo(
     () => spreadOverlappingMarkers(markers),
     [markers]

@@ -2,7 +2,8 @@
 "use server";
 
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
@@ -27,7 +28,7 @@ export async function createBookingAction(input: {
   startDate: string;
   endDate: string;
 }) {
-  const session = await getServerSession(authConfig);
+  const session = (await getServerSession(authConfig)) as Session | null;
   const renterId = session?.user?.id;
   if (!renterId) throw new Error("No autenticado");
 
@@ -115,7 +116,7 @@ export async function createBookingAction(input: {
    APPROVE BOOKING — sin pagos (CONFIRMED)
 =============================================== */
 export async function approveBookingAction(bookingId: string) {
-  const session = await getServerSession(authConfig);
+  const session = (await getServerSession(authConfig)) as Session | null;
   const userId = session?.user?.id;
   if (!userId) throw new Error("No autenticado");
 
@@ -177,7 +178,7 @@ export async function approveBookingAction(bookingId: string) {
    REJECT BOOKING ✅ + CLOSE CHAT (ROBUSTO)
 =============================================== */
 export async function rejectBookingAction(bookingId: string) {
-  const session = await getServerSession(authConfig);
+  const session = (await getServerSession(authConfig)) as Session | null;
   const userId = session?.user?.id;
   if (!userId) throw new Error("No autenticado");
 

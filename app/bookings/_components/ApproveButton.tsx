@@ -15,8 +15,10 @@ export function ApproveButton({ bookingId }: { bookingId: string }) {
       try {
         await approveBookingAction(bookingId);
         setDone(true);
-      } catch (e: any) {
-        setError(e.message || "No se pudo aprobar");
+      } catch (e: unknown) {
+        const message =
+          e instanceof Error ? e.message : "No se pudo aprobar";
+        setError(message);
       }
     });
   }

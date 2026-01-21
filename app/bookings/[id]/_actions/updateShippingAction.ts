@@ -1,7 +1,9 @@
 "use server";
 
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 
@@ -17,12 +19,14 @@ type ShippingStatus =
   | "CANCELLED";
 
 export async function updateShippingAction(formData: FormData) {
-  const session = await getServerSession(authConfig);
-  const userId = session?.user?.id as string | undefined;
+  const session = (await getServerSession(authConfig)) as Session | null;
+  const userId = session?.user?.id;
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
-  const shippingStatus = String(formData.get("shippingStatus") || "") as ShippingStatus;
+  const shippingStatus = String(
+    formData.get("shippingStatus") || ""
+  ) as ShippingStatus;
   const carrier = String(formData.get("carrier") || "").trim();
   const trackingNumber = String(formData.get("trackingNumber") || "").trim();
 
@@ -59,27 +63,26 @@ export async function updateShippingAction(formData: FormData) {
 
   const now = new Date();
 
-  const data: any = {
+  // ✅ Prisma bien tipado
+  const data: Prisma.BookingUpdateInput = {
     shippingStatus,
     carrier: carrier || null,
     trackingNumber: trackingNumber || null,
-  };
 
-  // ✅ Fechas automáticas (solo la primera vez)
-  if (shippingStatus === "SHIPPED" && !booking.shippedAt) {
-    data.shippedAt = now;
-  }
-  if (shippingStatus === "DELIVERED" && !booking.deliveredAt) {
-    data.deliveredAt = now;
-  }
+    ...(shippingStatus === "SHIPPED" && !booking.shippedAt
+      ? { shippedAt: now }
+      : {}),
+
+    ...(shippingStatus === "DELIVERED" && !booking.deliveredAt
+      ? { deliveredAt: now }
+      : {}),
+  };
 
   await prisma.booking.update({
     where: { id: bookingId },
     data,
   });
 
-  // ✅ refresca UI
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath(`/bookings`);
 }
-

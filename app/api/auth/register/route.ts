@@ -31,7 +31,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Contraseña robusta
     if (!isStrongPassword(pw)) {
       return NextResponse.json(
         {
@@ -52,10 +51,9 @@ export async function POST(req: Request) {
 
     const passwordHash = await bcrypt.hash(pw, 10);
 
-    // generar código
     const code = generateCode();
     const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     const user = await prisma.user.create({
       data: {
@@ -69,10 +67,16 @@ export async function POST(req: Request) {
       select: { id: true, name: true, email: true },
     });
 
-    console.log("✅ Usuario creado, enviando email a:", user.email);
+    // ✅ GUARDIA PARA TYPESCRIPT (CLAVE)
+    if (!user.email) {
+      return NextResponse.json(
+        { error: "Email not found after creation" },
+        { status: 500 }
+      );
+    }
 
-    // Crear enlace de verificación automático
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
     const verifyUrl = `${baseUrl}/verify-email?email=${encodeURIComponent(
       user.email
@@ -81,35 +85,32 @@ export async function POST(req: Request) {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 587,
-      secure: Number(process.env.SMTP_PORT) === 465, // ✅ si 465, true
+      secure: Number(process.env.SMTP_PORT) === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
     });
 
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: user.email,
       subject: "Potwierdź swój adres e-mail",
       html: `
         <p>Cześć ${user.name || ""}!</p>
 
-        <p>Twój kod weryfikacyjny to:</p>
-        <p style="font-size: 22px; font-weight: bold; margin: 10px 0;">${code}</p>
+        <p>Twój kod weryfikacyjny:</p>
+        <p style="font-size:22px;font-weight:bold">${code}</p>
 
         <p>Kod jest ważny przez 15 minut.</p>
 
-        <hr/>
-
-        <p><strong>Możesz też kliknąć ten link, aby zweryfikować automatycznie:</strong></p>
-        <p><a href="${verifyUrl}" target="_blank" style="color: blue; font-size: 18px;">Zweryfikuj e-mail</a></p>
-
-        <p>Jeśli to nie byłeś Ty, zignoruj ten e-mail.</p>
+        <p>
+          <a href="${verifyUrl}" target="_blank">
+            Zweryfikuj e-mail
+          </a>
+        </p>
       `,
     });
-
-    console.log("📧 Email enviado, messageId:", info.messageId);
 
     return NextResponse.json(
       {

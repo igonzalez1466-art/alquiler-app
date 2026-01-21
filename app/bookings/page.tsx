@@ -1,13 +1,8 @@
 // app/bookings/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/auth.config";
+import { getSession } from "@/app/lib/auth";
 import Link from "next/link";
-
-function bookingNumber(id: string) {
-  return `BK-${id.slice(0, 8)}`;
-}
-
+import type { Prisma } from "@prisma/client";
 
 /* ============ Helpers ============ */
 function formatRange(a: Date, b: Date) {
@@ -24,35 +19,29 @@ function cx(...cls: (string | false | null | undefined)[]) {
   return cls.filter(Boolean).join(" ");
 }
 
-function plRezerwacje(n: number) {
-  if (n === 1) return "rezerwacja";
-  if (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) {
-    return "rezerwacje";
-  }
-  return "rezerwacji";
-}
+type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
 
-const statusLabel: Record<"PENDING" | "CONFIRMED" | "CANCELLED", string> = {
+const statusLabel: Record<BookingStatus, string> = {
   PENDING: "Oczekująca",
   CONFIRMED: "Potwierdzona",
   CANCELLED: "Odrzucona",
 };
 
-const statusClass: Record<"PENDING" | "CONFIRMED" | "CANCELLED", string> = {
+const statusClass: Record<BookingStatus, string> = {
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
   CONFIRMED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-function StatusBadge({
-  status,
-}: {
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | string;
-}) {
+function StatusBadge({ status }: { status: string }) {
+  const key = status as BookingStatus;
+
   const cls =
-    (statusClass as any)[status] ??
-    "bg-gray-100 text-gray-800 border-gray-200";
-  const label = (statusLabel as any)[status] ?? status;
+    key in statusClass
+      ? statusClass[key]
+      : "bg-gray-100 text-gray-800 border-gray-200";
+
+  const label = key in statusLabel ? statusLabel[key] : status;
 
   return (
     <span className={cx("text-xs px-2 py-1 rounded border", cls)}>{label}</span>
@@ -60,12 +49,12 @@ function StatusBadge({
 }
 
 type SP = {
-  mStatus?: "all" | "PENDING" | "CONFIRMED" | "CANCELLED";
+  mStatus?: "all" | BookingStatus;
   mFrom?: string;
   mTo?: string;
   mSort?: "start_desc" | "start_asc" | "created_desc" | "created_asc";
 
-  oStatus?: "all" | "PENDING" | "CONFIRMED" | "CANCELLED";
+  oStatus?: "all" | BookingStatus;
   oFrom?: string;
   oTo?: string;
   oSort?: "start_desc" | "start_asc" | "created_desc" | "created_asc";
@@ -74,7 +63,7 @@ type SP = {
 const parseDay = (s?: string) => {
   if (!s) return undefined;
   const d = new Date(s);
-  return isNaN(d.getTime()) ? undefined : d;
+  return Number.isNaN(d.getTime()) ? undefined : d;
 };
 
 const endOfDay = (d: Date) => {
@@ -86,7 +75,8 @@ const endOfDay = (d: Date) => {
 /* ============ Server Action: crear review ============ */
 async function createReviewAction(formData: FormData) {
   "use server";
-  const session = await getServerSession(authConfig);
+
+  const session = await getSession();
   if (!session?.user?.id) throw new Error("No autorizado");
 
   const reviewerId = session.user.id;
@@ -95,8 +85,9 @@ async function createReviewAction(formData: FormData) {
   const rating = Number(formData.get("rating") || "0");
   const comment = String(formData.get("comment") || "").trim();
 
-  if (!bookingId || !["OWNER", "RENTER"].includes(role))
+  if (!bookingId || !["OWNER", "RENTER"].includes(role)) {
     throw new Error("Datos inválidos");
+  }
   if (!(rating >= 1 && rating <= 5)) throw new Error("Rating fuera de rango");
 
   const booking = await prisma.booking.findUnique({
@@ -136,21 +127,22 @@ async function createReviewAction(formData: FormData) {
       bookingId,
       reviewerId,
       revieweeId,
-      role: role as any,
+      role: role as "OWNER" | "RENTER",
       rating,
       comment: comment || null,
     },
   });
 }
 
+/* ============ PAGE ============ */
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<SP> | SP;
+  searchParams?: Promise<SP>;
 }) {
   const p: SP = (await searchParams) ?? {};
 
-  const session = await getServerSession(authConfig);
+  const session = await getSession();
   const userId = session?.user?.id;
 
   if (!userId) {
@@ -167,35 +159,35 @@ export default async function BookingsPage({
   }
 
   /* ====== Filtros "Reservas que he hecho" ====== */
-  const mStatus = (p.mStatus as SP["mStatus"]) ?? "all";
+  const mStatus = p.mStatus ?? "all";
   const mFrom = parseDay(p.mFrom);
   const mTo = parseDay(p.mTo) ? endOfDay(parseDay(p.mTo)!) : undefined;
-  const mSort = (p.mSort as SP["mSort"]) ?? "start_desc";
+  const mSort = p.mSort ?? "start_desc";
 
-  const madeWhere: any = { renterId: userId };
+  const madeWhere: Prisma.BookingWhereInput = { renterId: userId };
   if (mStatus !== "all") madeWhere.status = mStatus;
   if (mFrom || mTo) {
-    madeWhere.startDate = { gte: mFrom ?? undefined, lte: mTo ?? undefined };
+    madeWhere.startDate = { gte: mFrom, lte: mTo };
   }
 
-  let madeOrderBy: any = { startDate: "desc" as const };
+  let madeOrderBy: Prisma.BookingOrderByWithRelationInput = { startDate: "desc" };
   if (mSort === "start_asc") madeOrderBy = { startDate: "asc" };
   if (mSort === "created_desc") madeOrderBy = { createdAt: "desc" };
   if (mSort === "created_asc") madeOrderBy = { createdAt: "asc" };
 
   /* ====== Filtros "Reservas en mis anuncios" ====== */
-  const oStatus = (p.oStatus as SP["oStatus"]) ?? "all";
+  const oStatus = p.oStatus ?? "all";
   const oFrom = parseDay(p.oFrom);
   const oTo = parseDay(p.oTo) ? endOfDay(parseDay(p.oTo)!) : undefined;
-  const oSort = (p.oSort as SP["oSort"]) ?? "start_desc";
+  const oSort = p.oSort ?? "start_desc";
 
-  const ownerWhere: any = { listing: { userId } };
+  const ownerWhere: Prisma.BookingWhereInput = { listing: { userId } };
   if (oStatus !== "all") ownerWhere.status = oStatus;
   if (oFrom || oTo) {
-    ownerWhere.startDate = { gte: oFrom ?? undefined, lte: oTo ?? undefined };
+    ownerWhere.startDate = { gte: oFrom, lte: oTo };
   }
 
-  let ownerOrderBy: any = { startDate: "desc" as const };
+  let ownerOrderBy: Prisma.BookingOrderByWithRelationInput = { startDate: "desc" };
   if (oSort === "start_asc") ownerOrderBy = { startDate: "asc" };
   if (oSort === "created_desc") ownerOrderBy = { createdAt: "desc" };
   if (oSort === "created_asc") ownerOrderBy = { createdAt: "asc" };
@@ -222,7 +214,7 @@ export default async function BookingsPage({
       where: ownerWhere,
       include: {
         listing: { select: { id: true, title: true, userId: true } },
-        renter: { select: { id: true, name: true } },
+        renter: { select: { id: true, name: true, email: true } },
         reviews: {
           select: {
             id: true,
@@ -252,19 +244,18 @@ export default async function BookingsPage({
 
       {/* ===================== COMO INQUILINO ===================== */}
       <section>
-        <details className="space-y-3 w-full" open>
+        <details className="space-y-3" open>
           <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
             <span className="text-xl font-semibold">Moje rezerwacje</span>
             <span className="text-sm text-gray-500">
-              {asRenter.length} {plRezerwacje(asRenter.length)}
+              {asRenter.length} reserva{asRenter.length === 1 ? "" : "s"}
             </span>
           </summary>
 
           <div className="space-y-3">
-            {/* Filtros (prefijo m*) */}
             <form
               method="GET"
-              className="w-full rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
+              className="rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
             >
               <label className="block">
                 <span className="text-xs text-gray-600">Status</span>
@@ -279,7 +270,6 @@ export default async function BookingsPage({
                   <option value="CANCELLED">Odrzucone</option>
                 </select>
               </label>
-
               <label className="block">
                 <span className="text-xs text-gray-600">Od</span>
                 <input
@@ -289,7 +279,6 @@ export default async function BookingsPage({
                   className="border rounded p-2 w-full"
                 />
               </label>
-
               <label className="block">
                 <span className="text-xs text-gray-600">Do</span>
                 <input
@@ -299,7 +288,6 @@ export default async function BookingsPage({
                   className="border rounded p-2 w-full"
                 />
               </label>
-
               <label className="block md:col-span-2">
                 <span className="text-xs text-gray-600">Sortowanie</span>
                 <select
@@ -314,7 +302,7 @@ export default async function BookingsPage({
                 </select>
               </label>
 
-              {/* Conserva filtros de la otra sección */}
+              {/* preserva filtros owner */}
               <input type="hidden" name="oStatus" value={p.oStatus ?? "all"} />
               <input type="hidden" name="oFrom" value={p.oFrom ?? ""} />
               <input type="hidden" name="oTo" value={p.oTo ?? ""} />
@@ -324,14 +312,13 @@ export default async function BookingsPage({
                 value={p.oSort ?? "start_desc"}
               />
 
-              {/* Botones dentro del cuadro */}
-              <div className="col-span-2 md:col-span-6 flex flex-wrap items-center justify-end gap-2">
-                <button className="bg-indigo-600 text-white rounded px-4 py-2 whitespace-nowrap">
+              <div className="col-span-2 md:col-span-1 flex gap-2">
+                <button className="flex-1 bg-indigo-600 text-white rounded px-3 py-2">
                   Zastosuj
                 </button>
                 <Link
                   href="/bookings"
-                  className="text-center border rounded px-4 py-2 whitespace-nowrap"
+                  className="flex-1 text-center border rounded px-3 py-2"
                 >
                   Wyczyść filtry
                 </Link>
@@ -361,42 +348,24 @@ export default async function BookingsPage({
                       key={b.id}
                       className="p-4 border rounded bg-white shadow-sm"
                     >
-                      {/* ✅ Layout seguro en móvil */}
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        {/* izquierda */}
-                        <div className="min-w-0">
-<div className="flex items-center gap-2 min-w-0">
-  <Link
-    href={`/listing/${b.listingId}`}
-    className="text-blue-700 hover:underline font-medium block truncate"
-  >
-    {b.listing?.title ?? "Anuncio"}
-  </Link>
-
-  <Link
-    href={`/bookings/${b.id}`}
-    className="text-xs text-gray-500 whitespace-nowrap hover:underline"
-    title="Numer rezerwacji"
-  >
-    {bookingNumber(b.id)}
-  </Link>
-</div>
-
-
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <Link
+                            href={`/listing/${b.listingId}`}
+                            className="text-blue-700 hover:underline font-medium"
+                          >
+                            {b.listing?.title ?? "Anuncio"}
+                          </Link>
                           <div className="text-sm text-gray-600 mt-1">
                             {formatRange(b.startDate, b.endDate)}
                           </div>
                         </div>
 
-                        {/* derecha */}
-                        <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
-                          <div className="self-start sm:self-auto">
-                            <StatusBadge status={b.status} />
-                          </div>
-
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={b.status} />
                           <Link
                             href={`/bookings/${b.id}`}
-                            className="w-full sm:w-auto px-3 py-2 rounded border text-gray-700 hover:bg-gray-50 text-center whitespace-nowrap"
+                            className="px-3 py-1 rounded border text-gray-700 hover:bg-gray-50"
                           >
                             Zobacz szczegóły
                           </Link>
@@ -464,23 +433,22 @@ export default async function BookingsPage({
 
       {/* ===================== COMO PROPIETARIO ===================== */}
       <section>
-        <details className="space-y-3 w-full">
+        <details className="space-y-3">
           <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
             <span className="text-xl font-semibold">
               Rezerwacje w moich ogłoszeniach
             </span>
             <span className="text-sm text-gray-500">
-              {asOwner.length} {plRezerwacje(asOwner.length)}
+              {asOwner.length} reserva{asOwner.length === 1 ? "" : "s"}
             </span>
           </summary>
 
           <div className="space-y-3">
-            {/* Filtros (prefijo o*) */}
             <form
               method="GET"
-              className="w-full rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
+              className="rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
             >
-              {/* Mantén filtros m* al enviar o* */}
+              {/* preserva filtros renter */}
               <input type="hidden" name="mStatus" value={p.mStatus ?? "all"} />
               <input type="hidden" name="mFrom" value={p.mFrom ?? ""} />
               <input type="hidden" name="mTo" value={p.mTo ?? ""} />
@@ -538,14 +506,13 @@ export default async function BookingsPage({
                 </select>
               </label>
 
-              {/* Botones dentro del cuadro */}
-              <div className="col-span-2 md:col-span-6 flex flex-wrap items-center justify-end gap-2">
-                <button className="bg-indigo-600 text-white rounded px-4 py-2 whitespace-nowrap">
+              <div className="col-span-2 md:col-span-1 flex gap-2">
+                <button className="flex-1 bg-indigo-600 text-white rounded px-3 py-2">
                   Zastosuj
                 </button>
                 <Link
                   href={`/bookings?${preserveM}`}
-                  className="text-center border rounded px-4 py-2 whitespace-nowrap"
+                  className="flex-1 text-center border rounded px-3 py-2"
                 >
                   Wyczyść filtry
                 </Link>
@@ -575,49 +542,35 @@ export default async function BookingsPage({
                       key={b.id}
                       className="p-4 border rounded bg-white shadow-sm"
                     >
-                      {/* ✅ Layout seguro en móvil */}
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        {/* izquierda */}
-                        <div className="min-w-0 space-y-1">
-<div className="flex items-center gap-2 min-w-0">
-  <Link
-    href={`/listing/${b.listingId}`}
-    className="text-blue-700 hover:underline font-medium block truncate"
-  >
-    {b.listing?.title ?? "Anuncio"}
-  </Link>
-
-  <Link
-    href={`/bookings/${b.id}`}
-    className="text-xs text-gray-500 whitespace-nowrap hover:underline"
-    title="Numer rezerwacji"
-  >
-    {bookingNumber(b.id)}
-  </Link>
-</div>
-
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <Link
+                            href={`/listing/${b.listingId}`}
+                            className="text-blue-700 hover:underline font-medium"
+                          >
+                            {b.listing?.title ?? "Anuncio"}
+                          </Link>
 
                           <div className="text-sm text-gray-600">
                             {formatRange(b.startDate, b.endDate)}
                           </div>
 
-                        <div className="text-sm text-gray-500">
-                        Zgłoszona przez:{" "}
-                          <span className="font-medium">
-                        {b.renter?.name ?? "Usuario"}
+                          <div className="text-sm text-gray-500">
+                            Zgłoszona przez:{" "}
+                            <span className="font-medium">
+                              {b.renter?.name ?? "Usuario"}
+                            </span>{" "}
+                            <span className="text-gray-400">
+                              ({b.renter?.email ?? "sin email"})
                             </span>
                           </div>
                         </div>
 
-                        {/* derecha */}
-                        <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
-                          <div className="self-start sm:self-auto">
-                            <StatusBadge status={b.status} />
-                          </div>
-
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={b.status} />
                           <Link
                             href={`/bookings/${b.id}`}
-                            className="w-full sm:w-auto px-3 py-2 rounded border text-gray-700 hover:bg-gray-50 text-center whitespace-nowrap"
+                            className="px-3 py-1 rounded border text-gray-700 hover:bg-gray-50"
                           >
                             Zobacz szczegóły
                           </Link>

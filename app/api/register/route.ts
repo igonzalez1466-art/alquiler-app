@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Aquí cambiamos la validación
+    // ✅ Contraseña robusta
     if (!isStrongPassword(pw)) {
       return NextResponse.json(
         {
@@ -70,9 +70,18 @@ export async function POST(req: Request) {
       select: { id: true, name: true, email: true },
     });
 
+    // ✅ FIX TypeScript: email puede venir como string | null
+    if (!user.email) {
+      return NextResponse.json(
+        { error: "Usuario sin email (datos inválidos en DB)" },
+        { status: 500 }
+      );
+    }
+
     console.log("✅ Usuario creado, enviando email a:", user.email);
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
     const verifyUrl = `${baseUrl}/verify-email?email=${encodeURIComponent(
       user.email
     )}&code=${encodeURIComponent(code)}`;
