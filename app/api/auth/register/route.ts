@@ -75,8 +75,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const baseUrl =
+  process.env.VERCEL_ENV === "production"
+    ? (process.env.NEXT_PUBLIC_BASE_URL || `https://${process.env.VERCEL_URL}`)
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
+
 
     const verifyUrl = `${baseUrl}/verify-email?email=${encodeURIComponent(
       user.email
@@ -121,8 +126,15 @@ export async function POST(req: Request) {
       },
       { status: 201 }
     );
-  } catch (err) {
-    console.error("REGISTER ERROR:", err);
+  } catch (err: any) {
+    console.error("REGISTER ERROR:", {
+      name: err?.name,
+      message: err?.message,
+      code: err?.code,
+      response: err?.response,
+      stack: err?.stack,
+    });
+
     return NextResponse.json(
       { error: "Błąd podczas rejestracji" },
       { status: 500 }
