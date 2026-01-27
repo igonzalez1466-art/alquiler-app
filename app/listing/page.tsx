@@ -1,251 +1,302 @@
-import Link from "next/link";
+// app/listing/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { requireAdmin } from "@/app/admin/_lib/requireAdmin";
+import Link from "next/link";
+import MapClient from "./MapClient";
+import { getServerSession } from "next-auth";
+import { authConfig } from "@/auth.config";
+import { redirect } from "next/navigation";
+import ListingFilters from "./ListingFilters";
+import ListingResults from "./ListingResults";
 
-/* ===================== TYPES ===================== */
-type DayPoint = { day: string; count: number };
-type KV = { label: string; count: number };
-type AdminSearchParams = { days?: string };
+/* ===================== LABELS ===================== */
+const enumLabels: Record<string, string> = {
+  WOMAN: "Kobieta",
+  MAN: "Mężczyzna",
+  UNISEX: "Uniseks",
+  KIDS: "Dziecięcy",
+  ABRIGO: "Płaszcz",
+  CHAQUETA: "Marynarka",
+  CAMISA: "Koszula",
+  BLUSA: "Bluzka",
+  VESTIDO: "Sukienka",
+  PANTALON: "Spodnie",
+  FALDA: "Spódnica",
+  TRAJE: "Garnitur",
+  SUDADERA: "Bluza",
+  JERSEY: "Sweter",
+  MONO: "Kombinezon",
+  CHAMARRA: "Kurtka",
+  ACCESORIO: "Akcesoria",
+  OTRO: "Inne",
+};
 
-/* ===================== HELPERS ===================== */
-function toInt(x: unknown): number {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : 0;
+/* ===================== ALLOWED ENUM VALUES ===================== */
+const ALLOWED_COLORS = new Set([
+  "CZARNY",
+  "BIALY",
+  "SZARY",
+  "BEZOWY",
+  "BRAZOWY",
+  "CZERWONY",
+  "ROZOWY",
+  "POMARANCZOWY",
+  "ZOLTY",
+  "ZIELONY",
+  "NIEBIESKI",
+  "GRANATOWY",
+  "FIOLETOWY",
+  "ZLOTY",
+  "SREBRNY",
+  "WIELOKOLOROWY",
+]);
+
+const ALLOWED_MATERIALS = new Set([
+  "BAWELNA",
+  "WELNA",
+  "JEDWAB",
+  "LEN",
+  "POLIESTER",
+  "AKRYL",
+  "WISKOZA",
+  "SKORA",
+  "EKO_SKORA",
+  "ZAMSZ",
+  "DZINS",
+  "LYCRA",
+  "INNE",
+]);
+
+type Search = {
+  tab?: "all" | "my";
+  q?: string;
+  category?: string;
+  city?: string;
+  marca?: string;
+  gender?: "WOMAN" | "MAN" | "UNISEX" | "KIDS";
+  garmentType?: keyof typeof enumLabels;
+  size?: string;
+  color?: string;
+  materials?: string;
+  min?: string;
+  max?: string;
+};
+
+const parseNum = (v?: string) => {
+  if (!v) return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+function toStringArray(v: unknown): string[] | null {
+  if (!v) return null;
+
+  if (Array.isArray(v)) {
+    return v.filter((x) => typeof x === "string") as string[];
+  }
+
+  if (typeof v === "string") {
+    // JSON string: '["BAWELNA","WELNA"]'
+    try {
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((x) => typeof x === "string") as string[];
+      }
+    } catch {
+      // normal string: "BAWELNA"
+      return [v];
+    }
+  }
+
+  return null;
 }
 
-function maxCount(points: DayPoint[]) {
-  return points.reduce((m, p) => Math.max(m, p.count), 0) || 1;
-}
-
-/* ===================== COMPONENTS ===================== */
-function Stat({
-  title,
-  value,
-  sub,
-}: {
-  title: string;
-  value: string | number;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-lg border p-4 bg-white">
-      <p className="text-sm text-gray-600">{title}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
-    </div>
-  );
-}
-
-function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
-  const max = maxCount(points);
-
-  return (
-    <div className="rounded-lg border p-4 bg-white">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="font-semibold">{title}</p>
-        <p className="text-xs text-gray-500">Últimos {points.length} días</p>
-      </div>
-
-      <div className="flex items-end gap-1 h-28">
-        {points.map((p) => (
-          <div key={p.day} className="group relative flex-1">
-            <div
-              className="w-full rounded-sm bg-indigo-500/80"
-              style={{ height: `${Math.round((p.count / max) * 100)}%` }}
-              title={`${p.day}: ${p.count}`}
-            />
-            <div className="pointer-events-none absolute -top-8 left-1/2 hidden -translate-x-1/2 rounded bg-black px-2 py-1 text-xs text-white group-hover:block">
-              {p.count}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-2 flex justify-between text-[11px] text-gray-500">
-        <span>{points[0]?.day}</span>
-        <span>{points.at(-1)?.day}</span>
-      </div>
-    </div>
-  );
-}
-
-function SimpleTable({ title, rows }: { title: string; rows: KV[] }) {
-  return (
-    <div className="rounded-lg border p-4 bg-white">
-      <p className="font-semibold mb-2">{title}</p>
-      <div className="overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-gray-600">
-            <tr>
-              <th className="py-2">Valor</th>
-              <th className="py-2">Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr className="border-t">
-                <td className="py-2" colSpan={2}>
-                  —
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.label} className="border-t">
-                  <td className="py-2">{r.label || "—"}</td>
-                  <td className="py-2">{r.count}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-/* ===================== PAGE ===================== */
-export default async function AdminDashboard({
+export default async function ListingPage({
   searchParams,
 }: {
-  // ✅ Next 15 (en tu proyecto): searchParams viene como Promise
-  searchParams?: Promise<AdminSearchParams>;
+  searchParams?: Search;
 }) {
-  await requireAdmin();
+  const session: any = await getServerSession(authConfig as any);
 
-  const sp = (await searchParams) ?? {};
-  const days = sp.days === "7" ? 7 : sp.days === "90" ? 90 : 30;
+  const p = searchParams ?? {};
+  const tab = p.tab ?? "all";
+  const userId: string | undefined = session?.user?.id;
 
-  /* ===================== KPIs ===================== */
-  const [
-    usersCount,
-    listingsCount,
-    bookingsCount,
-    reviewsCount,
-    bookingsPending,
-    avgRatingAgg,
-    sumAmountAgg,
-    badReviewsCount,
-    avgDurationRaw,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.listing.count(),
-    prisma.booking.count(),
-    prisma.review.count(),
-    prisma.booking.count({ where: { status: "PENDING" } }),
-    prisma.review.aggregate({ _avg: { rating: true } }),
-    prisma.booking.aggregate({ _sum: { amountCents: true } }),
-    prisma.review.count({ where: { rating: { lte: 2 } } }),
-    prisma.$queryRaw<Array<{ avgDays: number | null }>>`
-      SELECT AVG(EXTRACT(EPOCH FROM ("endDate" - "startDate")) / 86400.0) AS "avgDays"
-      FROM "Booking";
-    `,
-  ]);
+  // Si el usuario pide "my", debe estar logueado
+  if (tab === "my" && !userId) {
+    redirect("/login?callbackUrl=/listing?tab=my");
+  }
 
-  const avgRating = avgRatingAgg._avg.rating ?? 0;
-  const sumAmountCents = sumAmountAgg._sum.amountCents ?? 0;
-  const avgDuration = avgDurationRaw[0]?.avgDays ?? 0;
+  /* ======================= FILTROS ======================= */
+  const q = (p.q ?? "").trim();
+  const city = (p.city ?? "").trim();
+  const marca = (p.marca ?? "").trim();
+  const gender = p.gender;
+  const size = (p.size ?? "").trim();
 
-  const conversion =
-    listingsCount > 0 ? ((bookingsCount / listingsCount) * 100).toFixed(1) : "0";
+  const colorRaw = String(p.color ?? "").trim();
+  const materialRaw = String(p.materials ?? "").trim();
 
-  /* ===================== SERIES ===================== */
-  const [bookingsSeriesRaw, listingsSeriesRaw] = await Promise.all([
-    prisma.$queryRaw<Array<{ day: string; count: number }>>`
-      WITH dates AS (
-        SELECT generate_series(
-          (CURRENT_DATE - (${days} - 1) * INTERVAL '1 day')::date,
-          CURRENT_DATE::date,
-          INTERVAL '1 day'
-        )::date AS day
-      )
-      SELECT
-        to_char(d.day, 'YYYY-MM-DD') AS day,
-        COALESCE(b.count, 0)::int AS count
-      FROM dates d
-      LEFT JOIN (
-        SELECT ("createdAt"::date) AS day, COUNT(*)::int AS count
-        FROM "Booking"
-        WHERE "createdAt" >= (CURRENT_DATE - (${days} - 1) * INTERVAL '1 day')
-        GROUP BY ("createdAt"::date)
-      ) b ON b.day = d.day
-      ORDER BY d.day ASC;
-    `,
-    prisma.$queryRaw<Array<{ day: string; count: number }>>`
-      WITH dates AS (
-        SELECT generate_series(
-          (CURRENT_DATE - (${days} - 1) * INTERVAL '1 day')::date,
-          CURRENT_DATE::date,
-          INTERVAL '1 day'
-        )::date AS day
-      )
-      SELECT
-        to_char(d.day, 'YYYY-MM-DD') AS day,
-        COALESCE(l.count, 0)::int AS count
-      FROM dates d
-      LEFT JOIN (
-        SELECT ("createdAt"::date) AS day, COUNT(*)::int AS count
-        FROM "Listing"
-        WHERE "createdAt" >= (CURRENT_DATE - (${days} - 1) * INTERVAL '1 day')
-        GROUP BY ("createdAt"::date)
-      ) l ON l.day = d.day
-      ORDER BY d.day ASC;
-    `,
-  ]);
+  const color = ALLOWED_COLORS.has(colorRaw) ? colorRaw : undefined;
+  const material = ALLOWED_MATERIALS.has(materialRaw) ? materialRaw : undefined;
 
-  const bookingsSeries: DayPoint[] = bookingsSeriesRaw.map((r) => ({
-    day: r.day,
-    count: toInt(r.count),
+  const category = (p.category ?? "").trim().toLowerCase();
+  const categoryToGarmentType: Record<string, keyof typeof enumLabels> = {
+    sukienki: "VESTIDO",
+    garnitur: "TRAJE",
+    akcesoria: "ACCESORIO",
+  };
+
+  const garmentType =
+    p.garmentType ?? (category ? categoryToGarmentType[category] : undefined);
+
+  const min = parseNum(p.min);
+  const max = parseNum(p.max);
+
+  /* ======================= WHERE ======================= */
+  const where: any = {};
+  const AND: any[] = [];
+
+  if (tab === "all") {
+    where.available = true;
+  }
+
+  if (tab === "my") {
+    where.userId = userId;
+    // where.available = true; // opcional
+  }
+
+  if (q) {
+    AND.push({
+      OR: [
+        { title: { contains: q } },
+        { description: { contains: q } },
+        { marca: { contains: q } },
+        { city: { contains: q } },
+        { postalCode: { contains: q } },
+      ],
+    });
+  }
+
+  if (city) {
+    AND.push({
+      OR: [{ city: { contains: city } }, { postalCode: { contains: city } }],
+    });
+  }
+
+  if (marca) AND.push({ marca: { contains: marca } });
+  if (gender) AND.push({ gender });
+  if (garmentType) AND.push({ garmentType });
+  if (size) AND.push({ size });
+  if (color) AND.push({ color });
+
+  if (min !== undefined || max !== undefined) {
+    AND.push({
+      pricePerDay: { gte: min ?? 0, lte: max ?? 1_000_000 },
+    });
+  }
+
+  if (material) {
+    AND.push({
+      materials: {
+        string_contains: `"${material}"`,
+      },
+    });
+  }
+
+  if (AND.length) where.AND = AND;
+
+  /* ======================= QUERY ======================= */
+  const listingsRaw = await prisma.listing.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      title: true,
+      pricePerDay: true,
+      city: true,
+      postalCode: true,
+      lat: true,
+      lng: true,
+      marca: true,
+      gender: true,
+      size: true,
+      color: true,
+      garmentType: true,
+      materials: true,
+      images: {
+        select: { id: true, url: true, alt: true, order: true },
+        orderBy: { order: "asc" },
+        take: 4,
+      },
+    },
+  });
+
+  // ✅ Normaliza materials a string[] | null para ListingResults
+  const listings = listingsRaw.map((l) => ({
+    ...l,
+    materials: toStringArray((l as any).materials),
   }));
 
-  const listingsSeries: DayPoint[] = listingsSeriesRaw.map((r) => ({
-    day: r.day,
-    count: toInt(r.count),
-  }));
+  const markers = listings
+    .filter((l) => l.lat !== null && l.lng !== null)
+    .map((l) => ({
+      id: l.id,
+      title: l.title,
+      lat: l.lat as number,
+      lng: l.lng as number,
+      pricePerDay: l.pricePerDay,
+      city: l.city ?? undefined,
+      imageUrl: l.images[0]?.url ?? null,
+      imageAlt: l.images[0]?.alt ?? l.title,
+    }));
 
-  /* ===================== RENDER ===================== */
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        {[7, 30, 90].map((d) => (
+    <div className="max-w-5xl mx-auto mt-10 space-y-4">
+      <div className="flex items-center justify-between">
+        <div />
+        <div className="flex gap-2">
           <Link
-            key={d}
-            href={`/admin?days=${d}`}
-            className={`rounded-md border px-3 py-1 text-sm ${
-              days === d ? "bg-indigo-600 text-white" : "hover:bg-gray-100"
+            href="/listing/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Dodaj ogłoszenie
+          </Link>
+
+          <Link
+            href="/listing?tab=my"
+            className={`border px-4 py-2 rounded bg-white ${
+              tab === "my" ? "ring-2 ring-blue-500" : ""
             }`}
           >
-            {d} días
+            Moje ogłoszenia
           </Link>
-        ))}
+        </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat title="Usuarios" value={usersCount} />
-        <Stat title="Anuncios" value={listingsCount} />
-        <Stat
-          title="Reservas"
-          value={bookingsCount}
-          sub={`Pendientes: ${bookingsPending}`}
-        />
-        <Stat
-          title="Reviews"
-          value={reviewsCount}
-          sub={`Media: ${avgRating.toFixed(2)} | Negativas (≤2): ${badReviewsCount}`}
-        />
+      <ListingFilters
+        q={q}
+        city={city}
+        marca={marca}
+        gender={gender}
+        garmentType={garmentType}
+        size={size}
+        color={color ?? ""}
+        materials={material ?? ""}
+      />
+
+      <div className="relative">
+        <MapClient markers={markers} />
+
+        {markers.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-white/90 border rounded px-4 py-2 text-sm text-gray-700 shadow">
+              Brak ogłoszeń dla tego wyszukiwania.
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BarChart title="Reservas por día" points={bookingsSeries} />
-        <BarChart title="Anuncios por día" points={listingsSeries} />
-      </div>
-
-      {/* Si quieres usar los KPIs extra (para que no te salten warnings), descomenta esto:
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat title="Ingresos (cents)" value={sumAmountCents} />
-        <Stat title="Duración media (días)" value={avgDuration.toFixed(1)} />
-        <Stat title="Conversión (%)" value={conversion} />
-      </div>
-      */}
+      <ListingResults listings={listings as any} />
     </div>
   );
 }
