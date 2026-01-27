@@ -5,14 +5,18 @@ import Pusher from "pusher-js";
 
 let client: Pusher | null = null;
 
-/**
- * Devuelve un cliente Pusher singleton para el navegador.
- */
 export function getPusherClient() {
-  if (!client) {
-    client = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    });
+  if (client) return client;
+
+  const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+  // ⛔️ En Preview / local puede no existir → no romper la app
+  if (!key || !cluster) {
+    console.warn("[PUSHER] disabled (missing NEXT_PUBLIC_PUSHER_KEY/CLUSTER)");
+    return null;
   }
+
+  client = new Pusher(key, { cluster });
   return client;
 }

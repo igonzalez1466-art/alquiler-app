@@ -29,13 +29,27 @@ export default function ChatBell({ userId }: Props) {
     // Carga inicial
     fetchUnread();
 
-    // Suscripción en tiempo real
     const pusher = getPusherClient();
-    const channel = pusher.subscribe(`user-${userId}`);
+
+    // ✅ Si no hay Pusher (env vars faltan en Preview), no rompemos la app.
+    // Fallback: polling cada 15s para actualizar el badge.
+    if (!pusher) {
+      const id = setInterval(() => {
+        if (mounted) fetchUnread();
+      }, 15000);
+
+      return () => {
+        mounted = false;
+        clearInterval(id);
+      };
+    }
+
+    const channelName = `user-${userId}`;
+    const channel = pusher.subscribe(channelName);
 
     const onNewMessage = () => {
       if (!mounted) return;
-      fetchUnread();    // actualiza badge
+      fetchUnread(); // actualiza badge
       router.refresh(); // refresca RSC (inbox/nav si leen del server)
     };
 
@@ -44,8 +58,10 @@ export default function ChatBell({ userId }: Props) {
     return () => {
       mounted = false;
       channel.unbind("message:new", onNewMessage);
-      pusher.unsubscribe(`user-${userId}`);
-      pusher.disconnect();
+      pusher.unsubscribe(channelName);
+
+      // ⚠️ No desconectes el singleton aquí: puede haber otros componentes usando Pusher.
+      // pusher.disconnect();
     };
   }, [userId, router]);
 
