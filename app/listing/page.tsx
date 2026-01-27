@@ -113,13 +113,14 @@ function toStringArray(v: unknown): string[] | null {
 export default async function ListingPage({
   searchParams,
 }: {
-  searchParams?: Search;
+  searchParams?: Promise<Search>;
 }) {
   const session: any = await getServerSession(authConfig as any);
 
-  const p = searchParams ?? {};
+  const p = (await searchParams) ?? {};
   const tab = p.tab ?? "all";
   const userId: string | undefined = session?.user?.id;
+
 
   // Si el usuario pide "my", debe estar logueado
   if (tab === "my" && !userId) {
