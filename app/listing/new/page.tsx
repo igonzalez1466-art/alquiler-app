@@ -2,12 +2,11 @@
 import { prisma } from "@/app/lib/prisma";
 import { getSession } from "@/app/lib/auth";
 import { redirect } from "next/navigation";
-import fs from "node:fs/promises";
-import path from "node:path";
 import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import { sendMail } from "@/app/lib/mailer";
 import type { Gender, GarmentType, Color } from "@prisma/client";
+import { put } from "@vercel/blob";
 
 /* ===================== CONSTANTES ===================== */
 
@@ -142,7 +141,9 @@ export default async function NewListingPage({
       : null;
     if (!color) redirect(err("Nieprawidłowy kolor"));
 
-    if (!ALLOWED_MATERIALS.has(material as (typeof MATERIALS)[number]["value"])) {
+    if (
+      !ALLOWED_MATERIALS.has(material as (typeof MATERIALS)[number]["value"])
+    ) {
       redirect(err("Nieprawidłowy materiał"));
     }
 
@@ -178,20 +179,26 @@ export default async function NewListingPage({
         size,
         color,
         garmentType,
-        materials: [material],
+        materials: [material], // (si luego quieres multi, lo ampliamos)
         available: true,
         user: { connect: { id: userId } },
       },
       select: { id: true, title: true },
     });
 
+    /* ===== EMAIL (opcional) ===== */
     const owner = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, name: true },
     });
 
     if (owner?.email) {
-      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const baseUrl =
+        process.env.VERCEL_ENV === "production"
+          ? (process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || "")
+          : process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "http://localhost:3000";
 
       try {
         await sendMail({
@@ -208,29 +215,31 @@ export default async function NewListingPage({
       }
     }
 
-    /* ===== FOTOS ===== */
+    /* ===== FOTOS (Vercel Blob) ===== */
 
     const files = formData
       .getAll("photos")
       .filter((x): x is File => x instanceof File);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadDir, { recursive: true });
-
     let order = 0;
+
     for (const file of files) {
       if (file.size === 0) continue;
 
-      const filename = `${crypto.randomUUID()}.jpg`;
+      // Nombre estable (mantén extensión si viene)
+      const ext =
+        (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") ||
+        "jpg";
 
-      await fs.writeFile(
-        path.join(uploadDir, filename),
-        Buffer.from(await file.arrayBuffer())
-      );
+      const filename = `${crypto.randomUUID()}.${ext}`;
 
+      // ✅ Sube a Blob (NO filesystem)
+      const blob = await put(filename, file, { access: "public" });
+
+      // Guarda URL real en DB
       await prisma.image.create({
         data: {
-          url: `/uploads/${filename}`,
+          url: blob.url,
           listingId: listing.id,
           order: order++,
         },
