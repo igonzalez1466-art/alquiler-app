@@ -35,6 +35,17 @@ function getUserNameFromSession(session: unknown): string | undefined {
   return typeof name === "string" ? name : undefined;
 }
 
+// ✅ URL estable para emails (no usar NEXTAUTH_URL aquí)
+function getEmailBaseUrl(): string {
+  const raw =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "http://localhost:3000";
+
+  // quitar slash final si existe
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
 export async function sendMessageAction(
   conversationId: string,
   formData: FormData
@@ -88,17 +99,22 @@ export async function sendMessageAction(
 
   const recipient = isBuyer ? conv.seller : conv.buyer;
 
-  await pusherServer.trigger(`user-${recipient.id}`, "message:new", {
-    conversationId,
-    messageId: createdMsg.id,
-  });
-  await pusherServer.trigger(`conversation-${conversationId}`, "message:new", {
-    messageId: createdMsg.id,
-  });
+  // ✅ Realtime: si falla, no debería romper la UX
+  try {
+    await pusherServer.trigger(`user-${recipient.id}`, "message:new", {
+      conversationId,
+      messageId: createdMsg.id,
+    });
+    await pusherServer.trigger(`conversation-${conversationId}`, "message:new", {
+      messageId: createdMsg.id,
+    });
+  } catch (e) {
+    console.error("Pusher trigger failed (ignored):", e);
+  }
 
   // ✅ Email notification: best-effort (NO romper el chat si falla)
   if (EMAIL_ENABLED) {
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = getEmailBaseUrl();
     const to = recipient?.email || process.env.DEV_FALLBACK_TO || "";
 
     if (to) {
