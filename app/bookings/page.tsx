@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 /* ============ Helpers ============ */
 function formatRange(a: Date, b: Date) {
   const f = (d: Date) =>
-    d.toLocaleDateString("es-ES", {
+    d.toLocaleDateString("pl-PL", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -32,6 +32,17 @@ const statusClass: Record<BookingStatus, string> = {
   CONFIRMED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
 };
+
+// ✅ plural PL dla "rezerwacja"
+function pluralPLBooking(n: number) {
+  if (n === 1) return "rezerwacja";
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
+    return "rezerwacje";
+  }
+  return "rezerwacji";
+}
 
 function StatusBadge({ status }: { status: string }) {
   const key = status as BookingStatus;
@@ -77,7 +88,7 @@ async function createReviewAction(formData: FormData) {
   "use server";
 
   const session = await getSession();
-  if (!session?.user?.id) throw new Error("No autorizado");
+  if (!session?.user?.id) throw new Error("Brak autoryzacji");
 
   const reviewerId = session.user.id;
   const bookingId = String(formData.get("bookingId") || "");
@@ -86,33 +97,33 @@ async function createReviewAction(formData: FormData) {
   const comment = String(formData.get("comment") || "").trim();
 
   if (!bookingId || !["OWNER", "RENTER"].includes(role)) {
-    throw new Error("Datos inválidos");
+    throw new Error("Nieprawidłowe dane");
   }
-  if (!(rating >= 1 && rating <= 5)) throw new Error("Rating fuera de rango");
+  if (!(rating >= 1 && rating <= 5)) throw new Error("Ocena poza zakresem");
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: { listing: { select: { userId: true } } },
   });
-  if (!booking) throw new Error("Reserva no encontrada");
+  if (!booking) throw new Error("Nie znaleziono rezerwacji");
 
   const now = new Date();
   const isParticipant =
     booking.renterId === reviewerId || booking.listing.userId === reviewerId;
 
-  if (!isParticipant) throw new Error("No autorizado");
+  if (!isParticipant) throw new Error("Brak uprawnień");
   if (booking.status !== "CONFIRMED" || booking.endDate > now) {
-    throw new Error("Solo se puede valorar reservas confirmadas y finalizadas");
+    throw new Error("Można oceniać tylko potwierdzone i zakończone rezerwacje");
   }
 
   let revieweeId: string;
   if (role === "OWNER") {
     if (booking.renterId !== reviewerId)
-      throw new Error("Rol no válido para esta reserva");
+      throw new Error("Nieprawidłowa rola dla tej rezerwacji");
     revieweeId = booking.listing.userId;
   } else {
     if (booking.listing.userId !== reviewerId)
-      throw new Error("Rol no válido para esta reserva");
+      throw new Error("Nieprawidłowa rola dla tej rezerwacji");
     revieweeId = booking.renterId;
   }
 
@@ -120,7 +131,7 @@ async function createReviewAction(formData: FormData) {
     where: { bookingId, reviewerId, revieweeId },
     select: { id: true },
   });
-  if (existing) throw new Error("Ya has valorado en esta reserva");
+  if (existing) throw new Error("Ocena dla tej rezerwacji już istnieje");
 
   await prisma.review.create({
     data: {
@@ -158,7 +169,7 @@ export default async function BookingsPage({
     );
   }
 
-  /* ====== Filtros "Reservas que he hecho" ====== */
+  /* ====== Filtros "Moje rezerwacje" ====== */
   const mStatus = p.mStatus ?? "all";
   const mFrom = parseDay(p.mFrom);
   const mTo = parseDay(p.mTo) ? endOfDay(parseDay(p.mTo)!) : undefined;
@@ -175,7 +186,7 @@ export default async function BookingsPage({
   if (mSort === "created_desc") madeOrderBy = { createdAt: "desc" };
   if (mSort === "created_asc") madeOrderBy = { createdAt: "asc" };
 
-  /* ====== Filtros "Reservas en mis anuncios" ====== */
+  /* ====== Filtros "Rezerwacje w moich ogłoszeniach" ====== */
   const oStatus = p.oStatus ?? "all";
   const oFrom = parseDay(p.oFrom);
   const oTo = parseDay(p.oTo) ? endOfDay(parseDay(p.oTo)!) : undefined;
@@ -242,13 +253,13 @@ export default async function BookingsPage({
     <div className="max-w-4xl mx-auto p-6 space-y-10">
       <h1 className="text-2xl font-bold">Rezerwacje</h1>
 
-      {/* ===================== COMO INQUILINO ===================== */}
+      {/* ===================== JAKO NAJEMCA ===================== */}
       <section>
         <details className="space-y-3" open>
           <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
             <span className="text-xl font-semibold">Moje rezerwacje</span>
             <span className="text-sm text-gray-500">
-              {asRenter.length} reserva{asRenter.length === 1 ? "" : "s"}
+              {asRenter.length} {pluralPLBooking(asRenter.length)}
             </span>
           </summary>
 
@@ -302,15 +313,11 @@ export default async function BookingsPage({
                 </select>
               </label>
 
-              {/* preserva filtros owner */}
+              {/* zachowaj filtry właściciela */}
               <input type="hidden" name="oStatus" value={p.oStatus ?? "all"} />
               <input type="hidden" name="oFrom" value={p.oFrom ?? ""} />
               <input type="hidden" name="oTo" value={p.oTo ?? ""} />
-              <input
-                type="hidden"
-                name="oSort"
-                value={p.oSort ?? "start_desc"}
-              />
+              <input type="hidden" name="oSort" value={p.oSort ?? "start_desc"} />
 
               <div className="col-span-2 md:col-span-1 flex gap-2">
                 <button className="flex-1 bg-indigo-600 text-white rounded px-3 py-2">
@@ -326,9 +333,7 @@ export default async function BookingsPage({
             </form>
 
             {asRenter.length === 0 ? (
-              <p className="text-gray-500">
-                Brak rezerwacji dla wybranych filtrów.
-              </p>
+              <p className="text-gray-500">Brak rezerwacji dla wybranych filtrów.</p>
             ) : (
               <ul className="space-y-3">
                 {asRenter.map((b) => {
@@ -344,17 +349,14 @@ export default async function BookingsPage({
                   );
 
                   return (
-                    <li
-                      key={b.id}
-                      className="p-4 border rounded bg-white shadow-sm"
-                    >
+                    <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <Link
                             href={`/listing/${b.listingId}`}
                             className="text-blue-700 hover:underline font-medium"
                           >
-                            {b.listing?.title ?? "Anuncio"}
+                            {b.listing?.title ?? "Ogłoszenie"}
                           </Link>
                           <div className="text-sm text-gray-600 mt-1">
                             {formatRange(b.startDate, b.endDate)}
@@ -374,8 +376,7 @@ export default async function BookingsPage({
 
                       {myExisting ? (
                         <div className="mt-3 text-sm text-gray-700">
-                          Twoja ocena właściciela:{" "}
-                          <strong>{myExisting.rating}/5</strong>
+                          Twoja ocena właściciela: <strong>{myExisting.rating}/5</strong>
                         </div>
                       ) : iCanReview ? (
                         <form
@@ -431,15 +432,13 @@ export default async function BookingsPage({
         </details>
       </section>
 
-      {/* ===================== COMO PROPIETARIO ===================== */}
+      {/* ===================== JAKO WŁAŚCICIEL ===================== */}
       <section>
         <details className="space-y-3">
           <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
-            <span className="text-xl font-semibold">
-              Rezerwacje w moich ogłoszeniach
-            </span>
+            <span className="text-xl font-semibold">Rezerwacje w moich ogłoszeniach</span>
             <span className="text-sm text-gray-500">
-              {asOwner.length} reserva{asOwner.length === 1 ? "" : "s"}
+              {asOwner.length} {pluralPLBooking(asOwner.length)}
             </span>
           </summary>
 
@@ -448,15 +447,11 @@ export default async function BookingsPage({
               method="GET"
               className="rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
             >
-              {/* preserva filtros renter */}
+              {/* zachowaj filtry najemcy */}
               <input type="hidden" name="mStatus" value={p.mStatus ?? "all"} />
               <input type="hidden" name="mFrom" value={p.mFrom ?? ""} />
               <input type="hidden" name="mTo" value={p.mTo ?? ""} />
-              <input
-                type="hidden"
-                name="mSort"
-                value={p.mSort ?? "start_desc"}
-              />
+              <input type="hidden" name="mSort" value={p.mSort ?? "start_desc"} />
 
               <label className="block">
                 <span className="text-xs text-gray-600">Status</span>
@@ -520,9 +515,7 @@ export default async function BookingsPage({
             </form>
 
             {asOwner.length === 0 ? (
-              <p className="text-gray-500">
-                Brak rezerwacji dla wybranych filtrów.
-              </p>
+              <p className="text-gray-500">Brak rezerwacji dla wybranych filtrów.</p>
             ) : (
               <ul className="space-y-3">
                 {asOwner.map((b) => {
@@ -538,17 +531,14 @@ export default async function BookingsPage({
                   );
 
                   return (
-                    <li
-                      key={b.id}
-                      className="p-4 border rounded bg-white shadow-sm"
-                    >
+                    <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <Link
                             href={`/listing/${b.listingId}`}
                             className="text-blue-700 hover:underline font-medium"
                           >
-                            {b.listing?.title ?? "Anuncio"}
+                            {b.listing?.title ?? "Ogłoszenie"}
                           </Link>
 
                           <div className="text-sm text-gray-600">
@@ -556,9 +546,9 @@ export default async function BookingsPage({
                           </div>
 
                           <div className="text-sm text-gray-500">
-                            Zgłoszona przez:{" "}
+                            Rezerwacja od:{" "}
                             <span className="font-medium">
-                              {b.renter?.name ?? "Usuario"}
+                              {b.renter?.name ?? "Użytkownik"}
                             </span>
                           </div>
                         </div>
@@ -576,8 +566,7 @@ export default async function BookingsPage({
 
                       {myExisting ? (
                         <div className="mt-3 text-sm text-gray-700">
-                          Twoja ocena najemcy:{" "}
-                          <strong>{myExisting.rating}/5</strong>
+                          Twoja ocena najemcy: <strong>{myExisting.rating}/5</strong>
                         </div>
                       ) : iCanReview ? (
                         <form
