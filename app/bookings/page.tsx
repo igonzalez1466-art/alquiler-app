@@ -252,7 +252,7 @@ export default async function BookingsPage({
         by: ["revieweeId"],
         where: {
           revieweeId: { in: renterIds },
-          role: "RENTER", // reviews SOBRE el inquilino
+          role: "RENTER",
         },
         _avg: { rating: true },
         _count: { rating: true },
@@ -370,10 +370,6 @@ export default async function BookingsPage({
                       (r) => r.reviewerId === userId && r.role === "OWNER"
                     );
 
-                  const myExisting = b.reviews.find(
-                    (r) => r.reviewerId === userId && r.role === "OWNER"
-                  );
-
                   return (
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
                       <div className="flex items-start justify-between gap-3">
@@ -400,11 +396,7 @@ export default async function BookingsPage({
                         </div>
                       </div>
 
-                      {myExisting ? (
-                        <div className="mt-3 text-sm text-gray-700">
-                          Twoja ocena właściciela: <strong>{myExisting.rating}/5</strong>
-                        </div>
-                      ) : iCanReview ? (
+                      {iCanReview ? (
                         <form
                           action={createReviewAction}
                           className="mt-3 grid grid-cols-1 sm:grid-cols-6 gap-2"
@@ -605,8 +597,6 @@ export default async function BookingsPage({
                           </Link>
                         </div>
                       </div>
-
-                      {/* ✅ Quitado: "Twoja ocena dla najemcy..." */}
 
                       {iCanReview ? (
                         <form
