@@ -157,9 +157,14 @@ export async function createBookingAction(formData: FormData) {
           subject,
           html: `
             <p>Cześć ${listing.user?.name ?? ""}, Masz nowe zgłoszenie rezerwacji.</p>
+
+    <p><strong>
+      Przejdź do rezerwacji, aby ją zatwierdzić lub odrzucić:
+    </strong></p>
+
             ${htmlBlock}
             <hr/>
-            <p>Klient: ${renter?.name ?? "Użytkownik"} (${renter?.email ?? "brak email"})</p>
+            <p>Klient: ${renter?.name ?? "Użytkownik"}</p>
           `,
         })
       : Promise.resolve(),
