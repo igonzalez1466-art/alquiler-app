@@ -111,7 +111,7 @@ async function createReviewAction(formData: FormData) {
   const isParticipant =
     booking.renterId === reviewerId || booking.listing.userId === reviewerId;
 
-  if (!isParticipant) throw new Error("Brak uprawnie обычznień");
+  if (!isParticipant) throw new Error("Brak uprawnień");
   if (booking.status !== "CONFIRMED" || booking.endDate > now) {
     throw new Error("Można oceniać tylko potwierdzone i zakończone rezerwacje");
   }
@@ -552,10 +552,6 @@ export default async function BookingsPage({
                       (r) => r.reviewerId === userId && r.role === "RENTER"
                     );
 
-                  const myExisting = b.reviews.find(
-                    (r) => r.reviewerId === userId && r.role === "RENTER"
-                  );
-
                   const rs = b.renter?.id ? renterStats.get(b.renter.id) : undefined;
 
                   return (
@@ -610,12 +606,9 @@ export default async function BookingsPage({
                         </div>
                       </div>
 
-                      {myExisting ? (
-                        <div className="mt-3 text-sm text-gray-700">
-                          Twoja ocena dla najemcy:{" "}
-                          <strong>{myExisting.rating}/5</strong>
-                        </div>
-                      ) : iCanReview ? (
+                      {/* ✅ Quitado: "Twoja ocena dla najemcy..." */}
+
+                      {iCanReview ? (
                         <form
                           action={createReviewAction}
                           className="mt-3 grid grid-cols-1 sm:grid-cols-6 gap-2"
