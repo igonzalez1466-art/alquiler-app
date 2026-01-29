@@ -559,9 +559,6 @@ export default async function BookingsPage({
                             Zgłoszona przez:{" "}
                             <span className="font-medium">
                               {b.renter?.name ?? "Usuario"}
-                            </span>{" "}
-                            <span className="text-gray-400">
-                              ({b.renter?.email ?? "sin email"})
                             </span>
                           </div>
                         </div>
