@@ -111,17 +111,19 @@ async function createReviewAction(formData: FormData) {
   const isParticipant =
     booking.renterId === reviewerId || booking.listing.userId === reviewerId;
 
-  if (!isParticipant) throw new Error("Brak uprawnień");
+  if (!isParticipant) throw new Error("Brak uprawnie обычznień");
   if (booking.status !== "CONFIRMED" || booking.endDate > now) {
     throw new Error("Można oceniać tylko potwierdzone i zakończone rezerwacje");
   }
 
   let revieweeId: string;
   if (role === "OWNER") {
+    // Najemca ocenia właściciela
     if (booking.renterId !== reviewerId)
       throw new Error("Nieprawidłowa rola dla tej rezerwacji");
     revieweeId = booking.listing.userId;
   } else {
+    // Właściciel ocenia najemcę
     if (booking.listing.userId !== reviewerId)
       throw new Error("Nieprawidłowa rola dla tej rezerwacji");
     revieweeId = booking.renterId;
@@ -239,6 +241,30 @@ export default async function BookingsPage({
       orderBy: ownerOrderBy,
     }),
   ]);
+
+  // ====== Reputación (reviews recibidas como NAJEMCA) para los renters de asOwner ======
+  const renterIds = Array.from(
+    new Set(asOwner.map((b) => b.renter?.id).filter(Boolean) as string[])
+  );
+
+  const renterAgg = renterIds.length
+    ? await prisma.review.groupBy({
+        by: ["revieweeId"],
+        where: {
+          revieweeId: { in: renterIds },
+          role: "RENTER", // reviews SOBRE el inquilino
+        },
+        _avg: { rating: true },
+        _count: { rating: true },
+      })
+    : [];
+
+  const renterStats = new Map(
+    renterAgg.map((r) => [
+      r.revieweeId,
+      { avg: r._avg.rating ?? null, count: r._count.rating },
+    ])
+  );
 
   const now = new Date();
 
@@ -530,6 +556,8 @@ export default async function BookingsPage({
                     (r) => r.reviewerId === userId && r.role === "RENTER"
                   );
 
+                  const rs = b.renter?.id ? renterStats.get(b.renter.id) : undefined;
+
                   return (
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
                       <div className="flex items-start justify-between gap-3">
@@ -545,11 +573,29 @@ export default async function BookingsPage({
                             {formatRange(b.startDate, b.endDate)}
                           </div>
 
-                          <div className="text-sm text-gray-500">
-                            Rezerwacja od:{" "}
-                            <span className="font-medium">
-                              {b.renter?.name ?? "Użytkownik"}
-                            </span>
+                          <div className="text-sm text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span>Rezerwacja od:</span>
+
+                            {b.renter?.id ? (
+                              <Link
+                                href={`/users/${b.renter.id}`}
+                                className="font-medium text-blue-700 hover:underline"
+                              >
+                                {b.renter?.name ?? "Użytkownik"}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">
+                                {b.renter?.name ?? "Użytkownik"}
+                              </span>
+                            )}
+
+                            {rs?.count ? (
+                              <span className="text-xs text-gray-600">
+                                ★ {rs.avg?.toFixed(1)} ({rs.count})
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Brak ocen</span>
+                            )}
                           </div>
                         </div>
 
@@ -566,7 +612,8 @@ export default async function BookingsPage({
 
                       {myExisting ? (
                         <div className="mt-3 text-sm text-gray-700">
-                          Twoja ocena najemcy: <strong>{myExisting.rating}/5</strong>
+                          Twoja ocena dla najemcy:{" "}
+                          <strong>{myExisting.rating}/5</strong>
                         </div>
                       ) : iCanReview ? (
                         <form
