@@ -135,9 +135,7 @@ export default async function BookingPage({
             </div>
             <div className="text-sm text-gray-500">
               Najemca:{" "}
-              <span className="font-medium">{booking.renter?.name ?? "Usuario"}</span>{" "}
-              <span className="text-gray-400">
-                ({booking.renter?.email ?? "sin email"})
+              <span className="font-medium">{booking.renter?.name ?? "Usuario"}
               </span>
             </div>
           </div>
