@@ -115,60 +115,92 @@ export default function BookingForm({
 
       {/* ✅ CUADRO DE RESUMEN: aparece al seleccionar "Koniec" */}
       {endDate && (
-        <div className="border rounded-lg p-3 bg-white">
-          <div className="font-semibold mb-2">Podsumowanie rezerwacji</div>
+  <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+    {/* Header */}
+    <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
+      <div>
+        <div className="text-sm font-semibold text-gray-900">
+          Podsumowanie rezerwacji
+        </div>
+        <div className="text-xs text-gray-600">
+          Sprawdź szczegóły przed potwierdzeniem
+        </div>
+      </div>
 
-          {!summary ? (
-            <div className="text-sm text-gray-600">
-              Wybierz datę rozpoczęcia i zakończenia.
+      {summary && !("error" in summary) && (
+        <span className="shrink-0 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 text-xs font-semibold">
+          {summary.days} {summary.days === 1 ? "dzień" : "dni"}
+        </span>
+      )}
+    </div>
+
+    {/* Body */}
+    <div className="p-4">
+      {!summary ? (
+        <div className="text-sm text-gray-600">
+          Wybierz datę rozpoczęcia i zakończenia.
+        </div>
+      ) : "error" in summary ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {summary.error}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-gray-500">Od</div>
+              <div className="font-semibold">{fmtPL(summary.start)}</div>
             </div>
-          ) : "error" in summary ? (
-            <div className="text-sm text-red-700">{summary.error}</div>
-          ) : (
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between gap-4">
-                <span>Od</span>
-                <span className="font-medium">{fmtPL(summary.start)}</span>
-              </div>
 
-              <div className="flex justify-between gap-4">
-                <span>Do</span>
-                <span className="font-medium">{fmtPL(summary.end)}</span>
-              </div>
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-gray-500">Do</div>
+              <div className="font-semibold">{fmtPL(summary.end)}</div>
+            </div>
+          </div>
 
-              <div className="flex justify-between gap-4">
-                <span>Liczba dni</span>
-                <span className="font-medium">{summary.days}</span>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <span>Cena za dzień</span>
+          <div className="rounded-lg border">
+            <div className="divide-y">
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">Cena za dzień</span>
                 <span className="font-medium">{pricePerDay} zł</span>
               </div>
 
-              <div className="flex justify-between gap-4">
-                <span>Koszt najmu</span>
-                <span className="font-semibold">{summary.rentTotal} zł</span>
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">Koszt najmu</span>
+                <span className="font-medium">{summary.rentTotal} zł</span>
               </div>
 
-              <div className="flex justify-between gap-4">
-                <span>Kaucja</span>
-                <span className="font-semibold">{summary.deposit} zł</span>
-              </div>
-
-              <div className="mt-2 pt-2 border-t flex justify-between gap-4">
-                <span className="font-semibold">Razem do zapłaty</span>
-                <span className="font-bold">{summary.total} zł</span>
-              </div>
-
-              <div className="mt-2 text-xs text-gray-600">
-                Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i
-                potwierdzeniu braku uszkodzeń).
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">
+                  Kaucja{" "}
+                  <span className="text-xs text-gray-500">
+                    (zwrotna)
+                  </span>
+                </span>
+                <span className="font-medium">{summary.deposit} zł</span>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Total */}
+          <div className="rounded-lg border bg-indigo-50 border-indigo-100 px-3 py-3 flex items-center justify-between">
+            <span className="font-semibold text-gray-900">Razem do zapłaty</span>
+            <span className="text-lg font-bold text-indigo-700">
+              {summary.total} zł
+            </span>
+          </div>
+
+          {/* Deposit note */}
+          <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
+            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i potwierdzeniu braku uszkodzeń).
+          </div>
         </div>
       )}
+    </div>
+  </div>
+)}
+
 
       <button
         type="submit"
