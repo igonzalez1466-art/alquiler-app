@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-// Puedes reutilizar las traducciones aquí también
+/* ===================== LABELS ===================== */
+
 const enumLabels: Record<string, string> = {
   WOMAN: "Kobieta",
   MAN: "Mężczyzna",
@@ -46,11 +47,14 @@ const colorMap: Record<string, string> = {
   naranja: "#f97316",
 };
 
+/* ===================== TYPES ===================== */
+
 type Listing = {
   id: string;
   title: string;
   city: string | null;
   postalCode: string | null;
+  pricePerDay: number; // ✅ PRECIO DIARIO
   marca: string | null;
   gender: string | null;
   size: string | null;
@@ -59,6 +63,8 @@ type Listing = {
   materials: string[] | null;
   images: { id: string; url: string; alt: string | null }[];
 };
+
+/* ===================== COMPONENT ===================== */
 
 export default function ListingResults({ listings }: { listings: Listing[] }) {
   const [open, setOpen] = useState(false);
@@ -80,7 +86,7 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
         </button>
       </div>
 
-      {/* Lista: en móvil depende de `open`, en desktop siempre visible */}
+      {/* Lista */}
       <div className={`${open ? "block" : "hidden"} md:block space-y-4`}>
         {listings.map((l) => {
           const colorBg =
@@ -92,10 +98,15 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
               href={`/listing/${l.id}`}
               className="block border rounded p-4 space-y-3 hover:shadow-lg transition group bg-white"
             >
+              {/* ===== TITLE + PRICE ===== */}
               <div className="flex items-baseline justify-between gap-2">
                 <h2 className="text-lg font-semibold group-hover:underline truncate">
                   {l.title}
                 </h2>
+
+                <span className="shrink-0 text-sm font-semibold text-gray-900">
+                  {l.pricePerDay} PLN / dzień
+                </span>
               </div>
 
               <p className="text-sm text-gray-700">
@@ -103,6 +114,7 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
                 {l.postalCode ? ` (${l.postalCode})` : ""}
               </p>
 
+              {/* ===== DETAILS ===== */}
               <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
                 <div className="rounded-lg border px-2 py-1 bg-white">
                   <p className="text-[11px] text-gray-500">Marka</p>
@@ -159,6 +171,7 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
                 </div>
               </div>
 
+              {/* ===== IMAGES ===== */}
               {l.images.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto py-1">
                   {l.images.map((img) => (
