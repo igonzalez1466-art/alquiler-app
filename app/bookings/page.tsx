@@ -210,7 +210,15 @@ export default async function BookingsPage({
     prisma.booking.findMany({
       where: madeWhere,
       include: {
-        listing: { select: { id: true, title: true, userId: true } },
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            userId: true,
+            pricePerDay: true, // ✅
+            fianza: true, // ✅
+          },
+        },
         reviews: {
           select: {
             id: true,
@@ -226,7 +234,15 @@ export default async function BookingsPage({
     prisma.booking.findMany({
       where: ownerWhere,
       include: {
-        listing: { select: { id: true, title: true, userId: true } },
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            userId: true,
+            pricePerDay: true, // ✅
+            fianza: true, // ✅
+          },
+        },
         renter: { select: { id: true, name: true, email: true } },
         reviews: {
           select: {
@@ -380,8 +396,28 @@ export default async function BookingsPage({
                           >
                             {b.listing?.title ?? "Ogłoszenie"}
                           </Link>
+
                           <div className="text-sm text-gray-600 mt-1">
                             {formatRange(b.startDate, b.endDate)}
+                          </div>
+
+                          {/* ✅ CENA + KAUCJA */}
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-700">
+                            <span className="rounded border bg-gray-50 px-2 py-1">
+                              Cena:{" "}
+                              <span className="font-semibold">
+                                {b.listing.pricePerDay} zł / dzień
+                              </span>
+                            </span>
+
+                            <span className="rounded border bg-gray-50 px-2 py-1">
+                              Kaucja:{" "}
+                              <span className="font-semibold">
+                                {b.listing.fianza != null
+                                  ? `${b.listing.fianza} zł`
+                                  : "Brak"}
+                              </span>
+                            </span>
                           </div>
                         </div>
 
@@ -454,7 +490,9 @@ export default async function BookingsPage({
       <section>
         <details className="space-y-3">
           <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
-            <span className="text-xl font-semibold">Rezerwacje w moich ogłoszeniach</span>
+            <span className="text-xl font-semibold">
+              Rezerwacje w moich ogłoszeniach
+            </span>
             <span className="text-sm text-gray-500">
               {asOwner.length} {pluralPLBooking(asOwner.length)}
             </span>
@@ -559,6 +597,25 @@ export default async function BookingsPage({
 
                           <div className="text-sm text-gray-600">
                             {formatRange(b.startDate, b.endDate)}
+                          </div>
+
+                          {/* ✅ CENA + KAUCJA */}
+                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-700">
+                            <span className="rounded border bg-gray-50 px-2 py-1">
+                              Cena:{" "}
+                              <span className="font-semibold">
+                                {b.listing.pricePerDay} zł / dzień
+                              </span>
+                            </span>
+
+                            <span className="rounded border bg-gray-50 px-2 py-1">
+                              Kaucja:{" "}
+                              <span className="font-semibold">
+                                {b.listing.fianza != null
+                                  ? `${b.listing.fianza} zł`
+                                  : "Brak"}
+                              </span>
+                            </span>
                           </div>
 
                           <div className="text-sm text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
