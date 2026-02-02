@@ -33,7 +33,6 @@ const MATERIALS = [
   { value: "INNE", label: "inne" },
 ] as const;
 
-// ✅ Prisma enums (validación sin any)
 const ALLOWED_COLORS: ReadonlySet<Color> = new Set([
   "CZARNY",
   "BIALY",
@@ -105,6 +104,10 @@ export default async function NewListingPage({
     const pricePerDayRaw = String(formData.get("pricePerDay") || "").trim();
     const pricePerDay = Number(pricePerDayRaw);
 
+    // ✅ FIANZA
+    const fianzaRaw = String(formData.get("fianza") || "").trim();
+    const fianza = fianzaRaw === "" ? null : Number(fianzaRaw);
+
     const city = String(formData.get("city") || "").trim();
     const postalCode = String(formData.get("postalCode") || "").trim();
     const lat = Number(formData.get("lat"));
@@ -131,11 +134,16 @@ export default async function NewListingPage({
       redirect(err("Cena za dzień musi być liczbą całkowitą > 0"));
     }
 
+    if (fianza !== null) {
+      if (!Number.isFinite(fianza) || !Number.isInteger(fianza) || fianza < 0) {
+        redirect(err("Fianza musi być liczbą całkowitą ≥ 0"));
+      }
+    }
+
     if (!city || Number.isNaN(lat) || Number.isNaN(lng)) {
       redirect(err("Wybierz lokalizację z listy"));
     }
 
-    // ✅ Color (enum Prisma Color)
     const color: Color | null = ALLOWED_COLORS.has(colorRaw as Color)
       ? (colorRaw as Color)
       : null;
@@ -159,7 +167,6 @@ export default async function NewListingPage({
 
     if (!gender) redirect(err("Nieprawidłowa płeć"));
     if (!garmentType) redirect(err("Nieprawidłowy typ ubrania"));
-
     if (!size) redirect(err("Rozmiar jest obowiązkowy"));
 
     /* ===== CREAR LISTING ===== */
@@ -169,6 +176,7 @@ export default async function NewListingPage({
         title,
         description: description || null,
         pricePerDay,
+        fianza, // ✅ guardada
         marca: marca || null,
         city,
         postalCode: postalCode || null,
@@ -179,7 +187,7 @@ export default async function NewListingPage({
         size,
         color,
         garmentType,
-        materials: [material], // (si luego quieres multi, lo ampliamos)
+        materials: [material],
         available: true,
         user: { connect: { id: userId } },
       },
@@ -187,6 +195,7 @@ export default async function NewListingPage({
     });
 
     /* ===== EMAIL (opcional) ===== */
+
     const owner = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, name: true },
@@ -195,10 +204,12 @@ export default async function NewListingPage({
     if (owner?.email) {
       const baseUrl =
         process.env.VERCEL_ENV === "production"
-          ? (process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || "")
+          ? process.env.NEXT_PUBLIC_BASE_URL ||
+            process.env.NEXTAUTH_URL ||
+            ""
           : process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "http://localhost:3000";
+          ? `https://${process.env.VERCEL_URL}`
+          : "http://localhost:3000";
 
       try {
         await sendMail({
@@ -215,7 +226,7 @@ export default async function NewListingPage({
       }
     }
 
-    /* ===== FOTOS (Vercel Blob) ===== */
+    /* ===== FOTOS ===== */
 
     const files = formData
       .getAll("photos")
@@ -226,17 +237,14 @@ export default async function NewListingPage({
     for (const file of files) {
       if (file.size === 0) continue;
 
-      // Nombre estable (mantén extensión si viene)
       const ext =
-        (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") ||
-        "jpg";
+        (file.name.split(".").pop() || "jpg")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "") || "jpg";
 
       const filename = `${crypto.randomUUID()}.${ext}`;
-
-      // ✅ Sube a Blob (NO filesystem)
       const blob = await put(filename, file, { access: "public" });
 
-      // Guarda URL real en DB
       await prisma.image.create({
         data: {
           url: blob.url,
@@ -262,18 +270,9 @@ export default async function NewListingPage({
       )}
 
       <form action={createListingAction} className="space-y-4">
-        <input
-          name="title"
-          placeholder="Tytuł"
-          required
-          className="border p-2 w-full"
-        />
+        <input name="title" placeholder="Tytuł" required className="border p-2 w-full" />
 
-        <textarea
-          name="description"
-          placeholder="Opis"
-          className="border p-2 w-full"
-        />
+        <textarea name="description" placeholder="Opis" className="border p-2 w-full" />
 
         <input
           name="pricePerDay"
@@ -282,6 +281,15 @@ export default async function NewListingPage({
           step={1}
           required
           placeholder="Cena za dzień (PLN)"
+          className="border p-2 w-full"
+        />
+
+        <input
+          name="fianza"
+          type="number"
+          min={0}
+          step={1}
+          placeholder="Fianza (PLN)"
           className="border p-2 w-full"
         />
 
