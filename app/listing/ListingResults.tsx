@@ -105,7 +105,7 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
                 </h2>
 
                 <span className="shrink-0 text-sm font-semibold text-gray-900">
-                  {l.pricePerDay} PLN / dzień
+                  {l.pricePerDay} zł / dzień
                 </span>
               </div>
 
