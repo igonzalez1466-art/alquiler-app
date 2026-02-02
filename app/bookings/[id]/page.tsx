@@ -18,15 +18,32 @@ const fmt = (d?: Date | null) =>
       })
     : "—";
 
+const fmtDate = (d?: Date | null) =>
+  d
+    ? d.toLocaleDateString("pl-PL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : "—";
+
 const badge = (label: string, cls: string) => (
   <span className={`text-xs px-2 py-1 rounded border ${cls}`}>{label}</span>
 );
 
+function daysInclusive(a: Date, b: Date) {
+  const start = new Date(a);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(b);
+  end.setHours(0, 0, 0, 0);
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
 // ===== Etiquetas =====
 const statusLabel: Record<string, string> = {
   PENDING: "Oczekuje na akceptację",
-  AWAITING_PAYMENT: "Pendiente de pago",
-  PAID: "Pagado",
+  AWAITING_PAYMENT: "Oczekuje na płatność",
+  PAID: "Opłacona",
   CANCELLED: "Odrzucona",
 };
 
@@ -38,15 +55,15 @@ const statusClass: Record<string, string> = {
 };
 
 const shippingLabel: Record<string, string> = {
-  NOT_REQUIRED: "No requiere envío",
+  NOT_REQUIRED: "Nie wymaga wysyłki",
   PENDING: "Oczekuje na przygotowanie",
-  READY: "Listo para envío",
-  SHIPPED: "En tránsito",
+  READY: "Gotowe do wysyłki",
+  SHIPPED: "W drodze",
   DELIVERED: "Dostarczono",
-  RETURN_PENDING: "Devolución pendiente",
-  RETURNED: "Devuelto",
-  LOST: "Perdido o dañado",
-  CANCELLED: "Cancelado",
+  RETURN_PENDING: "Zwrot w toku",
+  RETURNED: "Zwrócono",
+  LOST: "Zgubione lub uszkodzone",
+  CANCELLED: "Anulowane",
 };
 
 const shippingClass: Record<string, string> = {
@@ -88,6 +105,7 @@ export default async function BookingPage({
           title: true,
           metodoEnvio: true,
           fianza: true,
+          pricePerDay: true, // ✅ AÑADIDO
           userId: true,
         },
       },
@@ -110,6 +128,13 @@ export default async function BookingPage({
 
   const isOwner = !!userId && booking.listing?.userId === userId;
 
+  // ===== Cálculos pago =====
+  const pricePerDay = booking.listing?.pricePerDay ?? 0;
+  const deposit = booking.listing?.fianza ?? 0;
+  const days = daysInclusive(booking.startDate, booking.endDate);
+  const rentTotal = days > 0 ? days * pricePerDay : 0;
+  const total = rentTotal + deposit;
+
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -128,14 +153,15 @@ export default async function BookingPage({
               href={`/listing/${booking.listingId}`}
               className="text-blue-700 hover:underline font-medium"
             >
-              {booking.listing?.title ?? "Anuncio"}
+              {booking.listing?.title ?? "Ogłoszenie"}
             </Link>
             <div className="text-sm text-gray-600 mt-1">
               {fmt(booking.startDate)} — {fmt(booking.endDate)}
             </div>
             <div className="text-sm text-gray-500">
               Najemca:{" "}
-              <span className="font-medium">{booking.renter?.name ?? "Usuario"}
+              <span className="font-medium">
+                {booking.renter?.name ?? "Użytkownik"}
               </span>
             </div>
           </div>
@@ -144,6 +170,65 @@ export default async function BookingPage({
             statusClass[booking.status] ??
               "bg-gray-100 text-gray-800 border-gray-200"
           )}
+        </div>
+      </section>
+
+      {/* ===== Płatność ===== */}
+      <section className="border rounded bg-white overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <h2 className="text-lg font-semibold">Płatność</h2>
+          <p className="text-xs text-gray-600">
+            Podsumowanie kosztów rezerwacji
+          </p>
+        </div>
+
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-gray-500">Od</div>
+              <div className="font-semibold">{fmtDate(booking.startDate)}</div>
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-gray-500">Do</div>
+              <div className="font-semibold">{fmtDate(booking.endDate)}</div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border">
+            <div className="divide-y">
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">Liczba dni</span>
+                <span className="font-medium">{days}</span>
+              </div>
+
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">Cena za dzień</span>
+                <span className="font-medium">{pricePerDay} zł</span>
+              </div>
+
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">Koszt najmu</span>
+                <span className="font-medium">{rentTotal} zł</span>
+              </div>
+
+              <div className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="text-gray-600">
+                  Kaucja <span className="text-xs text-gray-500">(zwrotna)</span>
+                </span>
+                <span className="font-medium">{deposit} zł</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-indigo-50 border-indigo-100 px-3 py-3 flex items-center justify-between">
+            <span className="font-semibold text-gray-900">Razem do zapłaty</span>
+            <span className="text-lg font-bold text-indigo-700">{total} zł</span>
+          </div>
+
+          <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
+            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i
+            potwierdzeniu braku uszkodzeń).
+          </div>
         </div>
       </section>
 
@@ -171,14 +256,16 @@ export default async function BookingPage({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-gray-500">Przewoźnik:</span> {booking.carrier ?? "—"}
+            <span className="text-gray-500">Przewoźnik:</span>{" "}
+            {booking.carrier ?? "—"}
           </div>
           <div>
             <span className="text-gray-500">Numer śledzenia:</span>{" "}
             {booking.trackingNumber ?? "—"}
           </div>
           <div>
-            <span className="text-gray-500">Wysłano dnia:</span> {fmt(booking.shippedAt)}
+            <span className="text-gray-500">Wysłano dnia:</span>{" "}
+            {fmt(booking.shippedAt)}
           </div>
           <div>
             <span className="text-gray-500">Dostarczono dnia:</span>{" "}
