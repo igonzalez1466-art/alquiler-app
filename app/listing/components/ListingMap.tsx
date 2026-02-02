@@ -146,7 +146,7 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
 
   {typeof m.pricePerDay === "number" && (
     <div className="text-xs md:text-sm font-semibold text-gray-900">
-      {m.pricePerDay} PLN / dzień
+      {m.pricePerDay} zł / dzień
     </div>
   )}
 
