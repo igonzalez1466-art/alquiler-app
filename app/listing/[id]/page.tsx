@@ -258,10 +258,16 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
   </div>
 </div>
 
-      {/* ===== BOOKING ===== */}
-      {!isOwner && (
-        <BookingForm listingId={listing.id} isLoggedIn={!!session?.user?.id} />
-      )}
+    {/* ===== BOOKING ===== */}
+{!isOwner && (
+  <BookingForm
+    listingId={listing.id}
+    isLoggedIn={!!session?.user?.id}
+    pricePerDay={listing.pricePerDay}
+    fianza={listing.fianza ?? 0}
+  />
+)}
+
 
       {/* ===== OWNER CONTROLS ===== */}
       {isOwner && (
