@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
+import { openChatFromBookingAction } from "./actions"; // ✅ AÑADIDO
 
 // ===== Helpers =====
 const fmt = (d?: Date | null) =>
@@ -105,7 +106,7 @@ export default async function BookingPage({
           title: true,
           metodoEnvio: true,
           fianza: true,
-          pricePerDay: true, // ✅ AÑADIDO
+          pricePerDay: true,
           userId: true,
         },
       },
@@ -165,11 +166,28 @@ export default async function BookingPage({
               </span>
             </div>
           </div>
-          {badge(
-            statusLabel[booking.status] ?? booking.status,
-            statusClass[booking.status] ??
-              "bg-gray-100 text-gray-800 border-gray-200"
-          )}
+
+          {/* ✅ Badge + Chat button */}
+          <div className="flex flex-col items-end gap-2">
+            {badge(
+              statusLabel[booking.status] ?? booking.status,
+              statusClass[booking.status] ??
+                "bg-gray-100 text-gray-800 border-gray-200"
+            )}
+
+            {/* Owner (y también renter si quieres) puede abrir chat */}
+            {userId && (
+              <form action={openChatFromBookingAction}>
+                <input type="hidden" name="bookingId" value={id} />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded border text-gray-700 hover:bg-gray-50"
+                >
+                  Otwórz czat
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </section>
 
@@ -177,9 +195,7 @@ export default async function BookingPage({
       <section className="border rounded bg-white overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b">
           <h2 className="text-lg font-semibold">Płatność</h2>
-          <p className="text-xs text-gray-600">
-            Podsumowanie kosztów rezerwacji
-          </p>
+          <p className="text-xs text-gray-600">Podsumowanie kosztów rezerwacji</p>
         </div>
 
         <div className="p-4 space-y-3">
@@ -226,13 +242,12 @@ export default async function BookingPage({
           </div>
 
           <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
-            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i
-            potwierdzeniu braku uszkodzeń).
+            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i potwierdzeniu braku uszkodzeń).
           </div>
         </div>
       </section>
 
-      {/* ===== Envío ===== */}
+      {/* ===== Wysyłka ===== */}
       <section className="p-4 border rounded bg-white space-y-3">
         <h2 className="text-lg font-semibold">Wysyłka</h2>
 
@@ -256,16 +271,14 @@ export default async function BookingPage({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-gray-500">Przewoźnik:</span>{" "}
-            {booking.carrier ?? "—"}
+            <span className="text-gray-500">Przewoźnik:</span> {booking.carrier ?? "—"}
           </div>
           <div>
             <span className="text-gray-500">Numer śledzenia:</span>{" "}
             {booking.trackingNumber ?? "—"}
           </div>
           <div>
-            <span className="text-gray-500">Wysłano dnia:</span>{" "}
-            {fmt(booking.shippedAt)}
+            <span className="text-gray-500">Wysłano dnia:</span> {fmt(booking.shippedAt)}
           </div>
           <div>
             <span className="text-gray-500">Dostarczono dnia:</span>{" "}
