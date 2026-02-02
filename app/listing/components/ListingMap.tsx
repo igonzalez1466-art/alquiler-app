@@ -137,22 +137,26 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
                   </div>
                 )}
 
-                <div className="p-2.5 space-y-1">
-                  <div className="font-semibold text-sm leading-tight line-clamp-2">
-                    {m.title}
-                  </div>
+      <div className="p-2.5 space-y-1">
+  <div className="font-semibold text-sm leading-tight line-clamp-2">
+    {m.title}
+  </div>
 
-                  {m.city && (
-                    <div className="text-xs text-gray-600">{m.city}</div>
-                  )}
+  {m.city && <div className="text-xs text-gray-600">{m.city}</div>}
 
-                  <button
-                    onClick={() => router.push(`/listing/${m.id}`)}
-                    className="mt-2 w-full bg-indigo-600 text-white text-xs md:text-sm font-medium px-3 py-1.5 rounded-md hover:bg-indigo-700 transition"
-                  >
-                    Zobacz
-                  </button>
-                </div>
+  {typeof m.pricePerDay === "number" && (
+    <div className="text-xs md:text-sm font-semibold text-gray-900">
+      {m.pricePerDay} PLN / dzień
+    </div>
+  )}
+
+  <button
+    onClick={() => router.push(`/listing/${m.id}`)}
+    className="mt-2 w-full bg-indigo-600 text-white text-xs md:text-sm font-medium px-3 py-1.5 rounded-md hover:bg-indigo-700 transition"
+  >
+    Zobacz
+  </button>
+</div>
               </div>
             </Popup>
           </Marker>
