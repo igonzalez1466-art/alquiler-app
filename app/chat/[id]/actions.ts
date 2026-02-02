@@ -81,7 +81,7 @@ export async function sendMessageAction(
   // ✅ Si el chat está cerrado, no permitimos enviar
   // IMPORTANTE: no devolver objetos desde una action usada en <form action={...}>
   if (conv.status === "CLOSED") {
-    throw new Error("CHAT_CLOSED");
+    throw new Error("Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.");
   }
 
   const [createdMsg] = await prisma.$transaction([
