@@ -280,7 +280,7 @@ export default async function NewListingPage({
           min={1}
           step={1}
           required
-          placeholder="Cena za dzień (PLN)"
+          placeholder="Cena za dzień (zł)"
           className="border p-2 w-full"
         />
 
@@ -289,7 +289,7 @@ export default async function NewListingPage({
           type="number"
           min={0}
           step={1}
-          placeholder="Fianza (PLN)"
+          placeholder="Kaucja (zł)"
           className="border p-2 w-full"
         />
 
