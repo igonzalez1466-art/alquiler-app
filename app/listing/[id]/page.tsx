@@ -247,13 +247,13 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
   <div className="p-3 border rounded">
     <div className="text-sm text-gray-500">Cena za dzień</div>
-    <div className="text-xl font-semibold">{listing.pricePerDay} PLN</div>
+    <div className="text-xl font-semibold">{listing.pricePerDay} zł</div>
   </div>
 
   <div className="p-3 border rounded">
     <div className="text-sm text-gray-500">Kaucja</div>
     <div className="text-xl font-semibold">
-      {listing.fianza != null ? `${listing.fianza} PLN` : "Brak"}
+      {listing.fianza != null ? `${listing.fianza} zł` : "Brak"}
     </div>
   </div>
 </div>
