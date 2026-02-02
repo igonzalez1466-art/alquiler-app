@@ -242,6 +242,22 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         </div>
       </div>
 
+
+{/* ===== PRICE ===== */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+  <div className="p-3 border rounded">
+    <div className="text-sm text-gray-500">Cena za dzień</div>
+    <div className="text-xl font-semibold">{listing.pricePerDay} PLN</div>
+  </div>
+
+  <div className="p-3 border rounded">
+    <div className="text-sm text-gray-500">Kaucja</div>
+    <div className="text-xl font-semibold">
+      {listing.fianza != null ? `${listing.fianza} PLN` : "Brak"}
+    </div>
+  </div>
+</div>
+
       {/* ===== BOOKING ===== */}
       {!isOwner && (
         <BookingForm listingId={listing.id} isLoggedIn={!!session?.user?.id} />
