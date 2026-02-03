@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     });
 
     await sendMail({
-      to: "kontakt@mojaszafa.com", // o kontakt@mojaszafa.com
+      to: "kontakt@mojaszafa.com",
       subject: `Nowa wiadomość kontaktowa od ${name}`,
       html: `
         <div style="font-family:system-ui,Arial">
@@ -35,7 +35,11 @@ export async function POST(req: Request) {
           <p><strong>Wiadomość:</strong><br/>${message}</p>
         </div>
       `,
-      from: `"${name}" <${email}>`, // opcional
+      // ✅ IMPORTANTE:
+      // - FROM: tu dominio/verificado (déjalo fijo)
+      // - REPLY-TO: el usuario (para responderle fácil)
+      from: `"MojaSzafa" <kontakt@mojaszafa.com>`,
+      replyTo: `"${name}" <${email}>`,
     });
 
     return NextResponse.json({ message: "Wiadomość wysłana poprawnie" });
