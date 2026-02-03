@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     });
 
     await sendMail({
-      to: "igonzalez1466@gmail.com", // o kontakt@mojaszafa.com
+      to: "kontakt@mojaszafa.com", // o kontakt@mojaszafa.com
       subject: `Nowa wiadomość kontaktowa od ${name}`,
       html: `
         <div style="font-family:system-ui,Arial">
