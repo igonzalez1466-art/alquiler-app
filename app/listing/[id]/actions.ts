@@ -155,19 +155,36 @@ export async function createBookingAction(formData: FormData) {
   const renterTo = renter?.email?.trim() || "";
 
   await Promise.allSettled([
-    ownerTo
-      ? sendMail({
-          to: ownerTo,
-          subject: `Nowa rezerwacja: ${listing.title}`,
-          html: `
-            <p>Cześć ${listing.user?.name ?? ""},</p>
-            <p>Masz nowe zgłoszenie rezerwacji.</p>
-            ${htmlBlock}
-            <p>Klient: ${renter?.name ?? "Użytkownik"}</p>
-            ${emailSignature()}
-          `,
-        })
-      : Promise.resolve(),
+   ownerTo
+  ? sendMail({
+      to: ownerTo,
+      subject: `Nowa rezerwacja: ${listing.title}`,
+      html: `
+        <p>Cześć ${listing.user?.name ?? ""},</p>
+
+        <p>
+          Otrzymałeś nowe zgłoszenie rezerwacji
+          <strong>${listing.title}</strong>.
+        </p>
+
+        <p>
+          <strong>
+            Przejdź do szczegółów rezerwacji pod poniższym linkiem
+            i zatwierdź ją lub odrzuć.
+          </strong>
+        </p>
+
+        ${htmlBlock}
+
+        <p style="margin-top:12px; font-size:13px; color:#444;">
+          Klient: ${renter?.name ?? "Użytkownik"}
+        </p>
+
+        ${emailSignature()}
+      `,
+    })
+  : Promise.resolve(),
+
 
     renterTo
       ? sendMail({
