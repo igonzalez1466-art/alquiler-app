@@ -247,7 +247,7 @@ if (booking.renter?.email) {
 
       <p style="font-size:13px; color:#555;">
         Pozdrawiamy,<br/>
-        <strong>Zespół Rentify</strong>
+        <strong>Zespół MojaSzafa</strong>
       </p>
     `,
   });
