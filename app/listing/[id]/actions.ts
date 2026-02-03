@@ -126,25 +126,107 @@ export async function createBookingAction(formData: FormData) {
 
   const days = diffDaysInclusive(startDate, endDate);
 
-  // (puedes dejar estos cálculos si los usarás luego; ahora no se mandan)
+  // ===== Cálculos económicos =====
   const alquiler = days * listing.pricePerDay;
-  const comision = +(alquiler * 0.1).toFixed(2);
+  const comision = +(alquiler * 0.1).toFixed(2); // por si la necesitas luego
   const fianza = listing.fianza ?? 0;
-  const total = +(alquiler + comision + fianza).toFixed(2);
-  void alquiler; void comision; void fianza; void total;
+
+  // Email estilo UI (sin comisión visible)
+  const total = +(alquiler + fianza).toFixed(2);
+
+  // Evita "unused" si no la usas por ahora
+  void comision;
 
   const d = (x: Date) =>
     x.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-  const subject = `Nowa rezerwacja: ${listing.title} (${d(startDate)} → ${d(endDate)})`;
+  const moneyPLN = (v: number) => `${new Intl.NumberFormat("pl-PL").format(v)} zł`;
 
+  const subject = `Nowa rezerwacja: ${listing.title} (${d(startDate)} → ${d(endDate)})`;
   const baseUrl = getEmailBaseUrl();
 
+  // ===== Bloque email "Płatność" similar a tu captura =====
   const htmlBlock = `
-    <h3>${listing.title}</h3>
-    <p><strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})</p>
-    <p>Status: <strong>${booking.status}</strong></p>
-    <p><a href="${baseUrl}/bookings">Zobacz rezerwacje</a></p>
+    <div style="max-width:640px;">
+      <div style="font-family:Arial,Helvetica,sans-serif; color:#111; line-height:1.4;">
+        <div style="border:1px solid #e6e6e6; border-radius:12px; overflow:hidden;">
+          
+          <div style="padding:16px 18px; border-bottom:1px solid #f0f0f0;">
+            <div style="font-size:18px; font-weight:700; margin:0;">Płatność</div>
+            <div style="font-size:13px; color:#666; margin-top:4px;">Podsumowanie kosztów rezerwacji</div>
+          </div>
+
+          <div style="padding:14px 18px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+              <tr>
+                <td width="50%" style="padding-right:8px; vertical-align:top;">
+                  <div style="border:1px solid #e6e6e6; border-radius:10px; padding:10px 12px;">
+                    <div style="font-size:12px; color:#666;">Od</div>
+                    <div style="font-size:14px; font-weight:700; margin-top:2px;">${d(startDate)}</div>
+                  </div>
+                </td>
+                <td width="50%" style="padding-left:8px; vertical-align:top;">
+                  <div style="border:1px solid #e6e6e6; border-radius:10px; padding:10px 12px;">
+                    <div style="font-size:12px; color:#666;">Do</div>
+                    <div style="font-size:14px; font-weight:700; margin-top:2px;">${d(endDate)}</div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="padding:0 18px 12px 18px;">
+            <div style="border:1px solid #e6e6e6; border-radius:12px; overflow:hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; font-size:14px;">
+                <tr>
+                  <td style="padding:10px 12px; border-bottom:1px solid #f0f0f0; color:#333;">Liczba dni</td>
+                  <td style="padding:10px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:700;">${days}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px; border-bottom:1px solid #f0f0f0; color:#333;">Cena za dzień</td>
+                  <td style="padding:10px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:700;">${moneyPLN(listing.pricePerDay)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px; border-bottom:1px solid #f0f0f0; color:#333;">Koszt najmu</td>
+                  <td style="padding:10px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:700;">${moneyPLN(alquiler)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 12px; color:#333;">Kaucja (zwrotna)</td>
+                  <td style="padding:10px 12px; text-align:right; font-weight:700;">${moneyPLN(fianza)}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div style="padding:0 18px 16px 18px;">
+            <div style="background:#eef4ff; border:1px solid #dbe7ff; border-radius:12px; padding:14px 12px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr>
+                  <td style="font-size:14px; font-weight:700;">Razem do zapłaty</td>
+                  <td style="text-align:right; font-size:18px; font-weight:800; color:#1f4cff;">${moneyPLN(total)}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div style="padding:0 18px 18px 18px;">
+            <div style="border:1px solid #e6e6e6; border-radius:12px; padding:10px 12px; font-size:12px; color:#444;">
+              Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i potwierdzeniu braku uszkodzeń).
+            </div>
+          </div>
+
+          <div style="padding:0 18px 18px 18px;">
+            <div style="font-size:12px; color:#666;">
+              Status: <strong style="color:#111;">${booking.status}</strong>
+            </div>
+            <div style="margin-top:8px;">
+              <a href="${baseUrl}/bookings" style="color:#2563eb; text-decoration:underline; font-size:14px;">Zobacz rezerwacje</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
   `;
 
   const ownerTo = listing.user?.email?.trim() || "";
@@ -156,25 +238,26 @@ export async function createBookingAction(formData: FormData) {
           to: ownerTo,
           subject,
           html: `
-            <p>Cześć ${listing.user?.name ?? ""}, Masz nowe zgłoszenie rezerwacji.</p>
-
-    <p><strong>
-      Przejdź do rezerwacji, aby ją zatwierdzić lub odrzucić:
-    </strong></p>
-
-            ${htmlBlock}
-            <hr/>
-            <p>Klient: ${renter?.name ?? "Użytkownik"}</p>
+            <div style="font-family:Arial,Helvetica,sans-serif; color:#111; line-height:1.4;">
+              <p>Cześć ${listing.user?.name ?? ""}, Masz nowe zgłoszenie rezerwacji.</p>
+              <p><strong>Przejdź do rezerwacji, aby ją zatwierdzić lub odrzucić:</strong></p>
+              ${htmlBlock}
+              <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
+              <p style="margin:0; font-size:13px; color:#444;">Klient: ${renter?.name ?? "Użytkownik"}</p>
+            </div>
           `,
         })
       : Promise.resolve(),
+
     renterTo
       ? sendMail({
           to: renterTo,
           subject,
           html: `
-            <p>Cześć ${renter?.name ?? ""}, Dziękujemy za Twoje zgłoszenie rezerwacji.</p>
-            ${htmlBlock}
+            <div style="font-family:Arial,Helvetica,sans-serif; color:#111; line-height:1.4;">
+              <p>Cześć ${renter?.name ?? ""}, Dziękujemy za Twoje zgłoszenie rezerwacji.</p>
+              ${htmlBlock}
+            </div>
           `,
         })
       : Promise.resolve(),
