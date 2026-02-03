@@ -229,17 +229,29 @@ export async function rejectBookingAction(bookingId: string) {
   const s = fmt(booking.startDate);
   const e = fmt(booking.endDate);
 
-  if (booking.renter?.email) {
-    await sendMail({
-      to: booking.renter.email,
-      subject: `Rezerwacja odrzucona: ${title}`,
-      html: `<p>Cześć ${
-        booking.renter.name ?? "usuario"
-      },</p>
-             <p>Właściciel odrzucił Twoją rezerwację <b>${title}</b>.</p>
-             <p>Daty: ${s} → ${e}</p>`,
-    });
-  }
+if (booking.renter?.email) {
+  await sendMail({
+    to: booking.renter.email,
+    subject: `Rezerwacja odrzucona: ${title}`,
+    html: `
+      <p>Cześć ${booking.renter.name ?? "Użytkowniku"},</p>
+
+      <p>
+        Właściciel odrzucił Twoją rezerwację
+        <strong>${title}</strong>.
+      </p>
+
+      <p>Daty: ${s} → ${e}</p>
+
+      <hr style="margin:16px 0;" />
+
+      <p style="font-size:13px; color:#555;">
+        Pozdrawiamy,<br/>
+        <strong>Zespół Rentify</strong>
+      </p>
+    `,
+  });
+}
 
   revalidatePath("/bookings");
   revalidatePath("/chat");
