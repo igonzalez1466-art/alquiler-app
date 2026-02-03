@@ -181,8 +181,23 @@ export async function approveBookingAction(bookingId: string) {
       subject: `Potwierdziłeś rezerwację ${title}`,
       html: `
         <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
-        <p>Potwierdziłeś rezerwację <b>${title}</b> dla ${booking.renter?.name ?? "el usuario"}.</p>
-        <p>Daty: ${s} → ${e}</p>
+
+  <p>
+    Potwierdziłeś rezerwację <b>${title}</b>
+    dla ${booking.renter?.name ?? "el usuario"}.
+  </p>
+
+  <p>Daty: ${s} → ${e}</p>
+
+  <p>
+    Skontaktuj się z najemcą, aby potwierdzić szczegóły płatności za wynajem
+    oraz kaucję (jeśli obowiązuje). Płatność odbywa się poza platformą.
+  </p>
+
+  <p style="color:#b91c1c; font-weight:600;">
+    Nie przekazuj przedmiotu do momentu potwierdzenia otrzymania
+    uzgodnionej kwoty.
+  </p>
         ${emailSignature()}
       `,
     });
