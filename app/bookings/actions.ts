@@ -21,6 +21,22 @@ function fmt(d: Date | string) {
 }
 
 /* ============================================
+   FIRMA EMAIL (UNA SOLA VEZ)
+=============================================== */
+function emailSignature() {
+  return `
+    <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
+    <p style="margin:0; font-size:13px; color:#555;">
+      Pozdrawiamy,<br/>
+      <strong>Zespół MojaSzafa</strong>
+    </p>
+    <p style="margin-top:6px; font-size:11px; color:#888;">
+      Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
+    </p>
+  `;
+}
+
+/* ============================================
    CREATE BOOKING — con validación anti-solapamiento
 =============================================== */
 export async function createBookingAction(input: {
@@ -84,12 +100,13 @@ export async function createBookingAction(input: {
     await sendMail({
       to: booking.listing.user.email,
       subject: `Nowa prośba o rezerwację: ${title}`,
-      html: `<p>Cześć ${
-        booking.listing.user.name ?? "propietario"
-      },</p>
-             <p>${booking.renter?.name ?? "un usuario"} chce dokonać rezerwacji <b>${title}</b>.</p>
-             <p>Daty: <b>${s}</b> → <b>${e}</b></p>
-             <p>możesz zaakceptować lub odrzucić w swoim panelu.</p>`,
+      html: `
+        <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
+        <p>${booking.renter?.name ?? "un usuario"} chce dokonać rezerwacji <b>${title}</b>.</p>
+        <p>Daty: <b>${s}</b> → <b>${e}</b></p>
+        <p>możesz zaakceptować lub odrzucić w swoim panelu.</p>
+        ${emailSignature()}
+      `,
     });
   }
 
@@ -98,11 +115,12 @@ export async function createBookingAction(input: {
     await sendMail({
       to: booking.renter.email,
       subject: `Wniosek wysłany na ${title}`,
-      html: `<p>Cześć ${
-        booking.renter.name ?? "usuario"
-      },</p>
-             <p>Twoje zgłoszenie dotyczące <b>${title}</b> (${s} → ${e}) zostało wysłane do właściciela.</p>
-             <p>Poinformujemy Cię, gdy właściciel ją zatwierdzi.</p>`,
+      html: `
+        <p>Cześć ${booking.renter.name ?? "usuario"},</p>
+        <p>Twoje zgłoszenie dotyczące <b>${title}</b> (${s} → ${e}) zostało wysłane do właściciela.</p>
+        <p>Poinformujemy Cię, gdy właściciel ją zatwierdzi.</p>
+        ${emailSignature()}
+      `,
     });
   }
 
@@ -147,11 +165,12 @@ export async function approveBookingAction(bookingId: string) {
     await sendMail({
       to: booking.renter.email,
       subject: `Rezerwacja potwierdzona: ${title}`,
-      html: `<p>Cześć ${
-        booking.renter.name ?? "usuario"
-      },</p>
-             <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
-             <p>Skontaktuj się z właścicielem, aby ustalić sposób odbioru lub dostawy.</p>`,
+      html: `
+        <p>Cześć ${booking.renter.name ?? "usuario"},</p>
+        <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
+        <p>Skontaktuj się z właścicielem, aby ustalić sposób odbioru lub dostawy.</p>
+        ${emailSignature()}
+      `,
     });
   }
 
@@ -160,13 +179,12 @@ export async function approveBookingAction(bookingId: string) {
     await sendMail({
       to: booking.listing.user.email,
       subject: `Potwierdziłeś rezerwację ${title}`,
-      html: `<p>Cześć ${
-        booking.listing.user.name ?? "propietario"
-      },</p>
-             <p>Potwierdziłeś rezerwację <b>${title}</b> dla ${
-        booking.renter?.name ?? "el usuario"
-      }.</p>
-             <p>Daty: ${s} → ${e}</p>`,
+      html: `
+        <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
+        <p>Potwierdziłeś rezerwację <b>${title}</b> dla ${booking.renter?.name ?? "el usuario"}.</p>
+        <p>Daty: ${s} → ${e}</p>
+        ${emailSignature()}
+      `,
     });
   }
 
@@ -229,29 +247,25 @@ export async function rejectBookingAction(bookingId: string) {
   const s = fmt(booking.startDate);
   const e = fmt(booking.endDate);
 
-if (booking.renter?.email) {
-  await sendMail({
-    to: booking.renter.email,
-    subject: `Rezerwacja odrzucona: ${title}`,
-    html: `
-      <p>Cześć ${booking.renter.name ?? "Użytkowniku"},</p>
+  /* EMAIL AL INQUILINO */
+  if (booking.renter?.email) {
+    await sendMail({
+      to: booking.renter.email,
+      subject: `Rezerwacja odrzucona: ${title}`,
+      html: `
+        <p>Cześć ${booking.renter.name ?? "Użytkowniku"},</p>
 
-      <p>
-        Właściciel odrzucił Twoją rezerwację
-        <strong>${title}</strong>.
-      </p>
+        <p>
+          Właściciel odrzucił Twoją rezerwację
+          <strong>${title}</strong>.
+        </p>
 
-      <p>Daty: ${s} → ${e}</p>
+        <p>Daty: ${s} → ${e}</p>
 
-      <hr style="margin:16px 0;" />
-
-      <p style="font-size:13px; color:#555;">
-        Pozdrawiamy,<br/>
-        <strong>Zespół MojaSzafa</strong>
-      </p>
-    `,
-  });
-}
+        ${emailSignature()}
+      `,
+    });
+  }
 
   revalidatePath("/bookings");
   revalidatePath("/chat");
