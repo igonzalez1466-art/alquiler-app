@@ -168,7 +168,7 @@ export async function approveBookingAction(bookingId: string) {
       html: `
         <p>Cześć ${booking.renter.name ?? "usuario"},</p>
         <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
-        <p>Skontaktuj się z właścicielem, aby ustalić sposób odbioru lub dostawy.</p>
+        <p>Skontaktuj się z właścicielem, aby ustalić sposób odbioru lub dostawy oraz szczegóły płatności poza aplikacją.</p>
         ${emailSignature()}
       `,
     });
