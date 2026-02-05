@@ -164,7 +164,7 @@ export default async function BookingsPage({
         <p className="text-red-600 mb-2">
           Musisz się zalogować, aby zobaczyć swoje rezerwacje.
         </p>
-        <Link href="/api/auth/signin" className="text-blue-600 underline">
+        <Link href="/login" className="text-blue-600 underline">
           Zaloguj się
         </Link>
       </div>

@@ -46,7 +46,7 @@ export async function startChatAction(formData: FormData) {
 
   const session = (await getServerSession(authConfig)) as Session | null;
   const currentUserId = session?.user?.id;
-  if (!currentUserId) redirect("/api/auth/signin");
+  if (!currentUserId) redirect("/login");
 
   const listingId = formData.get("listingId")?.toString();
   const ownerId = formData.get("ownerId")?.toString();
@@ -73,7 +73,7 @@ export async function createBookingAction(formData: FormData) {
 
   const session = (await getServerSession(authConfig)) as Session | null;
   const renterId = session?.user?.id;
-  if (!renterId) redirect("/api/auth/signin");
+  if (!renterId) redirect("/login");
 
   const listingId = formData.get("listingId")?.toString();
   const startStr = formData.get("startDate")?.toString();

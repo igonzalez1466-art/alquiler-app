@@ -87,7 +87,7 @@ export async function openChatFromBookingAction(formData: FormData) {
 
   const session = (await getServerSession(authConfig)) as Session | null; // ✅ CAMBIO
   const currentUserId = session?.user?.id;
-  if (!currentUserId) redirect("/api/auth/signin");
+  if (!currentUserId) redirect("/login");
 
   const bookingId = formData.get("bookingId")?.toString();
   if (!bookingId) redirect("/bookings");

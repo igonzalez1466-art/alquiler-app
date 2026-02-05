@@ -15,7 +15,7 @@ import { sendMail } from "@/app/lib/mailer";
 export async function createListing(formData: FormData): Promise<void> {
   const session = (await getServerSession(authConfig)) as Session | null;
   const userId = session?.user?.id;
-  if (!userId) redirect("/api/auth/signin");
+  if (!userId) redirect("/login");
 
   // ✅ Asegura tipo string (evita "any" y ayuda a Prisma)
   const uid: string = userId;
@@ -84,7 +84,7 @@ export async function createListing(formData: FormData): Promise<void> {
 export async function toggleListingAvailable(formData: FormData): Promise<void> {
   const session = (await getServerSession(authConfig)) as Session | null;
   const userId = session?.user?.id;
-  if (!userId) redirect("/api/auth/signin");
+  if (!userId) redirect("/login");
 
   const uid: string = userId;
 
