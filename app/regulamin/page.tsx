@@ -80,11 +80,23 @@ export default function RegulaminPage() {
   </li>
 </ul>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">7. Rozwiązanie umowy</h2>
-      <p className="mb-4">
-        Użytkownik może w każdej chwili usunąć swoje konto. Administrator zastrzega sobie
-        prawo do usunięcia kont naruszających regulamin.
-      </p>
+    <h2 className="text-2xl font-semibold mt-8 mb-4">
+  7. Rozwiązanie umowy
+</h2>
+
+<p className="mb-4">
+  Użytkownik może w każdej chwili usunąć swoje konto.
+  Administrator zastrzega sobie prawo do usunięcia kont
+  naruszających regulamin.
+</p>
+
+<p className="mb-4">
+  Administrator może zachować niektóre dane użytkownika
+  w zakresie wymaganym przez obowiązujące przepisy prawa
+  lub w celu ochrony prawnie uzasadnionych interesów serwisu,
+  w szczególności w przypadku trwających rezerwacji,
+  sporów pomiędzy użytkownikami lub obowiązków prawnych.
+</p>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">8. Zmiany regulaminu</h2>
       <p className="mb-4">
