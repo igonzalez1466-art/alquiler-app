@@ -73,6 +73,11 @@ export default function RegulaminPage() {
     nieterminowe płatności, niewywiązanie się ze zwrotu kaucji
     ani inne spory finansowe pomiędzy użytkownikami.
   </li>
+  <li>
+    W przyszłości Administrator może wprowadzić obsługę płatności
+    lub inne płatne funkcje serwisu, o czym użytkownicy zostaną
+    poinformowani z odpowiednim wyprzedzeniem.
+  </li>
 </ul>
 
 
