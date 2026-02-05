@@ -73,7 +73,7 @@ export default function BookingForm({
               ? window.location.href
               : `/listing/${listingId}`;
           router.push(
-            `/api/auth/signin?callbackUrl=${encodeURIComponent(current)}`
+            `/login?callbackUrl=${encodeURIComponent(current)}`
           );
         }}
         className="px-4 py-2 rounded bg-indigo-600 text-white w-full"
