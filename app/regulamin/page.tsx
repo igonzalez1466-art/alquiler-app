@@ -37,7 +37,9 @@ export default function RegulaminPage() {
       <h2 className="text-2xl font-semibold mt-8 mb-4">4. Rezerwacje</h2>
       <ul className="list-disc ml-6 mb-4 space-y-2">
         <li>Rezerwacja stanowi zobowiązanie między użytkownikami.</li>
-        <li>Serwis nie ponosi odpowiedzialności za niewłaściwą realizację umowy między stronami.</li>
+        <li>Warunki rezerwacji, w tym cena najmu oraz ewentualna kaucja, są określane w ogłoszeniu.</li>
+        <li>Kaucja, jeżeli została przewidziana, ma charakter zwrotny i podlega zwrotowi po zakończeniu najmu oraz potwierdzeniu braku uszkodzeń.</li>
+        <li>Serwis nie ponosi odpowiedzialności za realizację umowy pomiędzy stronami.</li>
       </ul>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">5. Odpowiedzialność</h2>
@@ -46,38 +48,50 @@ export default function RegulaminPage() {
         <li>Serwis nie gwarantuje nieprzerwanego dostępu do platformy.</li>
       </ul>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">6. Płatności</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">6. Rola serwisu i płatności</h2>
       <p className="mb-4">
-        Obecnie serwis nie obsługuje płatności pomiędzy użytkownikami.
-        W przyszłości Administrator może wprowadzić płatne funkcje serwisu, o czym użytkownicy zostaną poinformowani z wyprzedzeniem..
+        Serwis pełni wyłącznie rolę platformy pośredniczącej umożliwiającej kontakt i zawieranie umów pomiędzy użytkownikami.
+        Administrator nie jest stroną umowy zawieranej pomiędzy użytkownikami.
+
+        Serwis nie uczestniczy w rozliczeniach finansowych pomiędzy użytkownikami, w szczególności w płatnościach czynszu najmu ani w zwrocie kaucji.
+        Wszelkie płatności oraz ustalenia finansowe odbywają się bezpośrednio pomiędzy użytkownikami poza serwisem.
+
+        Administrator nie ponosi odpowiedzialności za brak zapłaty, nieterminowe płatności, niewywiązanie się ze zwrotu kaucji ani inne spory finansowe pomiędzy użytkownikami.
       </p>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">7. Rozwiązanie umowy</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">7. Płatności</h2>
+      <p className="mb-4">
+        Obecnie serwis nie obsługuje płatności pomiędzy użytkownikami.
+        Płatności, w tym opłata za najem oraz kaucja, są ustalane bezpośrednio pomiędzy użytkownikami poza platformą.
+        W przyszłości Administrator może wprowadzić obsługę płatności lub płatne funkcje serwisu, o czym użytkownicy zostaną poinformowani z wyprzedzeniem.
+      </p>
+
+      <h2 className="text-2xl font-semibold mt-8 mb-4">8. Rozwiązanie umowy</h2>
       <p className="mb-4">
         Użytkownik może w każdej chwili usunąć swoje konto. Administrator zastrzega sobie
         prawo do usunięcia kont naruszających regulamin.
       </p>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">8. Zmiany regulaminu</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">9. Zmiany regulaminu</h2>
       <p className="mb-4">
         Administrator może zmienić regulamin. O zmianach użytkownicy zostaną poinformowani
         z odpowiednim wyprzedzeniem.
       </p>
 
-         <h2 className="text-2xl font-semibold mt-8 mb-4">9. Bezpieczeństwo i odpowiedzialność</h2>
+         <h2 className="text-2xl font-semibold mt-8 mb-4">10. Bezpieczeństwo i odpowiedzialność</h2>
       <p className="mb-4">
         Serwis nie ponosi odpowiedzialności za wypadki, uszkodzenia mienia, kradzieże ani inne szkody powstałe w wyniku korzystania z ogłoszeń.
         Użytkownicy korzystają z serwisu na własną odpowiedzialność.
       </p>
 
-       <h2 className="text-2xl font-semibold mt-8 mb-4">10. Dane osobowe</h2>
+       <h2 className="text-2xl font-semibold mt-8 mb-4">11. Dane osobowe</h2>
       <p className="mb-4">
        Zasady przetwarzania danych osobowych określa Polityka prywatności dostępna w serwisie.
       </p>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">11. Wiek użytkownika</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">12. Wiek użytkownika</h2>
       <p className="mb-4">
-       Korzystanie z serwisu dozwolone jest wyłącznie dla osób, które ukończyły 18 lat..
+       Korzystanie z serwisu dozwolone jest wyłącznie dla osób, które ukończyły 18 lat.
       </p>
 
       <p className="mt-10 text-sm text-gray-500">
