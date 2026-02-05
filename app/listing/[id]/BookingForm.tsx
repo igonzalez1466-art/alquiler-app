@@ -215,34 +215,27 @@ export default function BookingForm({
       )}
 
       {/* ===== CHECKBOX CONDICIONES ===== */}
-      <label className="flex items-start gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={acceptedTerms}
-          onChange={(e) => setAcceptedTerms(e.target.checked)}
-          className="mt-1"
-          required
-        />
-        <span>
-          Akceptuję{" "}
-          <a
-            href="/regulamin"
-            target="_blank"
-            className="text-indigo-600 underline"
-          >
-            regulamin serwisu
-          </a>{" "}
-          oraz{" "}
-          <a
-            href="/warunki-rezerwacji"
-            target="_blank"
-            className="text-indigo-600 underline"
-          >
-            warunki rezerwacji
-          </a>
-          .
-        </span>
-      </label>
+  <label className="flex items-start gap-2 text-sm text-gray-700">
+  <input
+    type="checkbox"
+    checked={acceptedTerms}
+    onChange={(e) => setAcceptedTerms(e.target.checked)}
+    className="mt-1"
+    required
+  />
+  <span>
+    Akceptuję{" "}
+    <a
+      href="/regulamin"
+      target="_blank"
+      className="text-indigo-600 underline"
+    >
+      regulamin serwisu
+    </a>
+    .
+  </span>
+</label>
+
 
       {/* ===== SUBMIT ===== */}
       <button
