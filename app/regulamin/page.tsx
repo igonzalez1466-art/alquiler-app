@@ -80,38 +80,30 @@ export default function RegulaminPage() {
   </li>
 </ul>
 
-
-      <h2 className="text-2xl font-semibold mt-8 mb-4">7. Płatności</h2>
-      <p className="mb-4">
-        Obecnie serwis nie obsługuje płatności pomiędzy użytkownikami.
-        Płatności, w tym opłata za najem oraz kaucja, są ustalane bezpośrednio pomiędzy użytkownikami poza platformą.
-        W przyszłości Administrator może wprowadzić obsługę płatności lub płatne funkcje serwisu, o czym użytkownicy zostaną poinformowani z wyprzedzeniem.
-      </p>
-
-      <h2 className="text-2xl font-semibold mt-8 mb-4">8. Rozwiązanie umowy</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">7. Rozwiązanie umowy</h2>
       <p className="mb-4">
         Użytkownik może w każdej chwili usunąć swoje konto. Administrator zastrzega sobie
         prawo do usunięcia kont naruszających regulamin.
       </p>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">9. Zmiany regulaminu</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">8. Zmiany regulaminu</h2>
       <p className="mb-4">
         Administrator może zmienić regulamin. O zmianach użytkownicy zostaną poinformowani
         z odpowiednim wyprzedzeniem.
       </p>
 
-         <h2 className="text-2xl font-semibold mt-8 mb-4">10. Bezpieczeństwo i odpowiedzialność</h2>
+         <h2 className="text-2xl font-semibold mt-8 mb-4">9. Bezpieczeństwo i odpowiedzialność</h2>
       <p className="mb-4">
         Serwis nie ponosi odpowiedzialności za wypadki, uszkodzenia mienia, kradzieże ani inne szkody powstałe w wyniku korzystania z ogłoszeń.
         Użytkownicy korzystają z serwisu na własną odpowiedzialność.
       </p>
 
-       <h2 className="text-2xl font-semibold mt-8 mb-4">11. Dane osobowe</h2>
+       <h2 className="text-2xl font-semibold mt-8 mb-4">10. Dane osobowe</h2>
       <p className="mb-4">
        Zasady przetwarzania danych osobowych określa Polityka prywatności dostępna w serwisie.
       </p>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">12. Wiek użytkownika</h2>
+      <h2 className="text-2xl font-semibold mt-8 mb-4">11. Wiek użytkownika</h2>
       <p className="mb-4">
        Korzystanie z serwisu dozwolone jest wyłącznie dla osób, które ukończyły 18 lat.
       </p>
