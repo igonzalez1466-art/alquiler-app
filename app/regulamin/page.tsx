@@ -48,16 +48,33 @@ export default function RegulaminPage() {
         <li>Serwis nie gwarantuje nieprzerwanego dostępu do platformy.</li>
       </ul>
 
-      <h2 className="text-2xl font-semibold mt-8 mb-4">6. Rola serwisu i płatności</h2>
-      <p className="mb-4">
-        Serwis pełni wyłącznie rolę platformy pośredniczącej umożliwiającej kontakt i zawieranie umów pomiędzy użytkownikami.
-        Administrator nie jest stroną umowy zawieranej pomiędzy użytkownikami.
+   <h2 className="text-2xl font-semibold mt-8 mb-4">
+  6. Rola serwisu i płatności
+</h2>
 
-        Serwis nie uczestniczy w rozliczeniach finansowych pomiędzy użytkownikami, w szczególności w płatnościach czynszu najmu ani w zwrocie kaucji.
-        Wszelkie płatności oraz ustalenia finansowe odbywają się bezpośrednio pomiędzy użytkownikami poza serwisem.
+<ul className="list-disc ml-6 mb-4 space-y-2">
+  <li>
+    Serwis pełni wyłącznie rolę platformy pośredniczącej umożliwiającej kontakt
+    oraz zawieranie umów pomiędzy użytkownikami.
+  </li>
+  <li>
+    Administrator nie jest stroną umowy zawieranej pomiędzy użytkownikami.
+  </li>
+  <li>
+    Serwis nie uczestniczy w rozliczeniach finansowych pomiędzy użytkownikami,
+    w szczególności w płatnościach czynszu najmu ani w zwrocie kaucji.
+  </li>
+  <li>
+    Wszelkie płatności oraz ustalenia finansowe odbywają się bezpośrednio
+    pomiędzy użytkownikami poza serwisem.
+  </li>
+  <li>
+    Administrator nie ponosi odpowiedzialności za brak zapłaty,
+    nieterminowe płatności, niewywiązanie się ze zwrotu kaucji
+    ani inne spory finansowe pomiędzy użytkownikami.
+  </li>
+</ul>
 
-        Administrator nie ponosi odpowiedzialności za brak zapłaty, nieterminowe płatności, niewywiązanie się ze zwrotu kaucji ani inne spory finansowe pomiędzy użytkownikami.
-      </p>
 
       <h2 className="text-2xl font-semibold mt-8 mb-4">7. Płatności</h2>
       <p className="mb-4">
