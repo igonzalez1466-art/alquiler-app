@@ -257,7 +257,7 @@ export default async function BookingPage({
 
       {/* ===== Wysyłka ===== */}
       <section className="p-4 border rounded bg-white space-y-3">
-        <h2 className="text-lg font-semibold">Wysyłka</h2>
+        <h2 className="text-lg font-semibold">Dostawa</h2>
 
         <div className="flex flex-wrap items-center gap-2">
           {badge(
