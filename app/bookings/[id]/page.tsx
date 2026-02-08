@@ -260,15 +260,6 @@ export default async function BookingPage({
               "bg-gray-100 text-gray-800 border-gray-200"
           )}
 
-          <span className="text-sm text-gray-600">
-            Preferowana metoda dostawy:{" "}
-            <strong>
-              {booking.listing?.metodoEnvio
-                ? metodoEnvioLabel[booking.listing.metodoEnvio] ??
-                  booking.listing.metodoEnvio
-                : "—"}
-            </strong>
-          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
