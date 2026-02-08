@@ -121,9 +121,13 @@ export default async function BookingPage({
   if (!booking) return notFound();
 
   const isOwner = !!userId && booking.listing?.userId === userId;
+  const isRenter = !!userId && booking.renterId === userId;
 
-  // ✅ Solo tras aprobar
+  // ✅ Dostawa/Wysyłka: solo dueño, y solo tras aprobar
   const canOwnerEditShipping = isOwner && booking.status === "CONFIRMED";
+
+  // ✅ Zwrot: solo inquilino, y solo tras aprobar
+  const canRenterEditReturn = isRenter && booking.status === "CONFIRMED";
 
   // ✅ Lock devolución cuando ya está RETURNED
   const returnLocked = booking.returnStatus === "RETURNED";
@@ -245,7 +249,7 @@ export default async function BookingPage({
         </div>
       </section>
 
-      {/* ===== Dostawa ===== */}
+      {/* ===== Dostawa (antes Wysyłka) ===== */}
       <section className="p-4 border rounded bg-white space-y-3">
         <h2 className="text-lg font-semibold">Dostawa</h2>
 
@@ -288,7 +292,7 @@ export default async function BookingPage({
 
         {isOwner && booking.status === "PENDING" && (
           <p className="text-xs text-gray-500">
-            Szczegóły wysyłki można uzupełnić po akceptacji rezerwacji.
+            Szczegóły dostawy można uzupełnić po akceptacji rezerwacji.
           </p>
         )}
 
@@ -308,7 +312,7 @@ export default async function BookingPage({
         )}
       </section>
 
-      {/* ===== Zwrot (Devolución) ===== */}
+      {/* ===== Zwrot (solo lo edita el inquilino) ===== */}
       <section className="p-4 border rounded bg-white space-y-3">
         <h2 className="text-lg font-semibold">Zwrot</h2>
 
@@ -340,8 +344,8 @@ export default async function BookingPage({
           </div>
         </div>
 
-        {/* ✅ Form de devolución (de momento solo owner, tras CONFIRMED) */}
-        {canOwnerEditShipping && (
+        {/* ✅ Form de devolución SOLO para inquilino, tras CONFIRMED */}
+        {canRenterEditReturn && (
           <div className="pt-3 border-t">
             <ReturnForm
               bookingId={id}
@@ -355,10 +359,16 @@ export default async function BookingPage({
           </div>
         )}
 
-        {/* Mensaje si aún está pendiente */}
-        {isOwner && booking.status === "PENDING" && (
+        {/* Mensajes de ayuda */}
+        {isOwner && (
           <p className="text-xs text-gray-500">
-            Szczegóły zwrotu będą dostępne po akceptacji rezerwacji.
+            Szczegóły zwrotu uzupełnia najemca. Tutaj widzisz tylko podgląd.
+          </p>
+        )}
+
+        {isRenter && booking.status === "PENDING" && (
+          <p className="text-xs text-gray-500">
+            Zwrot będzie dostępny po akceptacji rezerwacji.
           </p>
         )}
       </section>
