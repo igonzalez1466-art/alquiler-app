@@ -83,7 +83,7 @@ export default function ShippingForm({ bookingId, initial }: Props) {
           disabled={loading || isDelivered}
           className="w-full sm:w-auto bg-indigo-600 text-white rounded px-4 py-2 disabled:opacity-60 whitespace-nowrap"
         >
-          {loading ? "Zapisywanie..." : "Zapisz wysyłkę"}
+          {loading ? "Zapisywanie..." : "Zapisz szczegóły dostawy"}
         </button>
 
         {isDelivered && (
