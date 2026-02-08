@@ -240,7 +240,13 @@ export default async function BookingPage({
 
           {/* ===== Dostawa ===== */}
           <section className="p-4 border rounded bg-white space-y-3">
-            <h2 className="text-lg font-semibold">Dostawa</h2>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+  Dostawa
+  <span className="text-xs text-gray-400 font-normal">
+    (uzupełnia właściciel)
+  </span>
+</h2>
+
 
             {badge(
               shippingLabel[booking.shippingStatus],
@@ -270,7 +276,13 @@ export default async function BookingPage({
 
           {/* ===== Zwrot ===== */}
           <section className="p-4 border rounded bg-white space-y-3">
-            <h2 className="text-lg font-semibold">Zwrot</h2>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+  Zwrot
+  <span className="text-xs text-gray-400 font-normal">
+    (uzupełnia najemca)
+  </span>
+</h2>
+
 
             {badge(
               shippingLabel[booking.returnStatus],
