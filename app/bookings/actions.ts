@@ -1,104 +1,306 @@
-const APP_NAME = "Moja Szafa";
+// app/bookings/actions.ts
+"use server";
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+import { prisma } from "@/app/lib/prisma";
+import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
+import { authConfig } from "@/auth.config";
+import { revalidatePath } from "next/cache";
+import { sendMail } from "@/app/lib/mailer";
+// import Stripe from "stripe"; // 🔴 Stripe desactivado por ahora
+
+/* ============================================
+   UTILITY
+=============================================== */
+function fmt(d: Date | string) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(dt.getDate()).padStart(2, "0")}`;
 }
 
-function emailSignatureHtml() {
+/* ============================================
+   FIRMA EMAIL (UNA SOLA VEZ)
+=============================================== */
+function emailSignature() {
   return `
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
-    <p style="margin:0; font-size:13px; color:#111827;">
+    <p style="margin:0; font-size:13px; color:#555;">
       Pozdrawiamy,<br/>
-      <strong>Zespół ${APP_NAME}</strong>
+      <strong>Zespół MojaSzafa</strong>
     </p>
-    <p style="margin-top:6px; font-size:11px; color:#6b7280; line-height:1.4;">
+    <p style="margin-top:6px; font-size:11px; color:#888;">
       Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
     </p>
   `;
 }
 
-function emailLayoutHtml(params: {
-  title: string;
-  intro?: string;      // textito gris debajo del título
-  bodyHtml: string;    // aquí metes tus <p>...
-  cta?: { label: string; href: string };
-  footerNote?: string; // nota pequeña (opcional)
-}): string {
-  const { title, intro, bodyHtml, cta, footerNote } = params;
+/* ============================================
+   CREATE BOOKING — con validación anti-solapamiento
+=============================================== */
+export async function createBookingAction(input: {
+  listingId: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const session = (await getServerSession(authConfig)) as Session | null;
+  const renterId = session?.user?.id;
+  if (!renterId) throw new Error("No autenticado");
 
-  // Nota: en emails, usar tablas mejora compatibilidad
-  return `
-  <div style="margin:0;padding:0;background:#f6f7fb;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7fb;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-            style="max-width:600px;background:#ffffff;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,0.08);overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
-            
-            <tr>
-              <td style="padding:18px 24px 10px 24px;">
-                <div style="font-size:13px;color:#6b7280;">${APP_NAME}</div>
-                <div style="font-size:22px;line-height:1.25;font-weight:700;color:#111827;margin-top:6px;">
-                  ${escapeHtml(title)}
-                </div>
-                ${
-                  intro
-                    ? `<div style="font-size:13px;color:#6b7280;margin-top:8px;line-height:1.4;">
-                         ${escapeHtml(intro)}
-                       </div>`
-                    : ""
-                }
-              </td>
-            </tr>
+  const listing = await prisma.listing.findUnique({
+    where: { id: input.listingId },
+    include: { user: true },
+  });
 
-            <tr>
-              <td style="padding:0 24px 8px 24px;">
-                <div style="font-size:14px;line-height:1.6;color:#111827;">
-                  ${bodyHtml}
-                </div>
-              </td>
-            </tr>
+  if (!listing) throw new Error("Anuncio no encontrado");
+  if (listing.userId === renterId)
+    throw new Error("No puedes reservar tu propio artículo");
 
-            ${
-              cta
-                ? `
-                <tr>
-                  <td style="padding:10px 24px 6px 24px;">
-                    <table role="presentation" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td style="background:#2563eb;border-radius:12px;">
-                          <a href="${cta.href}"
-                             style="display:inline-block;padding:12px 16px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">
-                            ${escapeHtml(cta.label)} →
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                `
-                : ""
-            }
+  const start = new Date(input.startDate);
+  const end = new Date(input.endDate);
 
-            <tr>
-              <td style="padding:12px 24px 20px 24px;">
-                ${emailSignatureHtml()}
-                ${
-                  footerNote
-                    ? `<div style="font-size:11px;color:#9ca3af;line-height:1.4;margin-top:10px;">
-                         ${escapeHtml(footerNote)}
-                       </div>`
-                    : ""
-                }
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-  `;
+  if (isNaN(start.getTime()) || isNaN(end.getTime()))
+    throw new Error("Fechas inválidas.");
+  if (end <= start)
+    throw new Error("La fecha de fin debe ser posterior a la fecha de inicio.");
+
+  // 💥 VALIDACIÓN DE SOLAPAMIENTO
+  const overlapping = await prisma.booking.findFirst({
+    where: {
+      listingId: input.listingId,
+      status: { in: ["PENDING", "CONFIRMED", "PAID"] },
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+  });
+
+  if (overlapping) throw new Error("Estas fechas ya están reservadas.");
+
+  const booking = await prisma.booking.create({
+    data: {
+      listingId: input.listingId,
+      renterId,
+      startDate: start,
+      endDate: end,
+      status: "PENDING",
+    },
+    include: {
+      renter: true,
+      listing: { include: { user: true } },
+    },
+  });
+
+  const s = fmt(start);
+  const e = fmt(end);
+  const title = listing.title ?? "tu artículo";
+
+  /* EMAIL AL PROPIETARIO */
+  if (booking.listing.user?.email) {
+    await sendMail({
+      to: booking.listing.user.email,
+      subject: `Nowa prośba o rezerwację: ${title}`,
+      html: `
+        <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
+        <p>${booking.renter?.name ?? "un usuario"} chce dokonać rezerwacji <b>${title}</b>.</p>
+        <p>Daty: <b>${s}</b> → <b>${e}</b></p>
+        <p>możesz zaakceptować lub odrzucić w swoim panelu.</p>
+        ${emailSignature()}
+      `,
+    });
+  }
+
+  /* EMAIL AL INQUILINO */
+  if (booking.renter?.email) {
+    await sendMail({
+      to: booking.renter.email,
+      subject: `Wniosek wysłany na ${title}`,
+      html: `
+        <p>Cześć ${booking.renter.name ?? "usuario"},</p>
+        <p>Twoje zgłoszenie dotyczące <b>${title}</b> (${s} → ${e}) zostało wysłane do właściciela.</p>
+        <p>Poinformujemy Cię, gdy właściciel ją zatwierdzi.</p>
+        ${emailSignature()}
+      `,
+    });
+  }
+
+  revalidatePath("/bookings");
+  revalidatePath(`/listing/${listing.id}`);
+
+  return { bookingId: booking.id, status: booking.status };
 }
+
+/* ============================================
+   APPROVE BOOKING — sin pagos (CONFIRMED)
+=============================================== */
+export async function approveBookingAction(bookingId: string) {
+  const session = (await getServerSession(authConfig)) as Session | null;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No autenticado");
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      listing: { include: { user: true } },
+      renter: true,
+    },
+  });
+
+  if (!booking) throw new Error("Reserva no encontrada");
+  if (booking.listing.userId !== userId) throw new Error("No autorizado");
+  if (booking.status !== "PENDING")
+    throw new Error("Esta reserva ya fue procesada");
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { status: "CONFIRMED" },
+  });
+
+  const title = booking.listing.title ?? "tu artículo";
+  const s = fmt(booking.startDate);
+  const e = fmt(booking.endDate);
+
+  /* EMAIL AL INQUILINO */
+  if (booking.renter?.email) {
+    await sendMail({
+      to: booking.renter.email,
+      subject: `Rezerwacja potwierdzona: ${title}`,
+      html: `
+        <p>Cześć ${booking.renter.name ?? "usuario"},</p>
+        <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
+        <p>Skontaktuj się z właścicielem, aby ustalić sposób odbioru lub dostawy oraz szczegóły płatności poza aplikacją.</p>
+        ${emailSignature()}
+      `,
+    });
+  }
+
+  /* EMAIL AL PROPIETARIO */
+  if (booking.listing.user?.email) {
+    await sendMail({
+      to: booking.listing.user.email,
+      subject: `Potwierdziłeś rezerwację ${title}`,
+      html: `
+        <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
+
+  <p>
+    Potwierdziłeś rezerwację <b>${title}</b>
+    dla ${booking.renter?.name ?? "el usuario"}.
+  </p>
+
+  <p>Daty: ${s} → ${e}</p>
+
+  <p>
+    Skontaktuj się z najemcą, aby potwierdzić szczegóły płatności za wynajem
+    oraz kaucję (jeśli obowiązuje). Płatność odbywa się poza platformą.
+  </p>
+
+  <p style="color:#b91c1c; font-weight:600;">
+    Nie przekazuj przedmiotu do momentu potwierdzenia otrzymania
+    uzgodnionej kwoty.
+  </p>
+        ${emailSignature()}
+      `,
+    });
+  }
+
+  revalidatePath("/bookings");
+  return { ok: true };
+}
+
+/* ============================================
+   REJECT BOOKING ✅ + CLOSE CHAT (ROBUSTO)
+=============================================== */
+export async function rejectBookingAction(bookingId: string) {
+  const session = (await getServerSession(authConfig)) as Session | null;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No autenticado");
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      listing: { include: { user: true } },
+      renter: true,
+    },
+  });
+
+  if (!booking) throw new Error("Reserva no encontrada");
+  if (booking.listing.userId !== userId) throw new Error("No autorizado");
+  if (booking.status !== "PENDING")
+    throw new Error("Solo reservas pendientes pueden rechazarse");
+
+  // ✅ 1) Cancelar booking
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { status: "CANCELLED" },
+  });
+
+  // ✅ 2) Cerrar conversación SI EXISTE (sin depender de status=OPEN)
+  const conv = await prisma.conversation.findUnique({
+    where: {
+      listingId_buyerId: {
+        listingId: booking.listingId,
+        buyerId: booking.renterId,
+      },
+    },
+    select: { id: true, status: true },
+  });
+
+  if (conv) {
+    await prisma.conversation.update({
+      where: { id: conv.id },
+      data: {
+        status: "CLOSED",
+        closedAt: new Date(),
+        closedReason: "BOOKING_CANCELLED_BY_OWNER",
+      },
+    });
+
+    revalidatePath(`/chat/${conv.id}`);
+  }
+
+  const title = booking.listing.title ?? "tu artículo";
+  const s = fmt(booking.startDate);
+  const e = fmt(booking.endDate);
+
+  /* EMAIL AL INQUILINO */
+  if (booking.renter?.email) {
+    await sendMail({
+      to: booking.renter.email,
+      subject: `Rezerwacja odrzucona: ${title}`,
+      html: `
+        <p>Cześć ${booking.renter.name ?? "Użytkowniku"},</p>
+
+        <p>
+          Właściciel odrzucił Twoją rezerwację
+          <strong>${title}</strong>.
+        </p>
+
+        <p>Daty: ${s} → ${e}</p>
+
+        ${emailSignature()}
+      `,
+    });
+  }
+
+  revalidatePath("/bookings");
+  revalidatePath("/chat");
+
+  // ✅ útil para depurar en el frontend
+  return { ok: true, closedChat: !!conv };
+}
+
+/* ============================================
+   STRIPE CHECKOUT (DESACTIVADO)
+=============================================== */
+
+/*
+export async function createCheckoutSessionAction(bookingId: string) {
+  const session = await getServerSession(authConfig);
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No autorizado");
+
+  // Aquí iría todo tu código de Stripe...
+
+  // return { url: sessionStripe.url! };
+}
+*/
