@@ -7,8 +7,8 @@ import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
 import { openChatFromBookingAction } from "./actions";
 
-// ✅ IMPORT correcto según tu estructura (app/bookings/[id]/_components/ShippingForm.tsx)
 import ShippingForm from "./_components/ShippingForm";
+import ReturnForm from "./_components/ReturnForm";
 
 // ===== Helpers =====
 const fmt = (d?: Date | null) =>
@@ -43,7 +43,7 @@ function daysInclusive(a: Date, b: Date) {
   return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
 }
 
-// ===== Etiquetas =====
+// ===== Labels =====
 const statusLabel: Record<string, string> = {
   PENDING: "Oczekuje na akceptację",
   CONFIRMED: "Potwierdzona",
@@ -84,7 +84,6 @@ const shippingClass: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-700 border-gray-200",
 };
 
-// ===== Traducciones método de entrega =====
 const metodoEnvioLabel: Record<string, string> = {
   RECOGIDA_LOCAL: "Odbiór osobisty",
   ENVIO_CORREOS: "Wysyłka pocztą",
@@ -116,17 +115,6 @@ export default async function BookingPage({
         },
       },
       renter: { select: { id: true, name: true, email: true } },
-      reviews: {
-        select: {
-          id: true,
-          reviewerId: true,
-          revieweeId: true,
-          rating: true,
-          role: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
     },
   });
 
@@ -134,10 +122,13 @@ export default async function BookingPage({
 
   const isOwner = !!userId && booking.listing?.userId === userId;
 
-  // ✅ SOLO después de aprobar (CONFIRMED) el dueño puede editar Wysyłka
+  // ✅ Solo tras aprobar
   const canOwnerEditShipping = isOwner && booking.status === "CONFIRMED";
 
-  // ===== Cálculos pago =====
+  // ✅ Lock devolución cuando ya está RETURNED
+  const returnLocked = booking.returnStatus === "RETURNED";
+
+  // ===== Cálculos =====
   const pricePerDay = booking.listing?.pricePerDay ?? 0;
   const deposit = booking.listing?.fianza ?? 0;
   const days = daysInclusive(booking.startDate, booking.endDate);
@@ -153,7 +144,7 @@ export default async function BookingPage({
         </Link>
       </div>
 
-      {/* ===== Información general ===== */}
+      {/* ===== Info general ===== */}
       <section className="p-4 border rounded bg-white space-y-2">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -175,7 +166,6 @@ export default async function BookingPage({
             </div>
           </div>
 
-          {/* ✅ Badge + Chat button */}
           <div className="flex flex-col items-end gap-2">
             {badge(
               statusLabel[booking.status] ?? booking.status,
@@ -255,7 +245,7 @@ export default async function BookingPage({
         </div>
       </section>
 
-      {/* ===== Wysyłka ===== */}
+      {/* ===== Dostawa ===== */}
       <section className="p-4 border rounded bg-white space-y-3">
         <h2 className="text-lg font-semibold">Dostawa</h2>
 
@@ -277,7 +267,6 @@ export default async function BookingPage({
           </span>
         </div>
 
-        {/* Resumen (lo ven ambos) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <div>
             <span className="text-gray-500">Przewoźnik:</span>{" "}
@@ -297,14 +286,12 @@ export default async function BookingPage({
           </div>
         </div>
 
-        {/* Info para owner mientras aún no está confirmada */}
         {isOwner && booking.status === "PENDING" && (
           <p className="text-xs text-gray-500">
             Szczegóły wysyłki można uzupełnić po akceptacji rezerwacji.
           </p>
         )}
 
-        {/* ✅ Form editable SOLO owner y SOLO después de aprobar */}
         {canOwnerEditShipping && (
           <div className="pt-3 border-t">
             <ShippingForm
@@ -318,6 +305,61 @@ export default async function BookingPage({
               }}
             />
           </div>
+        )}
+      </section>
+
+      {/* ===== Zwrot (Devolución) ===== */}
+      <section className="p-4 border rounded bg-white space-y-3">
+        <h2 className="text-lg font-semibold">Zwrot</h2>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {badge(
+            shippingLabel[booking.returnStatus] ?? booking.returnStatus,
+            shippingClass[booking.returnStatus] ??
+              "bg-gray-100 text-gray-800 border-gray-200"
+          )}
+        </div>
+
+        {/* Resumen (lo ven ambos) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="text-gray-500">Przewoźnik (zwrot):</span>{" "}
+            {booking.returnCarrier ?? "—"}
+          </div>
+          <div>
+            <span className="text-gray-500">Numer śledzenia (zwrot):</span>{" "}
+            {booking.returnTrackingNumber ?? "—"}
+          </div>
+          <div>
+            <span className="text-gray-500">Zwrot wysłano:</span>{" "}
+            {fmt(booking.returnShippedAt)}
+          </div>
+          <div>
+            <span className="text-gray-500">Zwrot odebrano:</span>{" "}
+            {fmt(booking.returnDeliveredAt)}
+          </div>
+        </div>
+
+        {/* ✅ Form de devolución (de momento solo owner, tras CONFIRMED) */}
+        {canOwnerEditShipping && (
+          <div className="pt-3 border-t">
+            <ReturnForm
+              bookingId={id}
+              locked={returnLocked}
+              initial={{
+                returnStatus: booking.returnStatus,
+                returnCarrier: booking.returnCarrier,
+                returnTrackingNumber: booking.returnTrackingNumber,
+              }}
+            />
+          </div>
+        )}
+
+        {/* Mensaje si aún está pendiente */}
+        {isOwner && booking.status === "PENDING" && (
+          <p className="text-xs text-gray-500">
+            Szczegóły zwrotu będą dostępne po akceptacji rezerwacji.
+          </p>
         )}
       </section>
 
