@@ -134,13 +134,21 @@ export async function sendMessageAction(
       try {
         await sendMail({
           to,
-          subject: `Nowa wiadomość od ${
+          subject: `Mojaszafa - Nowa wiadomość od ${
             getUserNameFromSession(session) ?? "użytkownika"
           }`,
           html: `
             <p>Masz nową wiadomość w <b>Moja Szafa</b>:</p>
             <blockquote>${text.replace(/</g, "&lt;")}</blockquote>
             <p><a href="${baseUrl}/chat/${conversationId}">Otwórz czat</a></p>
+
+            <br>
+            <p>Pozdrawiamy,<br>
+            <b>Zespół Moja Szafa</b></p>
+
+            <p style="font-size:12px;color:#777;">
+            Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
+            </p>
           `,
           text: `Nowa wiadomość:\n\n${text}\n\nOtwórz czat: ${baseUrl}/chat/${conversationId}`,
         });
