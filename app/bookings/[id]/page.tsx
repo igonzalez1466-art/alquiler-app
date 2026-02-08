@@ -5,7 +5,10 @@ import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
-import { openChatFromBookingAction } from "./actions"; // ✅ AÑADIDO
+import { openChatFromBookingAction } from "./actions";
+
+// ✅ IMPORT correcto según tu estructura (app/bookings/[id]/_components/ShippingForm.tsx)
+import ShippingForm from "./_components/ShippingForm";
 
 // ===== Helpers =====
 const fmt = (d?: Date | null) =>
@@ -43,6 +46,7 @@ function daysInclusive(a: Date, b: Date) {
 // ===== Etiquetas =====
 const statusLabel: Record<string, string> = {
   PENDING: "Oczekuje na akceptację",
+  CONFIRMED: "Potwierdzona",
   AWAITING_PAYMENT: "Oczekuje na płatność",
   PAID: "Opłacona",
   CANCELLED: "Odrzucona",
@@ -50,6 +54,7 @@ const statusLabel: Record<string, string> = {
 
 const statusClass: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  CONFIRMED: "bg-sky-100 text-sky-800 border-sky-200",
   AWAITING_PAYMENT: "bg-blue-100 text-blue-800 border-blue-200",
   PAID: "bg-emerald-100 text-emerald-800 border-emerald-200",
   CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
@@ -129,6 +134,9 @@ export default async function BookingPage({
 
   const isOwner = !!userId && booking.listing?.userId === userId;
 
+  // ✅ SOLO después de aprobar (CONFIRMED) el dueño puede editar Wysyłka
+  const canOwnerEditShipping = isOwner && booking.status === "CONFIRMED";
+
   // ===== Cálculos pago =====
   const pricePerDay = booking.listing?.pricePerDay ?? 0;
   const deposit = booking.listing?.fianza ?? 0;
@@ -175,7 +183,6 @@ export default async function BookingPage({
                 "bg-gray-100 text-gray-800 border-gray-200"
             )}
 
-            {/* Owner (y también renter si quieres) puede abrir chat */}
             {userId && (
               <form action={openChatFromBookingAction}>
                 <input type="hidden" name="bookingId" value={id} />
@@ -242,7 +249,8 @@ export default async function BookingPage({
           </div>
 
           <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
-            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i potwierdzeniu braku uszkodzeń).
+            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i
+            potwierdzeniu braku uszkodzeń).
           </div>
         </div>
       </section>
@@ -269,22 +277,48 @@ export default async function BookingPage({
           </span>
         </div>
 
+        {/* Resumen (lo ven ambos) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-gray-500">Przewoźnik:</span> {booking.carrier ?? "—"}
+            <span className="text-gray-500">Przewoźnik:</span>{" "}
+            {booking.carrier ?? "—"}
           </div>
           <div>
             <span className="text-gray-500">Numer śledzenia:</span>{" "}
             {booking.trackingNumber ?? "—"}
           </div>
           <div>
-            <span className="text-gray-500">Wysłano dnia:</span> {fmt(booking.shippedAt)}
+            <span className="text-gray-500">Wysłano dnia:</span>{" "}
+            {fmt(booking.shippedAt)}
           </div>
           <div>
             <span className="text-gray-500">Dostarczono dnia:</span>{" "}
             {fmt(booking.deliveredAt)}
           </div>
         </div>
+
+        {/* Info para owner mientras aún no está confirmada */}
+        {isOwner && booking.status === "PENDING" && (
+          <p className="text-xs text-gray-500">
+            Szczegóły wysyłki można uzupełnić po akceptacji rezerwacji.
+          </p>
+        )}
+
+        {/* ✅ Form editable SOLO owner y SOLO después de aprobar */}
+        {canOwnerEditShipping && (
+          <div className="pt-3 border-t">
+            <ShippingForm
+              bookingId={id}
+              initial={{
+                shippingStatus: booking.shippingStatus,
+                carrier: booking.carrier,
+                trackingNumber: booking.trackingNumber,
+                shippedAt: booking.shippedAt,
+                deliveredAt: booking.deliveredAt,
+              }}
+            />
+          </div>
+        )}
       </section>
 
       {/* ===== Acciones (solo propietario) ===== */}
