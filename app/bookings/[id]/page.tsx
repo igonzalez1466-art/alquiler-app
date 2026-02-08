@@ -84,13 +84,6 @@ const shippingClass: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-700 border-gray-200",
 };
 
-const metodoEnvioLabel: Record<string, string> = {
-  RECOGIDA_LOCAL: "Odbiór osobisty",
-  ENVIO_CORREOS: "Wysyłka pocztą",
-  MENSAJERIA: "Kurier",
-  OTRO: "Inna metoda",
-};
-
 export default async function BookingPage({
   params,
 }: {
@@ -108,13 +101,12 @@ export default async function BookingPage({
         select: {
           id: true,
           title: true,
-          metodoEnvio: true,
           fianza: true,
           pricePerDay: true,
           userId: true,
         },
       },
-      renter: { select: { id: true, name: true, email: true } },
+      renter: { select: { id: true, name: true } },
     },
   });
 
@@ -123,13 +115,10 @@ export default async function BookingPage({
   const isOwner = !!userId && booking.listing?.userId === userId;
   const isRenter = !!userId && booking.renterId === userId;
 
-  // ✅ Dostawa/Wysyłka: solo dueño, y solo tras aprobar
+  const isRejected = booking.status === "CANCELLED";
+
   const canOwnerEditShipping = isOwner && booking.status === "CONFIRMED";
-
-  // ✅ Zwrot: solo inquilino, y solo tras aprobar
   const canRenterEditReturn = isRenter && booking.status === "CONFIRMED";
-
-  // ✅ Lock devolución cuando ya está RETURNED
   const returnLocked = booking.returnStatus === "RETURNED";
 
   // ===== Cálculos =====
@@ -173,17 +162,13 @@ export default async function BookingPage({
           <div className="flex flex-col items-end gap-2">
             {badge(
               statusLabel[booking.status] ?? booking.status,
-              statusClass[booking.status] ??
-                "bg-gray-100 text-gray-800 border-gray-200"
+              statusClass[booking.status]
             )}
 
             {userId && (
               <form action={openChatFromBookingAction}>
                 <input type="hidden" name="bookingId" value={id} />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 rounded border text-gray-700 hover:bg-gray-50"
-                >
+                <button className="px-3 py-1.5 rounded border text-gray-700 hover:bg-gray-50">
                   Otwórz czat
                 </button>
               </form>
@@ -192,182 +177,134 @@ export default async function BookingPage({
         </div>
       </section>
 
-      {/* ===== Płatność ===== */}
-      <section className="border rounded bg-white overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b">
-          <h2 className="text-lg font-semibold">Płatność</h2>
-          <p className="text-xs text-gray-600">Podsumowanie kosztów rezerwacji</p>
-        </div>
+      {/* ===== Mensaje si está rechazada ===== */}
+      {isRejected && (
+        <section className="p-4 border rounded bg-white text-sm text-gray-600">
+          Rezerwacja została odrzucona — szczegóły płatności, dostawy i zwrotu nie
+          są dostępne.
+        </section>
+      )}
 
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-gray-500">Od</div>
-              <div className="font-semibold">{fmtDate(booking.startDate)}</div>
+      {/* ===== Secciones solo si NO está rechazada ===== */}
+      {!isRejected && (
+        <>
+          {/* ===== Płatność ===== */}
+          <section className="border rounded bg-white overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold">Płatność</h2>
             </div>
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-gray-500">Do</div>
-              <div className="font-semibold">{fmtDate(booking.endDate)}</div>
+
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-gray-500">Od</div>
+                  <div className="font-semibold">
+                    {fmtDate(booking.startDate)}
+                  </div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-gray-500">Do</div>
+                  <div className="font-semibold">
+                    {fmtDate(booking.endDate)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border">
+                <div className="divide-y">
+                  <div className="flex justify-between px-3 py-2 text-sm">
+                    <span>Liczba dni</span>
+                    <span>{days}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 text-sm">
+                    <span>Cena za dzień</span>
+                    <span>{pricePerDay} zł</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 text-sm">
+                    <span>Koszt najmu</span>
+                    <span>{rentTotal} zł</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 text-sm">
+                    <span>Kaucja (zwrotna)</span>
+                    <span>{deposit} zł</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
+                <span className="font-semibold">Razem do zapłaty</span>
+                <span className="font-bold text-indigo-700">{total} zł</span>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-lg border">
-            <div className="divide-y">
-              <div className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-gray-600">Liczba dni</span>
-                <span className="font-medium">{days}</span>
-              </div>
+          {/* ===== Dostawa ===== */}
+          <section className="p-4 border rounded bg-white space-y-3">
+            <h2 className="text-lg font-semibold">Dostawa</h2>
 
-              <div className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-gray-600">Cena za dzień</span>
-                <span className="font-medium">{pricePerDay} zł</span>
-              </div>
+            {badge(
+              shippingLabel[booking.shippingStatus],
+              shippingClass[booking.shippingStatus]
+            )}
 
-              <div className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-gray-600">Koszt najmu</span>
-                <span className="font-medium">{rentTotal} zł</span>
-              </div>
-
-              <div className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-gray-600">
-                  Kaucja <span className="text-xs text-gray-500">(zwrotna)</span>
-                </span>
-                <span className="font-medium">{deposit} zł</span>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div>Przewoźnik: {booking.carrier ?? "—"}</div>
+              <div>Numer śledzenia: {booking.trackingNumber ?? "—"}</div>
+              <div>Wysłano: {fmt(booking.shippedAt)}</div>
+              <div>Dostarczono: {fmt(booking.deliveredAt)}</div>
             </div>
-          </div>
 
-          <div className="rounded-lg border bg-indigo-50 border-indigo-100 px-3 py-3 flex items-center justify-between">
-            <span className="font-semibold text-gray-900">Razem do zapłaty</span>
-            <span className="text-lg font-bold text-indigo-700">{total} zł</span>
-          </div>
+            {canOwnerEditShipping && (
+              <ShippingForm
+                bookingId={id}
+                initial={{
+                  shippingStatus: booking.shippingStatus,
+                  carrier: booking.carrier,
+                  trackingNumber: booking.trackingNumber,
+                  shippedAt: booking.shippedAt,
+                  deliveredAt: booking.deliveredAt,
+                }}
+              />
+            )}
+          </section>
 
-          <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
-            Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i
-            potwierdzeniu braku uszkodzeń).
-          </div>
-        </div>
-      </section>
+          {/* ===== Zwrot ===== */}
+          <section className="p-4 border rounded bg-white space-y-3">
+            <h2 className="text-lg font-semibold">Zwrot</h2>
 
-      {/* ===== Dostawa (antes Wysyłka) ===== */}
-      <section className="p-4 border rounded bg-white space-y-3">
-        <h2 className="text-lg font-semibold">Dostawa</h2>
+            {badge(
+              shippingLabel[booking.returnStatus],
+              shippingClass[booking.returnStatus]
+            )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {badge(
-            shippingLabel[booking.shippingStatus] ?? booking.shippingStatus,
-            shippingClass[booking.shippingStatus] ??
-              "bg-gray-100 text-gray-800 border-gray-200"
-          )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div>Przewoźnik: {booking.returnCarrier ?? "—"}</div>
+              <div>
+                Numer śledzenia: {booking.returnTrackingNumber ?? "—"}
+              </div>
+              <div>Wysłano: {fmt(booking.returnShippedAt)}</div>
+              <div>Odebrano: {fmt(booking.returnDeliveredAt)}</div>
+            </div>
 
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-          <div>
-            <span className="text-gray-500">Przewoźnik:</span>{" "}
-            {booking.carrier ?? "—"}
-          </div>
-          <div>
-            <span className="text-gray-500">Numer śledzenia:</span>{" "}
-            {booking.trackingNumber ?? "—"}
-          </div>
-          <div>
-            <span className="text-gray-500">Wysłano dnia:</span>{" "}
-            {fmt(booking.shippedAt)}
-          </div>
-          <div>
-            <span className="text-gray-500">Dostarczono dnia:</span>{" "}
-            {fmt(booking.deliveredAt)}
-          </div>
-        </div>
-
-        {isOwner && booking.status === "PENDING" && (
-          <p className="text-xs text-gray-500">
-            Szczegóły dostawy można uzupełnić po akceptacji rezerwacji.
-          </p>
-        )}
-
-        {canOwnerEditShipping && (
-          <div className="pt-3 border-t">
-            <ShippingForm
-              bookingId={id}
-              initial={{
-                shippingStatus: booking.shippingStatus,
-                carrier: booking.carrier,
-                trackingNumber: booking.trackingNumber,
-                shippedAt: booking.shippedAt,
-                deliveredAt: booking.deliveredAt,
-              }}
-            />
-          </div>
-        )}
-      </section>
-
-      {/* ===== Zwrot (solo lo edita el inquilino) ===== */}
-      <section className="p-4 border rounded bg-white space-y-3">
-        <h2 className="text-lg font-semibold">Zwrot</h2>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {badge(
-            shippingLabel[booking.returnStatus] ?? booking.returnStatus,
-            shippingClass[booking.returnStatus] ??
-              "bg-gray-100 text-gray-800 border-gray-200"
-          )}
-        </div>
-
-        {/* Resumen (lo ven ambos) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-          <div>
-            <span className="text-gray-500">Przewoźnik (zwrot):</span>{" "}
-            {booking.returnCarrier ?? "—"}
-          </div>
-          <div>
-            <span className="text-gray-500">Numer śledzenia (zwrot):</span>{" "}
-            {booking.returnTrackingNumber ?? "—"}
-          </div>
-          <div>
-            <span className="text-gray-500">Zwrot wysłano:</span>{" "}
-            {fmt(booking.returnShippedAt)}
-          </div>
-          <div>
-            <span className="text-gray-500">Zwrot odebrano:</span>{" "}
-            {fmt(booking.returnDeliveredAt)}
-          </div>
-        </div>
-
-        {/* ✅ Form de devolución SOLO para inquilino, tras CONFIRMED */}
-        {canRenterEditReturn && (
-          <div className="pt-3 border-t">
-            <ReturnForm
-              bookingId={id}
-              locked={returnLocked}
-              initial={{
-                returnStatus: booking.returnStatus,
-                returnCarrier: booking.returnCarrier,
-                returnTrackingNumber: booking.returnTrackingNumber,
-              }}
-            />
-          </div>
-        )}
-
-        {/* Mensajes de ayuda */}
-        {isOwner && (
-          <p className="text-xs text-gray-500">
-            Szczegóły zwrotu uzupełnia najemca. Tutaj widzisz tylko podgląd.
-          </p>
-        )}
-
-        {isRenter && booking.status === "PENDING" && (
-          <p className="text-xs text-gray-500">
-            Zwrot będzie dostępny po akceptacji rezerwacji.
-          </p>
-        )}
-      </section>
+            {canRenterEditReturn && (
+              <ReturnForm
+                bookingId={id}
+                locked={returnLocked}
+                initial={{
+                  returnStatus: booking.returnStatus,
+                  returnCarrier: booking.returnCarrier,
+                  returnTrackingNumber: booking.returnTrackingNumber,
+                }}
+              />
+            )}
+          </section>
+        </>
+      )}
 
       {/* ===== Acciones (solo propietario) ===== */}
       {isOwner && booking.status === "PENDING" && (
-        <section className="p-4 border rounded bg-white space-y-3">
-          <h2 className="text-lg font-semibold">Akcje</h2>
+        <section className="p-4 border rounded bg-white">
+          <h2 className="text-lg font-semibold mb-2">Akcje</h2>
           <div className="flex gap-3">
             <ApproveButton bookingId={id} />
             <RejectButton bookingId={id} />
