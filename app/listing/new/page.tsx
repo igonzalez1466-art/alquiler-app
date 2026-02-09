@@ -1,3 +1,4 @@
+
 // app/listing/new/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import { getSession } from "@/app/lib/auth";
@@ -55,9 +56,11 @@ const ALLOWED_GENDERS: ReadonlySet<Gender> = new Set([
   "KIDS",
 ]);
 
+// ✅ actualizado a tu enum nuevo: +MARYNARKA, -CHAMARRA
 const ALLOWED_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set([
   "ABRIGO",
-  "CHAQUETA",
+  "CHAQUETA",   // Kurtka (legacy)
+  "MARYNARKA",  // Marynarka / blazer
   "CAMISA",
   "BLUSA",
   "VESTIDO",
@@ -68,7 +71,6 @@ const ALLOWED_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set([
   "JERSEY",
   "MONO",
   "ACCESORIO",
-  "CHAMARRA",
   "OTRO",
   "ZAPATO",
 ]);
@@ -492,18 +494,21 @@ export default async function NewListingPage({
                 className={`${inputBase} mt-1`}
               >
                 <option value="">Wybierz</option>
-                <option value="ABRIGO">Płaszcz</option>
-                <option value="CHAQUETA">Marynarka</option>
+                <option value="TRAJE">Garnitur</option>
+                <option value="VESTIDO">Sukienka</option>
+                <option value="MARYNARKA">Marynarka</option>
                 <option value="CAMISA">Koszula</option>
                 <option value="BLUSA">Bluzka</option>
-                <option value="VESTIDO">Sukienka</option>
                 <option value="PANTALON">Spodnie</option>
                 <option value="FALDA">Spódnica</option>
-                <option value="TRAJE">Garnitur</option>
+
+                <option value="ABRIGO">Płaszcz</option>
+                <option value="CHAQUETA">Kurtka</option>
+
                 <option value="SUDADERA">Bluza</option>
                 <option value="JERSEY">Sweter</option>
                 <option value="MONO">Kombinezon</option>
-                <option value="CHAMARRA">Kurtka</option>
+
                 <option value="ACCESORIO">Akcesoria</option>
                 <option value="ZAPATO">Buty</option>
                 <option value="OTRO">Inne</option>

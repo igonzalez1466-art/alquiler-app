@@ -25,7 +25,8 @@ const enumLabels: Record<string, string> = {
   KIDS: "Dziecko",
 
   ABRIGO: "Płaszcz",
-  CHAQUETA: "Marynarka",
+  MARYNARKA: "Marynarka",
+  CHAQUETA: "Kurtka",
   CAMISA: "Koszula",
   BLUSA: "Bluzka",
   VESTIDO: "Sukienka",
@@ -35,7 +36,6 @@ const enumLabels: Record<string, string> = {
   SUDADERA: "Bluza",
   JERSEY: "Sweter",
   MONO: "Kombinezon",
-  CHAMARRA: "Kurtka",
   ACCESORIO: "Akcesoria",
   ZAPATO: "Buty",
   OTRO: "Inne",
@@ -209,9 +209,12 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 <div className="flex flex-wrap gap-2">
                   {listing.estado && pill(`Stan: ${estadoLabels[listing.estado]}`)}
                   {listing.metodoEnvio && pill(`Dostawa: ${envioLabels[listing.metodoEnvio]}`)}
-                  {pill(listing.available ? "Aktywne" : "Nieaktywne", listing.available
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-rose-50 text-rose-700 border-rose-200")}
+                  {pill(
+                    listing.available ? "Aktywne" : "Nieaktywne",
+                    listing.available
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-rose-50 text-rose-700 border-rose-200"
+                  )}
                 </div>
               </div>
 
@@ -258,9 +261,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 {listing.color ?? "—"}
               </span>
 
-              {pill(
-                `Materiały: ${materials.length ? materials.join(", ") : "—"}`
-              )}
+              {pill(`Materiały: ${materials.length ? materials.join(", ") : "—"}`)}
             </div>
           </section>
 

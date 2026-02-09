@@ -7,11 +7,15 @@ import Image from "next/image";
 /* ===================== LABELS ===================== */
 
 const enumLabels: Record<string, string> = {
+  // Gender
   WOMAN: "Kobieta",
   MAN: "Mężczyzna",
   UNISEX: "Unisex",
   KIDS: "Dziecięce",
+
+  // GarmentType
   ABRIGO: "Płaszcz",
+  MARYNARKA: "Marynarka",
   CHAQUETA: "Kurtka",
   CAMISA: "Koszula",
   BLUSA: "Bluzka",
@@ -24,6 +28,7 @@ const enumLabels: Record<string, string> = {
   MONO: "Kombinezon",
   ACCESORIO: "Akcesoria",
   ZAPATO: "Buty",
+  OTRO: "Inne",
 };
 
 const label = (v?: string | null) => {

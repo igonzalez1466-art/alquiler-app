@@ -14,7 +14,7 @@ type Props = {
   materials: string;
 };
 
-/* ===== LISTAS FIJAS (IGUAL QUE GENDER / GARMENT) ===== */
+/* ===== LISTAS FIJAS ===== */
 
 const COLORS = [
   { value: "CZARNY", label: "czarny" },
@@ -31,8 +31,21 @@ const COLORS = [
 ];
 
 const SIZES = [
-  "XS","S","M","L","XL","XXL",
-  "34","36","38","40","42","44","46","48","50",
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "34",
+  "36",
+  "38",
+  "40",
+  "42",
+  "44",
+  "46",
+  "48",
+  "50",
 ];
 
 const MATERIALS = [
@@ -144,20 +157,25 @@ export default function ListingFilters({
               className="w-full border rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Wszystkie</option>
+
               <option value="TRAJE">Garnitur</option>
               <option value="VESTIDO">Sukienka</option>
+              <option value="MARYNARKA">Marynarka</option>
               <option value="CAMISA">Koszula</option>
+              <option value="BLUSA">Bluzka</option>
               <option value="PANTALON">Spodnie</option>
               <option value="FALDA">Spódnica</option>
-              <option value="CHAQUETA">Marynarka</option>
+
               <option value="ABRIGO">Płaszcz</option>
-              <option value="ZAPATO">Buty</option>
-                <option value="BLUSA">Bluzka</option>
+              <option value="CHAQUETA">Kurtka</option>
+
               <option value="SUDADERA">Bluza</option>
               <option value="JERSEY">Sweter</option>
               <option value="MONO">Kombinezon</option>
-              <option value="CHAMARRA">Kurtka</option>
+
               <option value="ACCESORIO">Akcesoria</option>
+              <option value="ZAPATO">Buty</option>
+              <option value="OTRO">Inne</option>
             </select>
           </label>
 
@@ -214,23 +232,23 @@ export default function ListingFilters({
             </select>
           </label>
         </div>
-{/* Botones */}
-<div className="w-full flex flex-wrap items-center justify-end gap-2 pt-1">
-  <button
-    type="submit"
-    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium whitespace-nowrap"
-  >
-    Zastosuj filtry
-  </button>
 
-  <Link
-    href="/listing"
-    className="px-4 py-2 rounded-lg border text-sm font-medium whitespace-nowrap"
-  >
-    Wyczyść filtry
-  </Link>
-</div>
+        {/* Botones */}
+        <div className="w-full flex flex-wrap items-center justify-end gap-2 pt-1">
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium whitespace-nowrap"
+          >
+            Zastosuj filtry
+          </button>
 
+          <Link
+            href="/listing"
+            className="px-4 py-2 rounded-lg border text-sm font-medium whitespace-nowrap"
+          >
+            Wyczyść filtry
+          </Link>
+        </div>
       </form>
     </div>
   );

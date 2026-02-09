@@ -237,8 +237,9 @@ enum Gender {
 }
 
 enum GarmentType {
-  ABRIGO
-  CHAQUETA
+  ABRIGO        // Płaszcz
+  CHAQUETA      // Kurtka (legacy)
+  MARYNARKA     // Marynarka / blazer
   CAMISA
   BLUSA
   VESTIDO
@@ -249,10 +250,10 @@ enum GarmentType {
   JERSEY
   MONO
   ACCESORIO
-  CHAMARRA
   OTRO
   ZAPATO
 }
+
 
 enum Color {
   CZARNY
