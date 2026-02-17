@@ -151,9 +151,29 @@ export async function approveBookingAction(bookingId: string) {
   if (booking.status !== "PENDING")
     throw new Error("Esta reserva ya fue procesada");
 
+  // ✅ calcula días (mínimo 1)
+  const ms = booking.endDate.getTime() - booking.startDate.getTime();
+  const days = Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+
+  // ✅ precio/día y fianza desde Listing
+  const pricePerDay = booking.listing.pricePerDay; // Int (zł)
+  const deposit = booking.listing.fianza ?? 0;     // Int | null (zł)
+
+  if (!pricePerDay || pricePerDay <= 0) {
+    throw new Error("El anuncio no tiene un precio por día válido.");
+  }
+
+  // ✅ convertir a grosz para Stripe
+  const rentAmountCents = pricePerDay * days * 100;
+  const depositCents = deposit * 100;
+
   await prisma.booking.update({
     where: { id: bookingId },
-    data: { status: "CONFIRMED" },
+    data: {
+      status: "CONFIRMED",
+      amountCents: rentAmountCents,
+      depositCents: depositCents,
+    },
   });
 
   const title = booking.listing.title ?? "tu artículo";
@@ -168,7 +188,12 @@ export async function approveBookingAction(bookingId: string) {
       html: `
         <p>Cześć ${booking.renter.name ?? "usuario"},</p>
         <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
-        <p>Skontaktuj się z właścicielem, aby ustalić sposób odbioru lub dostawy oraz szczegóły płatności poza aplikacją.</p>
+
+        <p>
+          Teraz możesz opłacić rezerwację w aplikacji:
+          <a href="${process.env.APP_URL}/bookings/${booking.id}/pay">Kliknij tutaj, aby zapłacić</a>.
+        </p>
+
         ${emailSignature()}
       `,
     });
@@ -182,22 +207,17 @@ export async function approveBookingAction(bookingId: string) {
       html: `
         <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
 
-  <p>
-    Potwierdziłeś rezerwację <b>${title}</b>
-    dla ${booking.renter?.name ?? "el usuario"}.
-  </p>
+        <p>
+          Potwierdziłeś rezerwację <b>${title}</b>
+          dla ${booking.renter?.name ?? "el usuario"}.
+        </p>
 
-  <p>Daty: ${s} → ${e}</p>
+        <p>Daty: ${s} → ${e}</p>
 
-  <p>
-    Skontaktuj się z najemcą, aby potwierdzić szczegóły płatności za wynajem
-    oraz kaucję (jeśli obowiązuje). Płatność odbywa się poza platformą.
-  </p>
+        <p style="color:#b91c1c; font-weight:600;">
+          Nie przekazuj przedmiotu do momentu potwierdzenia płatności w aplikacji.
+        </p>
 
-  <p style="color:#b91c1c; font-weight:600;">
-    Nie przekazuj przedmiotu do momentu potwierdzenia otrzymania
-    uzgodnionej kwoty.
-  </p>
         ${emailSignature()}
       `,
     });
@@ -206,6 +226,7 @@ export async function approveBookingAction(bookingId: string) {
   revalidatePath("/bookings");
   return { ok: true };
 }
+
 
 /* ============================================
    REJECT BOOKING ✅ + CLOSE CHAT (ROBUSTO)

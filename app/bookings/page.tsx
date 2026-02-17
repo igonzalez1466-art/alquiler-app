@@ -207,29 +207,38 @@ export default async function BookingsPage({
 
   /* ====== Queries ====== */
   const [asRenter, asOwner] = await Promise.all([
-    prisma.booking.findMany({
-      where: madeWhere,
-      include: {
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            userId: true,
-            pricePerDay: true, // ✅
-            fianza: true, // ✅
-          },
-        },
-        reviews: {
-          select: {
-            id: true,
-            reviewerId: true,
-            revieweeId: true,
-            rating: true,
-            role: true,
-          },
-        },
+ prisma.booking.findMany({
+  where: ownerWhere,
+  select: {
+    id: true,
+    bookingNumber: true,
+    listingId: true,
+    renterId: true,
+    startDate: true,
+    endDate: true,
+    status: true,
+    createdAt: true,
+    listing: {
+      select: {
+        id: true,
+        title: true,
+        userId: true,
+        pricePerDay: true,
+        fianza: true,
       },
-      orderBy: madeOrderBy,
+    },
+    renter: { select: { id: true, name: true, email: true } },
+    reviews: {
+      select: {
+        id: true,
+        reviewerId: true,
+        revieweeId: true,
+        rating: true,
+        role: true,
+      },
+    },
+  },
+  orderBy: ownerOrderBy,
     }),
     prisma.booking.findMany({
       where: ownerWhere,
@@ -390,12 +399,19 @@ export default async function BookingsPage({
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <Link
-                            href={`/listing/${b.listingId}`}
-                            className="text-blue-700 hover:underline font-medium"
-                          >
-                            {b.listing?.title ?? "Ogłoszenie"}
-                          </Link>
+                        <div className="flex items-center gap-2">
+  <Link
+    href={`/listing/${b.listingId}`}
+    className="text-blue-700 hover:underline font-medium"
+  >
+    {b.listing?.title ?? "Ogłoszenie"}
+  </Link>
+
+  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border">
+    #{b.bookingNumber}
+  </span>
+</div>
+
 
                           <div className="text-sm text-gray-600 mt-1">
                             {formatRange(b.startDate, b.endDate)}
@@ -491,7 +507,7 @@ export default async function BookingsPage({
         <details className="space-y-3">
           <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
             <span className="text-xl font-semibold">
-              Rezerwacje w moich ogłoszeniach
+              Rezerwacje otrzymane
             </span>
             <span className="text-sm text-gray-500">
               {asOwner.length} {pluralPLBooking(asOwner.length)}
@@ -588,12 +604,19 @@ export default async function BookingsPage({
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                          <Link
-                            href={`/listing/${b.listingId}`}
-                            className="text-blue-700 hover:underline font-medium"
-                          >
-                            {b.listing?.title ?? "Ogłoszenie"}
-                          </Link>
+                         <div className="flex items-center gap-2">
+  <Link
+    href={`/listing/${b.listingId}`}
+    className="text-blue-700 hover:underline font-medium"
+  >
+    {b.listing?.title ?? "Ogłoszenie"}
+  </Link>
+
+  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border">
+    #{b.bookingNumber}
+  </span>
+</div>
+
 
                           <div className="text-sm text-gray-600">
                             {formatRange(b.startDate, b.endDate)}

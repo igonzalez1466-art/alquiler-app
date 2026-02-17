@@ -157,6 +157,7 @@ model Message {
 
 model Booking {
   id                   String         @id @default(cuid())
+  bookingNumber Int      @unique @default(autoincrement())
   listingId            String
   renterId             String
   startDate            DateTime
@@ -168,6 +169,11 @@ model Booking {
   paymentRef           String?
   amountCents          Int?
   depositCents         Int?
+    // ✅ NUEVO: ID específico del PaymentIntent de la fianza (hold)
+  depositPaymentIntentId String?
+
+  // ✅ NUEVO: estado específico de la fianza
+  depositStatus        DepositStatus  @default(NONE)
   paidAt               DateTime?
   refundedAt           DateTime?
   shippingStatus       ShippingStatus @default(PENDING)
@@ -325,4 +331,11 @@ enum ConversationCloseReason {
   BOOKING_CANCELLED_BY_OWNER
   LISTING_UNAVAILABLE
   OTHER
+}
+
+enum DepositStatus {
+  NONE
+  HELD       // autorización hecha (hold)
+  RELEASED   // liberada (cancel)
+  CAPTURED   // capturada (parcial o total)
 }

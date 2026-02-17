@@ -18,7 +18,6 @@ export async function POST(req: Request) {
   }
 
   const stripe = new Stripe(secretKey, {
-    // deja tu apiVersion si estás usando esa concretamente
     apiVersion: "2025-09-30.clover",
   });
 
@@ -27,34 +26,141 @@ export async function POST(req: Request) {
 
   const rawBody = await req.text();
 
+  // 1) Verificar firma y construir evento
+  let event: any;
   try {
-    const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("❌ Webhook signature verification failed:", message);
+    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
+  }
 
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const bookingId = session.metadata?.bookingId;
-      const paymentIntentId = session.payment_intent as string | undefined;
+  // 2) Procesar evento (ruteamos por string, sin pelear con unions TS)
+  try {
+    const type = String(event.type);
 
-      if (bookingId) {
-        await prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: "PAID",
-            paymentStatus: "PAID",
-            paymentMethod: "CARD",
-            paymentRef: paymentIntentId ?? session.id,
-            paidAt: new Date(),
-            amountCents: session.amount_total ?? undefined,
-          },
-        });
-        console.log("✅ Booking pagada:", bookingId);
+    switch (type) {
+      // ==========================================================
+      // LEGACY: Checkout (si aún lo usas en alguna parte)
+      // ==========================================================
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const bookingId = session.metadata?.bookingId;
+        const paymentIntentId = session.payment_intent as string | undefined;
+
+        if (bookingId) {
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+              status: "PAID",
+              paymentStatus: "PAID",
+              paymentMethod: "CARD",
+              paymentRef: paymentIntentId ?? session.id,
+              paidAt: new Date(),
+              amountCents: session.amount_total ?? undefined,
+            },
+          });
+          console.log("✅ Booking pagada (Checkout):", bookingId);
+        }
+        break;
+      }
+
+      // ==========================================================
+      // NUEVO: PaymentIntent succeeded => ALQUILER cobrado
+      // Requiere metadata: { bookingId, kind: "rent" }
+      // ==========================================================
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const bookingId = pi.metadata?.bookingId;
+        const kind = pi.metadata?.kind;
+
+        if (bookingId && kind === "rent") {
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+              status: "PAID",
+              paymentStatus: "PAID",
+              paymentMethod: "CARD",
+              paymentRef: pi.id, // PI del alquiler
+              paidAt: new Date(),
+              amountCents: pi.amount,
+            },
+          });
+          console.log("✅ Booking pagada (Rent PI):", bookingId, pi.id);
+        }
+        break;
+      }
+
+      // ==========================================================
+      // NUEVO: amount_capturable_updated => Fianza en HOLD (autorizada)
+      // Requiere metadata: { bookingId, kind: "deposit" }
+      // ==========================================================
+      case "payment_intent.amount_capturable_updated": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const bookingId = pi.metadata?.bookingId;
+        const kind = pi.metadata?.kind;
+
+        if (bookingId && kind === "deposit") {
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+              depositStatus: "HELD",
+              depositPaymentIntentId: pi.id,
+              depositCents: pi.amount,
+            },
+          });
+          console.log("🧊 Fianza en hold (Deposit PI):", bookingId, pi.id);
+        }
+        break;
+      }
+
+      // ==========================================================
+      // (Opcional) captured => Fianza CAPTURADA
+      // ==========================================================
+      case "payment_intent.captured": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const bookingId = pi.metadata?.bookingId;
+        const kind = pi.metadata?.kind;
+
+        if (bookingId && kind === "deposit") {
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: { depositStatus: "CAPTURED" },
+          });
+          console.log("💥 Fianza capturada (Deposit PI):", bookingId, pi.id);
+        }
+        break;
+      }
+
+      // ==========================================================
+      // (Opcional) canceled => Fianza LIBERADA (hold cancelado)
+      // ==========================================================
+      case "payment_intent.canceled": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const bookingId = pi.metadata?.bookingId;
+        const kind = pi.metadata?.kind;
+
+        if (bookingId && kind === "deposit") {
+          await prisma.booking.update({
+            where: { id: bookingId },
+            data: { depositStatus: "RELEASED" },
+          });
+          console.log("✅ Fianza liberada (Deposit PI):", bookingId, pi.id);
+        }
+        break;
+      }
+
+      default: {
+        // console.log("Unhandled event:", type);
+        break;
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("❌ Webhook error:", message);
+    console.error("❌ Webhook processing error:", message);
     return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
   }
 }
