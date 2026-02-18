@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/app/lib/auth";
-import BookingForm from "./BookingForm";
+import BookingForm from "./_components/BookingForm";
 import { startChatAction } from "./actions";
 import { toggleListingAvailable } from "@/app/listing/actions";
 import type { Estado, MetodoEnvio } from "@prisma/client";
