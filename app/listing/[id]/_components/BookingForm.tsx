@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBookingAction } from "./actions";
+import { createBookingAction } from "../actions";
 
 export default function BookingForm({
   listingId,
