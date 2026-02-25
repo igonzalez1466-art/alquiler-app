@@ -44,15 +44,16 @@ export async function POST(req: Request) {
     return new NextResponse("Booking must be CONFIRMED before payment", { status: 400 });
   }
 
-  // Importes
+  // Importes (en céntimos)
   const rentAmount = booking.amountCents ?? 0;
   const depositAmount = booking.depositCents ?? 0;
-  const currency = "pln"; // ajusta si tu app usa otra; si lo guardas en BD, úsalo desde booking/listing
+  const currency = "pln"; // si algún día lo guardas en BD, cámbialo a booking/listing
 
   if (rentAmount <= 0) return new NextResponse("Invalid amountCents for rent", { status: 400 });
   if (depositAmount <= 0) return new NextResponse("Invalid depositCents for deposit", { status: 400 });
 
   const stripe = new Stripe(secretKey, {
+    // Si te funciona tal cual, OK. Si Stripe te diera problemas, elimina apiVersion
     apiVersion: "2025-09-30.clover",
   });
 
@@ -69,6 +70,11 @@ export async function POST(req: Request) {
       depositClientSecret: depositPI.client_secret,
       rentPaymentIntentId: rentPI.id,
       depositPaymentIntentId: depositPI.id,
+
+      // ✅ NUEVO: para mostrar importes en la UI
+      currency,
+      rentAmountCents: rentAmount,
+      depositAmountCents: depositAmount,
     });
   }
 
@@ -106,9 +112,8 @@ export async function POST(req: Request) {
   await prisma.booking.update({
     where: { id: booking.id },
     data: {
-      paymentRef: rentPI.id,                 // ✅ rent PI
-      depositPaymentIntentId: depositPI.id,  // ✅ deposit PI
-      // depositStatus: "NONE" // si lo tienes como enum con default, no hace falta
+      paymentRef: rentPI.id, // ✅ rent PI
+      depositPaymentIntentId: depositPI.id, // ✅ deposit PI
     },
   });
 
@@ -117,5 +122,10 @@ export async function POST(req: Request) {
     depositClientSecret: depositPI.client_secret,
     rentPaymentIntentId: rentPI.id,
     depositPaymentIntentId: depositPI.id,
+
+    // ✅ NUEVO: para mostrar importes en la UI
+    currency,
+    rentAmountCents: rentAmount,
+    depositAmountCents: depositAmount,
   });
 }

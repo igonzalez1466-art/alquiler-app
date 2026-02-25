@@ -12,9 +12,12 @@ export default function PayBookingPage({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [secrets, setSecrets] = useState<{
+  const [data, setData] = useState<{
     rentClientSecret: string;
     depositClientSecret: string;
+    currency: string;
+    rentAmountCents: number;
+    depositAmountCents: number;
   } | null>(null);
 
   useEffect(() => {
@@ -28,11 +31,8 @@ export default function PayBookingPage({
 
         if (!res.ok) throw new Error(await res.text());
 
-        const data = await res.json();
-        setSecrets({
-          rentClientSecret: data.rentClientSecret,
-          depositClientSecret: data.depositClientSecret,
-        });
+        const json = await res.json();
+        setData(json);
       } catch (err: any) {
         setError(err.message ?? "Error creando el pago");
       } finally {
@@ -45,20 +45,37 @@ export default function PayBookingPage({
 
   if (loading) return <p>Cargando pago…</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!secrets) return <p>No se pudieron cargar los datos de pago.</p>;
+  if (!data) return <p>No se pudieron cargar los datos de pago.</p>;
+
+  const formatMoney = (cents: number) =>
+    new Intl.NumberFormat("pl-PL", {
+      style: "currency",
+      currency: data.currency.toUpperCase(),
+    }).format(cents / 100);
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6 max-w-lg">
       <h1 className="text-xl font-semibold">Pagar reserva</h1>
 
-      <div className="text-sm text-gray-700">
-        <p>✔ Alquiler: se cobra ahora</p>
-        <p>🧊 Fianza: se bloquea, no se cobra</p>
+      {/* ✅ RESUMEN CON IMPORTES */}
+      <div className="bg-gray-50 border rounded-lg p-4 text-sm space-y-2">
+        <p>
+          ✔ <strong>Alquiler:</strong>{" "}
+          {formatMoney(data.rentAmountCents)} (se cobra ahora)
+        </p>
+        <p>
+          🧊 <strong>Fianza:</strong>{" "}
+          {formatMoney(data.depositAmountCents)} (solo se bloquea)
+        </p>
+        <p className="text-gray-500 text-xs">
+          Total hoy: {formatMoney(data.rentAmountCents)}
+        </p>
       </div>
 
+      {/* Stripe Form */}
       <PayForm
-        rentClientSecret={secrets.rentClientSecret}
-        depositClientSecret={secrets.depositClientSecret}
+        rentClientSecret={data.rentClientSecret}
+        depositClientSecret={data.depositClientSecret}
       />
     </div>
   );
