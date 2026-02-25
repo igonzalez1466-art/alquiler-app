@@ -34,7 +34,7 @@ export default function PayBookingPage({
         const json = await res.json();
         setData(json);
       } catch (err: any) {
-        setError(err.message ?? "Error creando el pago");
+        setError(err.message ?? "Wystąpił błąd podczas tworzenia płatności");
       } finally {
         setLoading(false);
       }
@@ -43,9 +43,9 @@ export default function PayBookingPage({
     load();
   }, [bookingId]);
 
-  if (loading) return <p>Cargando pago…</p>;
+  if (loading) return <p>Trwa ładowanie płatności……</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!data) return <p>No se pudieron cargar los datos de pago.</p>;
+  if (!data) return <p>Nie udało się załadować danych płatności..</p>;
 
   const formatMoney = (cents: number) =>
     new Intl.NumberFormat("pl-PL", {
@@ -55,20 +55,20 @@ export default function PayBookingPage({
 
   return (
     <div className="p-6 space-y-6 max-w-lg">
-      <h1 className="text-xl font-semibold">Pagar reserva</h1>
+      <h1 className="text-xl font-semibold">Opłać rezerwację</h1>
 
       {/* ✅ RESUMEN CON IMPORTES */}
       <div className="bg-gray-50 border rounded-lg p-4 text-sm space-y-2">
         <p>
-          ✔ <strong>Alquiler:</strong>{" "}
-          {formatMoney(data.rentAmountCents)} (se cobra ahora)
+          ✔ <strong>Wynajem:</strong>{" "}
+          {formatMoney(data.rentAmountCents)} (płatność teraz)
         </p>
         <p>
-          🧊 <strong>Fianza:</strong>{" "}
-          {formatMoney(data.depositAmountCents)} (solo se bloquea)
+          🧊 <strong>Kaucja:</strong>{" "}
+          {formatMoney(data.depositAmountCents)} (tylko blokada środków)
         </p>
         <p className="text-gray-500 text-xs">
-          Total hoy: {formatMoney(data.rentAmountCents)}
+          Do zapłaty teraz: {formatMoney(data.rentAmountCents)}
         </p>
       </div>
 
