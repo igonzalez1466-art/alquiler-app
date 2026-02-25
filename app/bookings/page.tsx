@@ -208,7 +208,7 @@ export default async function BookingsPage({
   /* ====== Queries ====== */
   const [asRenter, asOwner] = await Promise.all([
  prisma.booking.findMany({
-  where: ownerWhere,
+  where: madeWhere,
   select: {
     id: true,
     bookingNumber: true,
@@ -238,7 +238,7 @@ export default async function BookingsPage({
       },
     },
   },
-  orderBy: ownerOrderBy,
+  orderBy: madeOrderBy,
     }),
     prisma.booking.findMany({
       where: ownerWhere,

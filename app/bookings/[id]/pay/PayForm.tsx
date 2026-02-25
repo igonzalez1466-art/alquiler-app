@@ -1,4 +1,6 @@
 "use client";
+console.log("PK", process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
 
 import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";

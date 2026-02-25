@@ -42,7 +42,6 @@ function emailSignature() {
 
 // ✅ Iniciar chat
 export async function startChatAction(formData: FormData) {
-  await initSqlitePragmas();
 
   const session = (await getServerSession(authConfig)) as Session | null;
   const currentUserId = session?.user?.id;
@@ -69,7 +68,6 @@ export async function startChatAction(formData: FormData) {
 
 // ✅ Crear reserva + emails
 export async function createBookingAction(formData: FormData) {
-  await initSqlitePragmas();
 
   const session = (await getServerSession(authConfig)) as Session | null;
   const renterId = session?.user?.id;
