@@ -57,9 +57,9 @@ function InnerPayForm({
     <div className="max-w-md">
       {step === "rent" && (
         <>
-          <h2 className="text-lg font-semibold mb-2">Pagar alquiler</h2>
+          <h2 className="text-lg font-semibold mb-2">Zapłać za wynajem</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Este cargo se cobrará ahora.
+            Ta kwota zostanie pobrana teraz.
           </p>
 
           <PaymentElement />
@@ -72,7 +72,7 @@ function InnerPayForm({
               if (ok) setStep("deposit");
             }}
           >
-            {processing ? "Procesando..." : "Pagar alquiler"}
+            {processing ? "Przetwarzanie….." : "Zapłać za wynajem"}
           </button>
 
           {error && <p className="mt-2 text-red-600">{error}</p>}
@@ -88,9 +88,9 @@ function InnerPayForm({
 
       {step === "done" && (
         <div className="p-4 rounded border">
-          <h2 className="text-lg font-semibold">✅ Pago completado</h2>
+          <h2 className="text-lg font-semibold">✅ Płatność zakończona</h2>
           <p className="text-sm text-gray-600">
-            Alquiler cobrado y fianza bloqueada (no cobrada).
+            Wynajem opłacony, kaucja zablokowana (niepobrana)..
           </p>
         </div>
       )}
