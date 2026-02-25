@@ -141,9 +141,9 @@ function DepositInner({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      <h2 className="text-lg font-semibold mb-2">Bloquear fianza</h2>
+      <h2 className="text-lg font-semibold mb-2">Zablokuj kaucję</h2>
       <p className="text-sm text-gray-600 mb-4">
-        Esto no se cobra. Solo se bloqueará temporalmente.
+         Kaucja wymaga karty. Zablokujemy środki tymczasowo — nie pobierzemy ich.
       </p>
 
       <PaymentElement />
@@ -153,7 +153,7 @@ function DepositInner({ onDone }: { onDone: () => void }) {
         disabled={!stripe || !elements || processing}
         onClick={confirmDepositHold}
       >
-        {processing ? "Procesando..." : "Bloquear fianza"}
+        {processing ? "Przetwarzanie..." : "Zablokuj kaucję"}
       </button>
 
       {error && <p className="mt-2 text-red-600">{error}</p>}
