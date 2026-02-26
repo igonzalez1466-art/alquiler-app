@@ -145,7 +145,7 @@ export async function createBookingAction(formData: FormData) {
   const htmlBlock = `
     <h3>${listing.title}</h3>
     <p><strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})</p>
-    <p><strong>Razem do zapłaty:</strong> ${moneyPLN(total)}</p>
+    <p><strong>Kwota do zapłaty po akceptacji:</strong> ${moneyPLN(total)}</p>
     <p><a href="${baseUrl}/bookings">Zobacz rezerwacje</a></p>
   `;
   const ref = `#${booking.bookingNumber}`;
@@ -156,32 +156,40 @@ export async function createBookingAction(formData: FormData) {
    ownerTo
   ? sendMail({
       to: ownerTo,
-      subject: `Nowa rezerwacja: ${listing.title}`,
-      html: `
-        <p>Cześć ${listing.user?.name ?? ""},</p>
+      subject: `Nowa prośba o rezerwację ${ref}: ${listing.title}`,
+html: `
+  <p>Cześć ${listing.user?.name ?? ""},</p>
 
-        <p>
-          Otrzymałeś nowe zgłoszenie rezerwacji
-          <strong>${listing.title}</strong>.
-        </p>
+  <p>
+    Otrzymałeś nowe zgłoszenie rezerwacji
+    <strong>${listing.title}</strong>.
+  </p>
 
-        <p><strong>Numer rezerwacji: ${ref}</strong></p>
+  <p><strong>Numer rezerwacji: ${ref}</strong></p>
 
-        <p>
-          <strong>
-            Przejdź do szczegółów rezerwacji pod poniższym linkiem
-            i zatwierdź ją lub odrzuć.
-          </strong>
-        </p>
+  ${htmlBlock}
 
-        ${htmlBlock}
+  <p style="margin-top:12px; font-size:14px;">
+    Status rezerwacji: <strong>Oczekuje na Twoją decyzję</strong>
+  </p>
 
-        <p style="margin-top:12px; font-size:13px; color:#444;">
-          Klient: ${renter?.name ?? "Użytkownik"}
-        </p>
+  <p style="margin-top:12px;">
+    Zaloguj się do panelu i zdecyduj, czy chcesz zaakceptować lub odrzucić tę rezerwację.
+  </p>
 
-        ${emailSignature()}
-      `,
+  <p style="margin-top:12px; padding:12px; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:6px; font-size:14px;">
+    <strong>Ważne:</strong><br/>
+    Płatność NIE została jeszcze dokonana.<br/>
+    Klient będzie mógł zapłacić dopiero po Twojej akceptacji rezerwacji.<br/><br/>
+    Nie przekazuj przedmiotu przed potwierdzeniem płatności w aplikacji.
+  </p>
+
+  <p style="margin-top:12px; font-size:13px; color:#444;">
+    Klient: ${renter?.name ?? "Użytkownik"}
+  </p>
+
+  ${emailSignature()}
+`,
     })
   : Promise.resolve(),
 
@@ -198,6 +206,16 @@ export async function createBookingAction(formData: FormData) {
              <p><strong>Numer rezerwacji: ${ref}</strong></p>
 
             ${htmlBlock}
+
+         <p style="margin-top:12px; padding:12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; font-size:14px;">
+          <strong>Uwaga:</strong><br/>
+          Na tym etapie nie dokonuj żadnej płatności.
+          Rezerwacja oczekuje na zatwierdzenie przez właściciela.
+          <br/><br/>
+          Po jej akceptacji otrzymasz osobną wiadomość e-mail
+          z linkiem do bezpiecznej płatności.
+        </p>
+
             ${emailSignature()}
           `,
         })
