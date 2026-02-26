@@ -158,37 +158,67 @@ export async function createBookingAction(formData: FormData) {
       to: ownerTo,
       subject: `Nowa prośba o rezerwację ${ref}: ${listing.title}`,
 html: `
-  <p>Cześć ${listing.user?.name ?? ""},</p>
+  <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+    
+    <p>Cześć ${listing.user?.name ?? ""},</p>
 
-  <p>
-    Otrzymałeś nowe zgłoszenie rezerwacji
-    <strong>${listing.title}</strong>.
-  </p>
+    <p>
+      Otrzymałeś nową prośbę o rezerwację.
+    </p>
 
-  <p><strong>Numer rezerwacji: ${ref}</strong></p>
+    <!-- CARD -->
+    <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+      
+      <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+        ${listing.title}
+      </p>
 
-  ${htmlBlock}
+      <p style="margin:4px 0;">
+        <strong>Numer rezerwacji:</strong> ${ref}
+      </p>
 
-  <p style="margin-top:12px; font-size:14px;">
-    Status rezerwacji: <strong>Oczekuje na Twoją decyzję</strong>
-  </p>
+      <p style="margin:4px 0;">
+        <strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})
+      </p>
 
-  <p style="margin-top:12px;">
-    Zaloguj się do panelu i zdecyduj, czy chcesz zaakceptować lub odrzucić tę rezerwację.
-  </p>
+      <p style="margin:4px 0;">
+        <strong>Kwota do zapłaty po akceptacji:</strong> ${moneyPLN(total)}
+      </p>
 
-  <p style="margin-top:12px; padding:12px; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:6px; font-size:14px;">
-    <strong>Ważne:</strong><br/>
-    Płatność NIE została jeszcze dokonana.<br/>
-    Klient będzie mógł zapłacić dopiero po Twojej akceptacji rezerwacji.<br/><br/>
-    Nie przekazuj przedmiotu przed potwierdzeniem płatności w aplikacji.
-  </p>
+      <p style="margin:4px 0;">
+        <strong>Klient:</strong> ${renter?.name ?? "Użytkownik"}
+      </p>
 
-  <p style="margin-top:12px; font-size:13px; color:#444;">
-    Klient: ${renter?.name ?? "Użytkownik"}
-  </p>
+    </div>
 
-  ${emailSignature()}
+    <p style="margin-top:12px;">
+      Status rezerwacji: <strong>Oczekuje na Twoją decyzję</strong>
+    </p>
+
+    <p>
+      Zaloguj się do panelu i zdecyduj, czy chcesz zaakceptować lub odrzucić tę rezerwację.
+    </p>
+
+    <p>
+      <a href="${baseUrl}/bookings" 
+         style="display:inline-block; margin-top:10px; padding:10px 16px; 
+                background:#111827; color:white; text-decoration:none; 
+                border-radius:6px; font-weight:500;">
+        Zobacz rezerwację
+      </a>
+    </p>
+
+    <!-- INFO BOX -->
+    <div style="margin-top:18px; padding:14px; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px;">
+      <strong>Ważne:</strong><br/>
+      Płatność nie została jeszcze dokonana.<br/>
+      Klient będzie mógł zapłacić dopiero po Twojej akceptacji rezerwacji.<br/><br/>
+      Nie przekazuj przedmiotu przed potwierdzeniem płatności w aplikacji.
+    </div>
+
+    ${emailSignature()}
+
+  </div>
 `,
     })
   : Promise.resolve(),
@@ -198,26 +228,62 @@ html: `
       ? sendMail({
           to: renterTo,
           subject: `Nowa rezerwacja: ${listing.title}`,
-          html: `
-            <p>Cześć ${renter?.name ?? ""},</p>
-            
-            <p>Dziękujemy za Twoje zgłoszenie rezerwacji.</p>
+   html: `
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
-             <p><strong>Numer rezerwacji: ${ref}</strong></p>
+  <p>Cześć ${renter?.name ?? ""},</p>
 
-            ${htmlBlock}
+  <p>Dziękujemy za Twoje zgłoszenie rezerwacji.</p>
 
-         <p style="margin-top:12px; padding:12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; font-size:14px;">
-          <strong>Uwaga:</strong><br/>
-          Na tym etapie nie dokonuj żadnej płatności.
-          Rezerwacja oczekuje na zatwierdzenie przez właściciela.
-          <br/><br/>
-          Po jej akceptacji otrzymasz osobną wiadomość e-mail
-          z linkiem do bezpiecznej płatności.
-        </p>
+  <!-- CARD -->
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${listing.title}
+    </p>
 
-            ${emailSignature()}
-          `,
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> ${ref}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Kwota do zapłaty (po akceptacji):</strong> ${moneyPLN(total)}
+    </p>
+
+  </div>
+
+  <p>
+    Status rezerwacji: <strong>Oczekuje na zatwierdzenie przez właściciela</strong>
+  </p>
+
+  <p>
+    Otrzymasz powiadomienie e-mail, gdy właściciel podejmie decyzję.
+  </p>
+
+  <p>
+    <a href="${baseUrl}/bookings" 
+       style="display:inline-block; margin-top:10px; padding:10px 16px; 
+              background:#111827; color:white; text-decoration:none; 
+              border-radius:6px; font-weight:500;">
+      Zobacz rezerwację
+    </a>
+  </p>
+
+  <!-- INFO BOX -->
+  <div style="margin-top:18px; padding:14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px;">
+    <strong>Uwaga:</strong><br/>
+    Na tym etapie nie dokonuj żadnej płatności.<br/>
+    Płatność będzie możliwa dopiero po akceptacji rezerwacji przez właściciela.
+  </div>
+
+  ${emailSignature()}
+
+</div>
+`
         })
       : Promise.resolve(),
   ]);
