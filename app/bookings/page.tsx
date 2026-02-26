@@ -63,12 +63,12 @@ type SP = {
   mStatus?: "all" | BookingStatus;
   mFrom?: string;
   mTo?: string;
-  mSort?: "start_desc" | "start_asc" | "created_desc" | "created_asc";
+  mSort?: "start_desc" | "start_asc" | "created_desc" | "created_asc"| "num_desc" | "num_asc";
 
   oStatus?: "all" | BookingStatus;
   oFrom?: string;
   oTo?: string;
-  oSort?: "start_desc" | "start_asc" | "created_desc" | "created_asc";
+  oSort?: "start_desc" | "start_asc" | "created_desc" | "created_asc"|"num_desc" | "num_asc";
 };
 
 const parseDay = (s?: string) => {
@@ -187,6 +187,8 @@ export default async function BookingsPage({
   if (mSort === "start_asc") madeOrderBy = { startDate: "asc" };
   if (mSort === "created_desc") madeOrderBy = { createdAt: "desc" };
   if (mSort === "created_asc") madeOrderBy = { createdAt: "asc" };
+  if (mSort === "num_desc") madeOrderBy = { bookingNumber: "desc" };
+if (mSort === "num_asc") madeOrderBy = { bookingNumber: "asc" };
 
   /* ====== Filtros "Rezerwacje w moich ogłoszeniach" ====== */
   const oStatus = p.oStatus ?? "all";
@@ -204,6 +206,8 @@ export default async function BookingsPage({
   if (oSort === "start_asc") ownerOrderBy = { startDate: "asc" };
   if (oSort === "created_desc") ownerOrderBy = { createdAt: "desc" };
   if (oSort === "created_asc") ownerOrderBy = { createdAt: "asc" };
+  if (oSort === "num_desc") ownerOrderBy = { bookingNumber: "desc" };
+if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
   /* ====== Queries ====== */
   const [asRenter, asOwner] = await Promise.all([
@@ -361,6 +365,8 @@ export default async function BookingsPage({
                   <option value="start_asc">Początek ↑</option>
                   <option value="created_desc">Data utworzenia ↓</option>
                   <option value="created_asc">Data utworzenia ↑</option>
+                  <option value="num_desc">Numer rezerwacji ↓</option>
+                  <option value="num_asc">Numer rezerwacji ↑</option>
                 </select>
               </label>
 
@@ -570,6 +576,8 @@ export default async function BookingsPage({
                   <option value="start_asc">Początek ↑</option>
                   <option value="created_desc">Data utworzenia ↓</option>
                   <option value="created_asc">Data utworzenia ↑</option>
+                  <option value="num_desc">Numer rezerwacji ↓</option>
+                  <option value="num_asc">Numer rezerwacji ↑</option>
                 </select>
               </label>
 
