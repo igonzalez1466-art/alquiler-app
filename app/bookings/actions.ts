@@ -156,7 +156,7 @@ export async function approveBookingAction(bookingId: string) {
     throw new Error("Esta reserva ya fue procesada");
 
   const ref = `#${booking.bookingNumber}`;
-
+  
   // ✅ calcula días (mínimo 1)
   const ms = booking.endDate.getTime() - booking.startDate.getTime();
   const days = Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
@@ -164,6 +164,13 @@ export async function approveBookingAction(bookingId: string) {
   // ✅ precio/día y fianza desde Listing
   const pricePerDay = booking.listing.pricePerDay; // Int (zł)
   const deposit = booking.listing.fianza ?? 0; // Int | null (zł)
+
+  // ✅ total en zł
+const total = pricePerDay * days + deposit;
+
+// ✅ formatter PLN
+const moneyPLN = (v: number) =>
+  `${new Intl.NumberFormat("pl-PL").format(v)} zł`;
 
   if (!pricePerDay || pricePerDay <= 0) {
     throw new Error("El anuncio no tiene un precio por día válido.");
@@ -191,18 +198,59 @@ export async function approveBookingAction(bookingId: string) {
     await sendMail({
       to: booking.renter.email,
       subject: `Rezerwacja potwierdzona ${ref}: ${title}`,
-      html: `
-        <p>Cześć ${booking.renter.name ?? "usuario"},</p>
-        <p><b>Numer rezerwacji:</b> ${ref}</p>
-        <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
+   html: `
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
-        <p>
-          Teraz możesz opłacić rezerwację w aplikacji:
-          <a href="${process.env.APP_URL}/bookings/${booking.id}/pay">Kliknij tutaj, aby zapłacić</a>.
-        </p>
+  <p>Cześć ${booking.renter?.name ?? ""},</p>
 
-        ${emailSignature()}
-      `,
+  <p>
+    Twoja rezerwacja została <strong>zatwierdzona przez właściciela</strong>.
+  </p>
+
+  <!-- CARD -->
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${booking.listing.title}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Daty:</strong> ${s} → ${e}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Kwota do zapłaty:</strong> ${moneyPLN(total)}
+    </p>
+
+  </div>
+
+  <p style="margin-top:12px;">
+    Aby sfinalizować rezerwację, dokonaj płatności w aplikacji.
+  </p>
+
+  <p>
+    <a href="${process.env.APP_URL}/bookings/${booking.id}/pay" 
+       style="display:inline-block; margin-top:12px; padding:12px 18px; 
+              background:#16a34a; color:white; text-decoration:none; 
+              border-radius:6px; font-weight:600;">
+      Opłać rezerwację
+    </a>
+  </p>
+
+  <div style="margin-top:18px; padding:14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px;">
+    <strong>Ważne:</strong><br/>
+    Rezerwacja będzie ważna dopiero po zaksięgowaniu płatności.<br/>
+    Po potwierdzeniu płatności otrzymasz kolejne powiadomienie.
+  </div>
+
+  ${emailSignature()}
+
+</div>
+`
     });
   }
 
@@ -212,22 +260,63 @@ export async function approveBookingAction(bookingId: string) {
       to: booking.listing.user.email,
       subject: `Potwierdziłeś rezerwację ${ref}: ${title}`,
       html: `
-        <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
-        <p><b>Numer rezerwacji:</b> ${ref}</p>
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
-        <p>
-          Potwierdziłeś rezerwację <b>${title}</b>
-          dla ${booking.renter?.name ?? "el usuario"}.
-        </p>
+  <p>Cześć ${booking.listing.user.name ?? ""},</p>
 
-        <p>Daty: ${s} → ${e}</p>
+  <p>
+    Pomyślnie <strong>zatwierdziłeś rezerwację</strong>.
+  </p>
 
-        <p style="color:#b91c1c; font-weight:600;">
-          Nie przekazuj przedmiotu do momentu potwierdzenia płatności w aplikacji.
-        </p>
+  <!-- CARD -->
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${booking.listing.title}
+    </p>
 
-        ${emailSignature()}
-      `,
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Klient:</strong> ${booking.renter?.name ?? "Użytkownik"}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Daty:</strong> ${s} → ${e}
+    </p>
+
+  </div>
+
+  <p>
+    Rezerwacja oczekuje teraz na dokonanie płatności przez klienta.
+  </p>
+
+  <p>
+    Otrzymasz osobne powiadomienie e-mail,
+    gdy płatność zostanie potwierdzona.
+  </p>
+
+  <!-- WARNING BOX -->
+  <div style="margin-top:18px; padding:14px; background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; color:#991b1b;">
+    <strong>Ważne:</strong><br/>
+    Nie przekazuj przedmiotu do momentu potwierdzenia płatności w aplikacji.
+  </div>
+
+  <p>
+    <a href="${process.env.APP_URL}/bookings/${booking.id}" 
+       style="display:inline-block; margin-top:14px; padding:10px 16px; 
+              background:#111827; color:white; text-decoration:none; 
+              border-radius:6px; font-weight:500;">
+      Zobacz szczegóły rezerwacji
+    </a>
+  </p>
+
+  ${emailSignature()}
+
+</div>
+`
     });
   }
 
@@ -298,18 +387,48 @@ export async function rejectBookingAction(bookingId: string) {
       to: booking.renter.email,
       subject: `Rezerwacja odrzucona ${ref}: ${title}`,
       html: `
-        <p>Cześć ${booking.renter.name ?? "Użytkowniku"},</p>
-        <p><b>Numer rezerwacji:</b> ${ref}</p>
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
-        <p>
-          Właściciel odrzucił Twoją rezerwację
-          <strong>${title}</strong>.
-        </p>
+  <p>Cześć ${booking.renter?.name ?? ""},</p>
 
-        <p>Daty: ${s} → ${e}</p>
+  <p>
+    Niestety właściciel odrzucił Twoją rezerwację.
+  </p>
 
-        ${emailSignature()}
-      `,
+  <!-- CARD -->
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${booking.listing.title}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Daty:</strong> ${s} → ${e}
+    </p>
+
+  </div>
+
+  <div style="margin-top:14px; padding:14px; background:#f3f4f6; border-radius:8px;">
+    Możesz spróbować wybrać inne daty lub znaleźć podobny przedmiot dostępny w tym terminie.
+  </div>
+
+  <p>
+    <a href="${process.env.APP_URL}/listing/${booking.listing.id}" 
+       style="display:inline-block; margin-top:14px; padding:10px 16px; 
+              background:#111827; color:white; text-decoration:none; 
+              border-radius:6px; font-weight:500;">
+      Zobacz ogłoszenie
+    </a>
+  </p>
+
+  ${emailSignature()}
+
+</div>
+`
     });
   }
 
