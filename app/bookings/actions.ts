@@ -91,6 +91,8 @@ export async function createBookingAction(input: {
     },
   });
 
+  const ref = `#${booking.bookingNumber}`;
+
   const s = fmt(start);
   const e = fmt(end);
   const title = listing.title ?? "tu artículo";
@@ -99,9 +101,10 @@ export async function createBookingAction(input: {
   if (booking.listing.user?.email) {
     await sendMail({
       to: booking.listing.user.email,
-      subject: `Nowa prośba o rezerwację: ${title}`,
+      subject: `Nowa prośba o rezerwację ${ref}: ${title}`,
       html: `
         <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
+        <p><b>Numer rezerwacji:</b> ${ref}</p>
         <p>${booking.renter?.name ?? "un usuario"} chce dokonać rezerwacji <b>${title}</b>.</p>
         <p>Daty: <b>${s}</b> → <b>${e}</b></p>
         <p>możesz zaakceptować lub odrzucić w swoim panelu.</p>
@@ -114,9 +117,10 @@ export async function createBookingAction(input: {
   if (booking.renter?.email) {
     await sendMail({
       to: booking.renter.email,
-      subject: `Wniosek wysłany na ${title}`,
+      subject: `Wniosek ${ref} wysłany na ${title}`,
       html: `
         <p>Cześć ${booking.renter.name ?? "usuario"},</p>
+        <p><b>Numer rezerwacji:</b> ${ref}</p>
         <p>Twoje zgłoszenie dotyczące <b>${title}</b> (${s} → ${e}) zostało wysłane do właściciela.</p>
         <p>Poinformujemy Cię, gdy właściciel ją zatwierdzi.</p>
         ${emailSignature()}
@@ -151,13 +155,15 @@ export async function approveBookingAction(bookingId: string) {
   if (booking.status !== "PENDING")
     throw new Error("Esta reserva ya fue procesada");
 
+  const ref = `#${booking.bookingNumber}`;
+
   // ✅ calcula días (mínimo 1)
   const ms = booking.endDate.getTime() - booking.startDate.getTime();
   const days = Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 
   // ✅ precio/día y fianza desde Listing
   const pricePerDay = booking.listing.pricePerDay; // Int (zł)
-  const deposit = booking.listing.fianza ?? 0;     // Int | null (zł)
+  const deposit = booking.listing.fianza ?? 0; // Int | null (zł)
 
   if (!pricePerDay || pricePerDay <= 0) {
     throw new Error("El anuncio no tiene un precio por día válido.");
@@ -184,9 +190,10 @@ export async function approveBookingAction(bookingId: string) {
   if (booking.renter?.email) {
     await sendMail({
       to: booking.renter.email,
-      subject: `Rezerwacja potwierdzona: ${title}`,
+      subject: `Rezerwacja potwierdzona ${ref}: ${title}`,
       html: `
         <p>Cześć ${booking.renter.name ?? "usuario"},</p>
+        <p><b>Numer rezerwacji:</b> ${ref}</p>
         <p>Twoja rezerwacja <b>${title}</b> (${s} → ${e}) została <b>potwierdzona</b>.</p>
 
         <p>
@@ -203,9 +210,10 @@ export async function approveBookingAction(bookingId: string) {
   if (booking.listing.user?.email) {
     await sendMail({
       to: booking.listing.user.email,
-      subject: `Potwierdziłeś rezerwację ${title}`,
+      subject: `Potwierdziłeś rezerwację ${ref}: ${title}`,
       html: `
         <p>Cześć ${booking.listing.user.name ?? "propietario"},</p>
+        <p><b>Numer rezerwacji:</b> ${ref}</p>
 
         <p>
           Potwierdziłeś rezerwację <b>${title}</b>
@@ -227,7 +235,6 @@ export async function approveBookingAction(bookingId: string) {
   return { ok: true };
 }
 
-
 /* ============================================
    REJECT BOOKING ✅ + CLOSE CHAT (ROBUSTO)
 =============================================== */
@@ -248,6 +255,8 @@ export async function rejectBookingAction(bookingId: string) {
   if (booking.listing.userId !== userId) throw new Error("No autorizado");
   if (booking.status !== "PENDING")
     throw new Error("Solo reservas pendientes pueden rechazarse");
+
+  const ref = `#${booking.bookingNumber}`;
 
   // ✅ 1) Cancelar booking
   await prisma.booking.update({
@@ -287,9 +296,10 @@ export async function rejectBookingAction(bookingId: string) {
   if (booking.renter?.email) {
     await sendMail({
       to: booking.renter.email,
-      subject: `Rezerwacja odrzucona: ${title}`,
+      subject: `Rezerwacja odrzucona ${ref}: ${title}`,
       html: `
         <p>Cześć ${booking.renter.name ?? "Użytkowniku"},</p>
+        <p><b>Numer rezerwacji:</b> ${ref}</p>
 
         <p>
           Właściciel odrzucił Twoją rezerwację
