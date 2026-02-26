@@ -122,7 +122,7 @@ export async function createBookingAction(formData: FormData) {
 
     return tx.booking.create({
       data: { listingId, renterId, startDate, endDate, status: "PENDING" },
-      select: { id: true, startDate: true, endDate: true, status: true },
+      select: { id: true,bookingNumber: true, startDate: true, endDate: true, status: true },
     });
   });
 
@@ -148,7 +148,7 @@ export async function createBookingAction(formData: FormData) {
     <p><strong>Razem do zapłaty:</strong> ${moneyPLN(total)}</p>
     <p><a href="${baseUrl}/bookings">Zobacz rezerwacje</a></p>
   `;
-
+  const ref = `#${booking.bookingNumber}`;
   const ownerTo = listing.user?.email?.trim() || "";
   const renterTo = renter?.email?.trim() || "";
 
@@ -164,6 +164,8 @@ export async function createBookingAction(formData: FormData) {
           Otrzymałeś nowe zgłoszenie rezerwacji
           <strong>${listing.title}</strong>.
         </p>
+
+        <p><strong>Numer rezerwacji: ${ref}</strong></p>
 
         <p>
           <strong>
@@ -190,7 +192,11 @@ export async function createBookingAction(formData: FormData) {
           subject: `Nowa rezerwacja: ${listing.title}`,
           html: `
             <p>Cześć ${renter?.name ?? ""},</p>
+            
             <p>Dziękujemy za Twoje zgłoszenie rezerwacji.</p>
+
+             <p><strong>Numer rezerwacji: ${ref}</strong></p>
+
             ${htmlBlock}
             ${emailSignature()}
           `,
