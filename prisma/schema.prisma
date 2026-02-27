@@ -1,64 +1,71 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-
 model User {
-  id                    String         @id @default(cuid())
+  id                    String    @id @default(cuid())
   name                  String?
-  email                 String?        @unique
+  email                 String?   @unique
   image                 String?
   passwordHash          String?
-  emailVerified         Boolean        @default(false)
+  emailVerified         Boolean   @default(false)
   verificationCode      String?
   verificationExpiresAt DateTime?
 
-  role                  Role         @default(USER)
+  role Role @default(USER)
 
-  accounts              Account[]
-  bookings              Booking[]
-  sellerConversations   Conversation[] @relation("SellerConversations")
-  buyerConversations    Conversation[] @relation("BuyerConversations")
-  listings              Listing[]
-  messages              Message[]
-  reviewsReceived       Review[]       @relation("UserReviewsReceived")
-  reviewsAuthored       Review[]       @relation("UserReviewsAuthored")
-  sessions              Session[]
+  accounts            Account[]
+  sessions            Session[]
+  listings            Listing[]
+  messages            Message[]
+  reviewsReceived     Review[]      @relation("UserReviewsReceived")
+  reviewsAuthored     Review[]      @relation("UserReviewsAuthored")
+  sellerConversations Conversation[] @relation("SellerConversations")
+  buyerConversations  Conversation[] @relation("BuyerConversations")
+
+  // ✅ bookings donde el usuario es INQUILINO (renter)
+  bookings Booking[] @relation("BookingRenter")
+
+  // ✅ bookings donde el usuario es DUEÑO (owner)
+  ownedBookings Booking[] @relation("BookingOwner")
 }
 
 model Listing {
-  id            String         @id @default(cuid())
-  title         String
-  description   String?
-  pricePerDay   Int
-  city          String?
-  createdAt     DateTime       @default(now())
-  userId        String
-  estado        Estado         @default(USADO)
-  fianza        Int?
-  metodoEnvio   MetodoEnvio    @default(RECOGIDA_LOCAL)
-  marca         String?
-  lat           Float?
-  lng           Float?
-  available     Boolean        @default(true)
-  country       String?
-  postalCode    String?
-  color         Color?
-  garmentType   GarmentType?
-  gender        Gender?
-  materials     Json?
-  size          String?
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  pricePerDay Int
+  city        String?
+  createdAt   DateTime    @default(now())
+  userId      String
+
+  estado      Estado      @default(USADO)
+  fianza      Int?
+  metodoEnvio MetodoEnvio @default(RECOGIDA_LOCAL)
+
+  marca      String?
+  lat        Float?
+  lng        Float?
+  available  Boolean @default(true)
+  country    String?
+  postalCode String?
+  color      Color?
+  garmentType GarmentType?
+  gender     Gender?
+  materials  Json?
+  size       String?
+
   bookings      Booking[]
   conversations Conversation[]
   images        Image[]
-  user          User           @relation(fields: [userId], references: [id])
+  user          User @relation(fields: [userId], references: [id])
 
   @@index([createdAt])
   @@index([city])
@@ -79,7 +86,8 @@ model Image {
   order     Int      @default(0)
   listingId String
   createdAt DateTime @default(now())
-  listing   Listing  @relation(fields: [listingId], references: [id])
+
+  listing Listing @relation(fields: [listingId], references: [id])
 
   @@index([listingId])
 }
@@ -97,7 +105,8 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -107,7 +116,8 @@ model Session {
   userId       String
   sessionToken String   @unique
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -119,22 +129,22 @@ model VerificationToken {
 }
 
 model Conversation {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   listingId        String
   buyerId          String
   sellerId         String
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime @default(now())
   buyerLastReadAt  DateTime?
   sellerLastReadAt DateTime?
 
-  status           ConversationStatus @default(OPEN)
-  closedAt         DateTime?
-  closedReason     ConversationCloseReason?
+  status       ConversationStatus @default(OPEN)
+  closedAt     DateTime?
+  closedReason ConversationCloseReason?
 
-  seller           User      @relation("SellerConversations", fields: [sellerId], references: [id])
-  buyer            User      @relation("BuyerConversations", fields: [buyerId], references: [id])
-  listing          Listing   @relation(fields: [listingId], references: [id])
-  messages         Message[]
+  seller  User        @relation("SellerConversations", fields: [sellerId], references: [id])
+  buyer   User        @relation("BuyerConversations", fields: [buyerId], references: [id])
+  listing Listing     @relation(fields: [listingId], references: [id])
+  messages Message[]
 
   @@unique([listingId, buyerId])
   @@index([buyerId])
@@ -144,59 +154,99 @@ model Conversation {
 }
 
 model Message {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   conversationId String
   senderId       String
   text           String
-  createdAt      DateTime     @default(now())
-  sender         User         @relation(fields: [senderId], references: [id])
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime @default(now())
+
+  sender       User         @relation(fields: [senderId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId])
 }
 
 model Booking {
-  id                   String         @id @default(cuid())
+  id            String   @id @default(cuid())
   bookingNumber Int      @unique @default(autoincrement())
-  listingId            String
-  renterId             String
-  startDate            DateTime
-  endDate              DateTime
-  status               BookingStatus  @default(PENDING)
-  createdAt            DateTime       @default(now())
-  paymentStatus        PaymentStatus  @default(PENDING)
-  paymentMethod        PaymentMethod?
-  paymentRef           String?
-  amountCents          Int?
-  depositCents         Int?
-    // ✅ NUEVO: ID específico del PaymentIntent de la fianza (hold)
+
+  // --- Relaciones / actores ---
+  listingId String
+  renterId  String
+
+  // ✅ NUEVO (temporalmente nullable para migración)
+  ownerId   String
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  renter  User    @relation("BookingRenter", fields: [renterId], references: [id])
+  owner   User   @relation("BookingOwner", fields: [ownerId], references: [id])
+
+  reviews Review[]
+
+  // --- Fechas + estado booking ---
+  startDate DateTime
+  endDate   DateTime
+  status    BookingStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+
+  // --- Pagos ---
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod?
+  paymentRef    String?
+
+  amountCents  Int?
+  depositCents Int?
+
+  // ID específico del PaymentIntent de la fianza
   depositPaymentIntentId String?
 
-  // ✅ NUEVO: estado específico de la fianza
-  depositStatus        DepositStatus  @default(NONE)
-  paidAt               DateTime?
-  refundedAt           DateTime?
-  shippingStatus       ShippingStatus @default(PENDING)
-  carrier              String?
-  trackingNumber       String?
-  shippedAt            DateTime?
-  deliveredAt          DateTime?
-  returnStatus         ShippingStatus @default(RETURN_PENDING)
+  // estado específico de la fianza
+  depositStatus DepositStatus @default(NONE)
+
+  paidAt     DateTime?
+  refundedAt DateTime?
+
+  // --- Logística: envío/entrega ---
+  shippingStatus ShippingStatus @default(PENDING)
+  carrier        String?
+  trackingNumber String?
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+
+  // ✅ NUEVO: confirmación de entrega por el inquilino
+  deliveryConfirmationStatus DeliveryConfirmationStatus @default(NOT_REQUESTED)
+  deliveryConfirmedAt        DateTime?
+  deliveryConfirmedBy        DeliveryConfirmedBy?
+  deliveryConfirmBy          DateTime?
+
+  // --- Logística: devolución ---
+  returnStatus         ShippingStatus @default(PENDING)
   returnCarrier        String?
   returnTrackingNumber String?
   returnShippedAt      DateTime?
   returnDeliveredAt    DateTime?
-  listing              Listing        @relation(fields: [listingId], references: [id])
-  renter               User           @relation(fields: [renterId], references: [id])
-  reviews              Review[]
+
+  // ✅ NUEVO: confirmación de devolución por el dueño
+  returnConfirmationStatus ReturnConfirmationStatus @default(NOT_REQUESTED)
+  returnConfirmedAt        DateTime?
+  returnConfirmedBy        ReturnConfirmedBy?
+  returnConfirmBy          DateTime?
+
+  // ✅ NUEVO: ventana de daños
+  damageClaimStatus DamageClaimStatus @default(NONE)
+  damageClaimBy     DateTime?
 
   @@index([listingId])
   @@index([renterId])
+  @@index([ownerId])
   @@index([paymentStatus])
   @@index([shippingStatus])
   @@index([returnStatus])
   @@index([carrier, trackingNumber])
   @@index([returnCarrier, returnTrackingNumber])
+  @@index([deliveryConfirmationStatus, deliveryConfirmBy])
+  @@index([returnConfirmationStatus, returnConfirmBy])
+  @@index([damageClaimStatus, damageClaimBy])
 }
 
 model Review {
@@ -208,9 +258,10 @@ model Review {
   rating     Int
   comment    String?
   createdAt  DateTime   @default(now())
-  reviewee   User       @relation("UserReviewsReceived", fields: [revieweeId], references: [id])
-  reviewer   User       @relation("UserReviewsAuthored", fields: [reviewerId], references: [id])
-  booking    Booking    @relation(fields: [bookingId], references: [id])
+
+  reviewee User    @relation("UserReviewsReceived", fields: [revieweeId], references: [id])
+  reviewer User    @relation("UserReviewsAuthored", fields: [reviewerId], references: [id])
+  booking  Booking @relation(fields: [bookingId], references: [id])
 
   @@unique([bookingId, reviewerId, revieweeId])
   @@index([revieweeId])
@@ -243,9 +294,9 @@ enum Gender {
 }
 
 enum GarmentType {
-  ABRIGO        // Płaszcz
-  CHAQUETA      // Kurtka (legacy)
-  MARYNARKA     // Marynarka / blazer
+  ABRIGO
+  CHAQUETA
+  MARYNARKA
   CAMISA
   BLUSA
   VESTIDO
@@ -259,7 +310,6 @@ enum GarmentType {
   OTRO
   ZAPATO
 }
-
 
 enum Color {
   CZARNY
@@ -316,8 +366,6 @@ enum ShippingStatus {
   READY
   SHIPPED
   DELIVERED
-  RETURN_PENDING
-  RETURNED
   LOST
   CANCELLED
 }
@@ -335,7 +383,40 @@ enum ConversationCloseReason {
 
 enum DepositStatus {
   NONE
-  HELD       // autorización hecha (hold)
-  RELEASED   // liberada (cancel)
-  CAPTURED   // capturada (parcial o total)
+  HELD
+  RELEASED
+  CAPTURED
+}
+
+enum DeliveryConfirmationStatus {
+  NOT_REQUESTED
+  AWAITING_CONFIRMATION
+  CONFIRMED
+  DISPUTED
+  AUTO_CONFIRMED
+}
+
+enum DeliveryConfirmedBy {
+  RENTER
+  SYSTEM
+}
+
+enum ReturnConfirmationStatus {
+  NOT_REQUESTED
+  AWAITING_CONFIRMATION
+  CONFIRMED
+  DISPUTED
+  AUTO_CONFIRMED
+}
+
+enum ReturnConfirmedBy {
+  OWNER
+  SYSTEM
+}
+
+enum DamageClaimStatus {
+  NONE
+  OPEN
+  CLAIMED
+  RESOLVED
 }

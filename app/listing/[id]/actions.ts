@@ -126,10 +126,17 @@ export async function createBookingAction(formData: FormData) {
 
     if (overlap) redirect(`/listing/${listingId}?error=fechas-no-disponibles`);
 
-    const newBooking = await tx.booking.create({
-      data: { listingId, renterId, startDate, endDate, status: "PENDING" },
-      select: { id: true, bookingNumber: true, startDate: true, endDate: true, status: true },
-    });
+   const newBooking = await tx.booking.create({
+  data: {
+    listingId,
+    renterId,
+    ownerId: listing.userId, // ✅ AÑADIR ESTO
+    startDate,
+    endDate,
+    status: "PENDING",
+  },
+  select: { id: true, bookingNumber: true, startDate: true, endDate: true, status: true },
+});
 
     // ✅ Reabrir o crear conversación (robusto) (MISMA conversación por @@unique)
     await tx.conversation.upsert({
