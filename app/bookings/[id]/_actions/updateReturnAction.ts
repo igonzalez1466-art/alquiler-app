@@ -6,16 +6,7 @@ import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 
-type ShippingStatus =
-  | "NOT_REQUIRED"
-  | "PENDING"
-  | "READY"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "RETURN_PENDING"
-  | "RETURNED"
-  | "LOST"
-  | "CANCELLED";
+type ReturnStatus = "PENDING" | "READY" | "SHIPPED" | "DELIVERED" | "LOST" | "CANCELLED";
 
 export async function updateReturnAction(formData: FormData) {
   const session = (await getServerSession(authConfig)) as Session | null;
@@ -24,7 +15,17 @@ export async function updateReturnAction(formData: FormData) {
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
-  const returnStatus = String(formData.get("returnStatus") || "") as ShippingStatus;
+  const rawReturnStatus = String(formData.get("returnStatus") || "");
+
+// normaliza valores legacy por si el frontend manda algo viejo
+const normalizedReturnStatus =
+  rawReturnStatus === "RETURN_PENDING" ? "PENDING" :
+  rawReturnStatus === "RETURNED" ? "DELIVERED" :
+  rawReturnStatus;
+
+const returnStatus = normalizedReturnStatus as ReturnStatus;
+const allowed: ReturnStatus[] = ["PENDING", "READY", "SHIPPED", "DELIVERED", "LOST", "CANCELLED"];
+if (!allowed.includes(returnStatus)) throw new Error("Nieprawidłowy status zwrotu");
   const returnCarrier = String(formData.get("returnCarrier") || "").trim();
   const returnTrackingNumber = String(formData.get("returnTrackingNumber") || "").trim();
 

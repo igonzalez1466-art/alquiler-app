@@ -18,8 +18,6 @@ const ALLOWED_SHIPPING: ReadonlySet<ShippingStatus> = new Set([
   "READY",
   "SHIPPED",
   "DELIVERED",
-  "RETURN_PENDING",
-  "RETURNED",
   "LOST",
   "CANCELLED",
 ]);

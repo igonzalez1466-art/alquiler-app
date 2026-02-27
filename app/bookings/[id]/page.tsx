@@ -66,8 +66,6 @@ const shippingLabel: Record<string, string> = {
   READY: "Gotowe do wysyłki",
   SHIPPED: "W drodze",
   DELIVERED: "Dostarczono",
-  RETURN_PENDING: "Zwrot w toku",
-  RETURNED: "Zwrócono",
   LOST: "Zgubione lub uszkodzone",
   CANCELLED: "Anulowane",
 };
@@ -78,8 +76,6 @@ const shippingClass: Record<string, string> = {
   READY: "bg-sky-100 text-sky-800 border-sky-200",
   SHIPPED: "bg-blue-100 text-blue-800 border-blue-200",
   DELIVERED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  RETURN_PENDING: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200",
-  RETURNED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   LOST: "bg-rose-100 text-rose-700 border-rose-200",
   CANCELLED: "bg-gray-100 text-gray-700 border-gray-200",
 };
@@ -119,7 +115,9 @@ export default async function BookingPage({
 
   const canOwnerEditShipping = isOwner && booking.status === "CONFIRMED";
   const canRenterEditReturn = isRenter && booking.status === "CONFIRMED";
-  const returnLocked = booking.returnStatus === "RETURNED";
+  const returnLocked =
+  booking.returnConfirmationStatus === "CONFIRMED" ||
+  booking.returnConfirmationStatus === "AUTO_CONFIRMED";
 
   // ===== Cálculos =====
   const pricePerDay = booking.listing?.pricePerDay ?? 0;

@@ -13,8 +13,6 @@ type ShippingStatus =
   | "READY"
   | "SHIPPED"
   | "DELIVERED"
-  | "RETURN_PENDING"
-  | "RETURNED"
   | "LOST"
   | "CANCELLED";
 
