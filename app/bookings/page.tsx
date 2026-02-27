@@ -376,17 +376,17 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
               <input type="hidden" name="oTo" value={p.oTo ?? ""} />
               <input type="hidden" name="oSort" value={p.oSort ?? "start_desc"} />
 
-              <div className="col-span-2 md:col-span-1 flex gap-2">
-                <button className="flex-1 bg-indigo-600 text-white rounded px-3 py-2">
-                  Zastosuj
-                </button>
-                <Link
-                  href="/bookings"
-                  className="flex-1 text-center border rounded px-3 py-2"
-                >
-                  Wyczyść filtry
-                </Link>
-              </div>
+          <div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
+  <button className="w-full bg-indigo-600 text-white rounded px-3 py-2">
+    Zastosuj
+  </button>
+  <Link
+    href="/bookings"
+    className="w-full text-center border rounded px-3 py-2"
+  >
+    Wyczyść filtry
+  </Link>
+</div>
             </form>
 
             {asRenter.length === 0 ? (
@@ -581,17 +581,17 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                 </select>
               </label>
 
-              <div className="col-span-2 md:col-span-1 flex gap-2">
-                <button className="flex-1 bg-indigo-600 text-white rounded px-3 py-2">
-                  Zastosuj
-                </button>
-                <Link
-                  href={`/bookings?${preserveM}`}
-                  className="flex-1 text-center border rounded px-3 py-2"
-                >
-                  Wyczyść filtry
-                </Link>
-              </div>
+         <div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
+  <button className="w-full bg-indigo-600 text-white rounded px-3 py-2">
+    Zastosuj
+  </button>
+  <Link
+    href={`/bookings?${preserveM}`}
+    className="w-full text-center border rounded px-3 py-2"
+  >
+    Wyczyść filtry
+  </Link>
+</div>
             </form>
 
             {asOwner.length === 0 ? (
