@@ -39,6 +39,7 @@ export async function updateReturnAction(formData: FormData) {
       returnStatus: true,
       returnShippedAt: true,
       returnDeliveredAt: true,
+      returnConfirmationStatus: true,
     },
   });
   if (!booking) throw new Error("Rezerwacja nie istnieje");
@@ -46,10 +47,12 @@ export async function updateReturnAction(formData: FormData) {
   if (booking.renterId !== userId) throw new Error("Brak uprawnień (tylko najemca)");
   if (booking.status !== "CONFIRMED") throw new Error("Zwrot tylko dla potwierdzonych rezerwacji");
 
-  if (booking.returnStatus === "RETURNED") {
-    throw new Error("Nie można edytować — zwrot został zakończony");
-  }
-
+  if (
+  booking.returnConfirmationStatus === "CONFIRMED" ||
+  booking.returnConfirmationStatus === "AUTO_CONFIRMED"
+) {
+  throw new Error("Nie można edytować — zwrot został zakończony");
+}
   const now = new Date();
 
   const data: Record<string, unknown> = {
@@ -59,7 +62,7 @@ export async function updateReturnAction(formData: FormData) {
   };
 
   if (returnStatus === "SHIPPED" && !booking.returnShippedAt) data.returnShippedAt = now;
-  if (returnStatus === "RETURNED" && !booking.returnDeliveredAt) data.returnDeliveredAt = now;
+  if (returnStatus === "DELIVERED" && !booking.returnDeliveredAt) data.returnDeliveredAt = now;
 
   await prisma.booking.update({
     where: { id: bookingId },
