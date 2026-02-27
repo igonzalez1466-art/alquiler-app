@@ -377,12 +377,13 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
               <input type="hidden" name="oSort" value={p.oSort ?? "start_desc"} />
 
           <div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
-  <button className="w-full bg-indigo-600 text-white rounded px-3 py-2">
+  <button className="w-full lg:flex-1 lg:w-auto bg-indigo-600 text-white rounded px-3 py-2 whitespace-nowrap">
     Zastosuj
   </button>
+
   <Link
     href="/bookings"
-    className="w-full text-center border rounded px-3 py-2"
+    className="w-full lg:flex-1 lg:w-auto text-center border rounded px-3 py-2 whitespace-nowrap"
   >
     Wyczyść filtry
   </Link>
@@ -581,13 +582,14 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                 </select>
               </label>
 
-         <div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
-  <button className="w-full bg-indigo-600 text-white rounded px-3 py-2">
+<div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
+  <button className="w-full lg:flex-1 lg:w-auto bg-indigo-600 text-white rounded px-3 py-2 whitespace-nowrap">
     Zastosuj
   </button>
+
   <Link
     href={`/bookings?${preserveM}`}
-    className="w-full text-center border rounded px-3 py-2"
+    className="w-full lg:flex-1 lg:w-auto text-center border rounded px-3 py-2 whitespace-nowrap"
   >
     Wyczyść filtry
   </Link>
