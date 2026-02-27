@@ -404,7 +404,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
                   return (
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div>
                         <div className="flex items-center gap-2">
   <Link
@@ -444,15 +444,15 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={b.status} />
-                          <Link
-                            href={`/bookings/${b.id}`}
-                            className="px-3 py-1 rounded border text-gray-700 hover:bg-gray-50"
-                          >
-                            Zobacz szczegóły
-                          </Link>
-                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
+                      <StatusBadge status={b.status} />
+                      <Link
+                    href={`/bookings/${b.id}`}
+                    className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded border text-gray-700 hover:bg-gray-50 text-center"
+                      >
+                    Zobacz szczegóły
+                      </Link>
+                    </div>
                       </div>
 
                       {iCanReview ? (
@@ -612,7 +612,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
                   return (
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="space-y-1">
                          <div className="flex items-center gap-2">
   <Link
@@ -677,16 +677,16 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={b.status} />
-                          <Link
-                            href={`/bookings/${b.id}`}
-                            className="px-3 py-1 rounded border text-gray-700 hover:bg-gray-50"
-                          >
-                            Zobacz szczegóły
-                          </Link>
-                        </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
+                       <StatusBadge status={b.status} />
+                      <Link
+                      href={`/bookings/${b.id}`}
+                      className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded border text-gray-700 hover:bg-gray-50 text-center"
+                      >
+                      Zobacz szczegóły
+                      </Link>
                       </div>
+                    </div>
 
                       {iCanReview ? (
                         <form
