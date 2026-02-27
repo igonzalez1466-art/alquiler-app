@@ -93,6 +93,16 @@ export async function createBookingAction(input: {
 
   const ref = `#${booking.bookingNumber}`;
 
+    // ✅ Reabrir chat si existía y estaba cerrado
+  await prisma.conversation.updateMany({
+    where: {
+      listingId: booking.listingId,
+      buyerId: booking.renterId,
+      status: "CLOSED",
+    },
+    data: { status: "OPEN", closedAt: null, closedReason: null },
+  });
+
   const s = fmt(start);
   const e = fmt(end);
   const title = listing.title ?? "tu artículo";
@@ -187,6 +197,16 @@ const moneyPLN = (v: number) =>
       amountCents: rentAmountCents,
       depositCents: depositCents,
     },
+  });
+
+    // ✅ Si estaba cerrado (por ejemplo por una reserva antigua rechazada), reabrimos chat
+  await prisma.conversation.updateMany({
+    where: {
+      listingId: booking.listingId,
+      buyerId: booking.renterId,
+      status: "CLOSED",
+    },
+    data: { status: "OPEN", closedAt: null, closedReason: null },
   });
 
   const title = booking.listing.title ?? "tu artículo";
@@ -353,29 +373,38 @@ export async function rejectBookingAction(bookingId: string) {
     data: { status: "CANCELLED" },
   });
 
-  // ✅ 2) Cerrar conversación SI EXISTE (sin depender de status=OPEN)
-  const conv = await prisma.conversation.findUnique({
-    where: {
-      listingId_buyerId: {
-        listingId: booking.listingId,
-        buyerId: booking.renterId,
-      },
+  // ✅ 2) Cerrar conversación SOLO si no hay otra reserva activa
+const stillActive = await prisma.booking.findFirst({
+  where: {
+    listingId: booking.listingId,
+    renterId: booking.renterId,
+    status: { in: ["PENDING", "CONFIRMED", "AWAITING_PAYMENT", "PAID"] },
+  },
+  select: { id: true },
+});
+
+const conv = await prisma.conversation.findUnique({
+  where: {
+    listingId_buyerId: {
+      listingId: booking.listingId,
+      buyerId: booking.renterId,
     },
-    select: { id: true, status: true },
+  },
+  select: { id: true, status: true },
+});
+
+if (conv && !stillActive) {
+  await prisma.conversation.update({
+    where: { id: conv.id },
+    data: {
+      status: "CLOSED",
+      closedAt: new Date(),
+      closedReason: "BOOKING_CANCELLED_BY_OWNER",
+    },
   });
 
-  if (conv) {
-    await prisma.conversation.update({
-      where: { id: conv.id },
-      data: {
-        status: "CLOSED",
-        closedAt: new Date(),
-        closedReason: "BOOKING_CANCELLED_BY_OWNER",
-      },
-    });
-
-    revalidatePath(`/chat/${conv.id}`);
-  }
+  revalidatePath(`/chat/${conv.id}`);
+}
 
   const title = booking.listing.title ?? "tu artículo";
   const s = fmt(booking.startDate);
