@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma, initSqlitePragmas } from "@/app/lib/prisma";
+import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -42,7 +42,6 @@ function emailSignature() {
 
 // ✅ Iniciar chat
 export async function startChatAction(formData: FormData) {
-
   const session = (await getServerSession(authConfig)) as Session | null;
   const currentUserId = session?.user?.id;
   if (!currentUserId) redirect("/login");
@@ -56,10 +55,18 @@ export async function startChatAction(formData: FormData) {
     where: { listingId_buyerId: { listingId, buyerId: currentUserId } },
     select: { id: true },
   });
-  if (existing) redirect(`/chat/${existing.id}`);
+  if (existing) {
+    // ✅ si estaba cerrada, la reabrimos al abrir el chat manualmente
+    await prisma.conversation.updateMany({
+      where: { id: existing.id, status: "CLOSED" },
+      data: { status: "OPEN", closedAt: null, closedReason: null },
+    });
+
+    redirect(`/chat/${existing.id}`);
+  }
 
   const created = await prisma.conversation.create({
-    data: { listingId, buyerId: currentUserId, sellerId: ownerId },
+    data: { listingId, buyerId: currentUserId, sellerId: ownerId, status: "OPEN" },
     select: { id: true },
   });
 
@@ -68,7 +75,6 @@ export async function startChatAction(formData: FormData) {
 
 // ✅ Crear reserva + emails
 export async function createBookingAction(formData: FormData) {
-
   const session = (await getServerSession(authConfig)) as Session | null;
   const renterId = session?.user?.id;
   if (!renterId) redirect("/login");
@@ -112,7 +118,7 @@ export async function createBookingAction(formData: FormData) {
     const overlap = await tx.booking.findFirst({
       where: {
         listingId,
-        status: { in: ["PENDING", "CONFIRMED"] },
+        status: { in: ["PENDING", "CONFIRMED", "PAID"] }, // ✅ recomendado
         AND: [{ startDate: { lt: endDate } }, { endDate: { gt: startDate } }],
       },
       select: { id: true },
@@ -120,10 +126,33 @@ export async function createBookingAction(formData: FormData) {
 
     if (overlap) redirect(`/listing/${listingId}?error=fechas-no-disponibles`);
 
-    return tx.booking.create({
+    const newBooking = await tx.booking.create({
       data: { listingId, renterId, startDate, endDate, status: "PENDING" },
-      select: { id: true,bookingNumber: true, startDate: true, endDate: true, status: true },
+      select: { id: true, bookingNumber: true, startDate: true, endDate: true, status: true },
     });
+
+    // ✅ Reabrir o crear conversación (robusto) (MISMA conversación por @@unique)
+    await tx.conversation.upsert({
+      where: {
+        listingId_buyerId: {
+          listingId,
+          buyerId: renterId,
+        },
+      },
+      update: {
+        status: "OPEN",
+        closedAt: null,
+        closedReason: null,
+      },
+      create: {
+        listingId,
+        buyerId: renterId,
+        sellerId: listing.userId,
+        status: "OPEN",
+      },
+    });
+
+    return newBooking;
   });
 
   const renter = await prisma.user.findUnique({
@@ -148,67 +177,46 @@ export async function createBookingAction(formData: FormData) {
     <p><strong>Kwota do zapłaty po akceptacji:</strong> ${moneyPLN(total)}</p>
     <p><a href="${baseUrl}/bookings">Zobacz rezerwacje</a></p>
   `;
+
   const ref = `#${booking.bookingNumber}`;
   const ownerTo = listing.user?.email?.trim() || "";
   const renterTo = renter?.email?.trim() || "";
 
   await Promise.allSettled([
-   ownerTo
-  ? sendMail({
-      to: ownerTo,
-      subject: `Nowa prośba o rezerwację ${ref}: ${listing.title}`,
-html: `
+    ownerTo
+      ? sendMail({
+          to: ownerTo,
+          subject: `Nowa prośba o rezerwację ${ref}: ${listing.title}`,
+          html: `
   <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
-    
     <p>Cześć ${listing.user?.name ?? ""},</p>
 
-    <p>
-      Otrzymałeś nową prośbę o rezerwację.
-    </p>
+    <p>Otrzymałeś nową prośbę o rezerwację.</p>
 
-    <!-- CARD -->
     <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
-      
       <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
         ${listing.title}
       </p>
 
-      <p style="margin:4px 0;">
-        <strong>Numer rezerwacji:</strong> ${ref}
-      </p>
-
-      <p style="margin:4px 0;">
-        <strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})
-      </p>
-
-      <p style="margin:4px 0;">
-        <strong>Kwota do zapłaty po akceptacji:</strong> ${moneyPLN(total)}
-      </p>
-
-      <p style="margin:4px 0;">
-        <strong>Klient:</strong> ${renter?.name ?? "Użytkownik"}
-      </p>
-
+      <p style="margin:4px 0;"><strong>Numer rezerwacji:</strong> ${ref}</p>
+      <p style="margin:4px 0;"><strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})</p>
+      <p style="margin:4px 0;"><strong>Kwota do zapłaty po akceptacji:</strong> ${moneyPLN(total)}</p>
+      <p style="margin:4px 0;"><strong>Klient:</strong> ${renter?.name ?? "Użytkownik"}</p>
     </div>
 
-    <p style="margin-top:12px;">
-      Status rezerwacji: <strong>Oczekuje na Twoją decyzję</strong>
-    </p>
+    <p style="margin-top:12px;">Status rezerwacji: <strong>Oczekuje na Twoją decyzję</strong></p>
+
+    <p>Zaloguj się do panelu i zdecyduj, czy chcesz zaakceptować lub odrzucić tę rezerwację.</p>
 
     <p>
-      Zaloguj się do panelu i zdecyduj, czy chcesz zaakceptować lub odrzucić tę rezerwację.
-    </p>
-
-    <p>
-      <a href="${baseUrl}/bookings" 
-         style="display:inline-block; margin-top:10px; padding:10px 16px; 
-                background:#111827; color:white; text-decoration:none; 
+      <a href="${baseUrl}/bookings"
+         style="display:inline-block; margin-top:10px; padding:10px 16px;
+                background:#111827; color:white; text-decoration:none;
                 border-radius:6px; font-weight:500;">
         Zobacz rezerwację
       </a>
     </p>
 
-    <!-- INFO BOX -->
     <div style="margin-top:18px; padding:14px; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px;">
       <strong>Ważne:</strong><br/>
       Płatność nie została jeszcze dokonana.<br/>
@@ -217,63 +225,43 @@ html: `
     </div>
 
     ${emailSignature()}
-
   </div>
 `,
-    })
-  : Promise.resolve(),
-
+        })
+      : Promise.resolve(),
 
     renterTo
       ? sendMail({
           to: renterTo,
           subject: `Nowa rezerwacja: ${listing.title}`,
-   html: `
+          html: `
 <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
-
   <p>Cześć ${renter?.name ?? ""},</p>
-
   <p>Dziękujemy za Twoje zgłoszenie rezerwacji.</p>
 
-  <!-- CARD -->
   <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
-    
     <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
       ${listing.title}
     </p>
 
-    <p style="margin:4px 0;">
-      <strong>Numer rezerwacji:</strong> ${ref}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Kwota do zapłaty (po akceptacji):</strong> ${moneyPLN(total)}
-    </p>
-
+    <p style="margin:4px 0;"><strong>Numer rezerwacji:</strong> ${ref}</p>
+    <p style="margin:4px 0;"><strong>Daty:</strong> ${d(startDate)} → ${d(endDate)} (${days} ${pluralPLDay(days)})</p>
+    <p style="margin:4px 0;"><strong>Kwota do zapłaty (po akceptacji):</strong> ${moneyPLN(total)}</p>
   </div>
 
-  <p>
-    Status rezerwacji: <strong>Oczekuje na zatwierdzenie przez właściciela</strong>
-  </p>
+  <p>Status rezerwacji: <strong>Oczekuje na zatwierdzenie przez właściciela</strong></p>
+
+  <p>Otrzymasz powiadomienie e-mail, gdy właściciel podejmie decyzję.</p>
 
   <p>
-    Otrzymasz powiadomienie e-mail, gdy właściciel podejmie decyzję.
-  </p>
-
-  <p>
-    <a href="${baseUrl}/bookings" 
-       style="display:inline-block; margin-top:10px; padding:10px 16px; 
-              background:#111827; color:white; text-decoration:none; 
+    <a href="${baseUrl}/bookings"
+       style="display:inline-block; margin-top:10px; padding:10px 16px;
+              background:#111827; color:white; text-decoration:none;
               border-radius:6px; font-weight:500;">
       Zobacz rezerwację
     </a>
   </p>
 
-  <!-- INFO BOX -->
   <div style="margin-top:18px; padding:14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px;">
     <strong>Uwaga:</strong><br/>
     Na tym etapie nie dokonuj żadnej płatności.<br/>
@@ -281,9 +269,8 @@ html: `
   </div>
 
   ${emailSignature()}
-
 </div>
-`
+`,
         })
       : Promise.resolve(),
   ]);
