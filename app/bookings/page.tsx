@@ -354,7 +354,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                   className="border rounded p-2 w-full"
                 />
               </label>
-              <label className="block md:col-span-2">
+              <label className="block md:col-span-1">
                 <span className="text-xs text-gray-600">Sortowanie</span>
                 <select
                   name="mSort"
@@ -376,7 +376,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
               <input type="hidden" name="oTo" value={p.oTo ?? ""} />
               <input type="hidden" name="oSort" value={p.oSort ?? "start_desc"} />
 
-          <div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
+          <div className="col-span-2 md:col-span-2 flex flex-col lg:flex-row gap-2">
   <button className="w-full lg:flex-1 lg:w-auto bg-indigo-600 text-white rounded px-3 py-2 whitespace-nowrap">
     Zastosuj
   </button>
@@ -566,7 +566,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                 />
               </label>
 
-              <label className="block md:col-span-2">
+              <label className="block md:col-span-1">
                 <span className="text-xs text-gray-600">Sortowanie</span>
                 <select
                   name="oSort"
@@ -582,7 +582,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                 </select>
               </label>
 
-<div className="col-span-2 md:col-span-1 flex flex-col lg:flex-row gap-2">
+<div className="col-span-2 md:col-span-2 flex flex-col lg:flex-row gap-2">
   <button className="w-full lg:flex-1 lg:w-auto bg-indigo-600 text-white rounded px-3 py-2 whitespace-nowrap">
     Zastosuj
   </button>
