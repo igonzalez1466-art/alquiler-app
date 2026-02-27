@@ -243,13 +243,39 @@ export default async function NewListingPage({
         await sendMail({
           to: owner.email,
           subject: `Ogłoszenie opublikowane: ${listing.title}`,
-          html: `
-            <p>Cześć ${owner.name ?? ""},</p>
-            <p>Twoje ogłoszenie <strong>${listing.title}</strong> zostało opublikowane.</p>
-            <p><a href="${baseUrl}/listing/${listing.id}">Zobacz ogłoszenie</a></p>
-            ${emailSignature()}
-          `,
-        });
+       html: `
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+
+  <p>Cześć ${owner.name ?? ""},</p>
+
+  <p>Twoje ogłoszenie zostało <strong>opublikowane</strong> i jest już widoczne w serwisie.</p>
+
+  <!-- CARD -->
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    <p style="margin:0; font-size:16px; font-weight:600;">
+      ${listing.title}
+    </p>
+  </div>
+
+  <p>
+    <a href="${baseUrl}/listing/${listing.id}"
+       style="display:inline-block; margin-top:10px; padding:10px 16px;
+              background:#111827; color:white; text-decoration:none;
+              border-radius:6px; font-weight:600;">
+      Zobacz ogłoszenie
+    </a>
+  </p>
+
+  <div style="margin-top:18px; padding:14px; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px;">
+    <strong>Wskazówka:</strong><br/>
+    Dodaj więcej zdjęć i szczegółów w opisie — to zwiększa liczbę rezerwacji.
+  </div>
+
+  ${emailSignature()}
+
+</div>
+`,
+});
       } catch (e) {
         console.error("sendMail failed (ignored):", e);
       }
