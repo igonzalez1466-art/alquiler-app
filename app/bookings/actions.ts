@@ -78,18 +78,19 @@ export async function createBookingAction(input: {
   if (overlapping) throw new Error("Estas fechas ya están reservadas.");
 
   const booking = await prisma.booking.create({
-    data: {
-      listingId: input.listingId,
-      renterId,
-      startDate: start,
-      endDate: end,
-      status: "PENDING",
-    },
-    include: {
-      renter: true,
-      listing: { include: { user: true } },
-    },
-  });
+  data: {
+    listingId: input.listingId,
+    renterId,
+    ownerId: listing.userId, // ✅ AÑADIR ESTO
+    startDate: start,
+    endDate: end,
+    status: "PENDING",
+  },
+  include: {
+    renter: true,
+    listing: { include: { user: true } },
+  },
+});
 
   const ref = `#${booking.bookingNumber}`;
 
