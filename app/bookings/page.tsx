@@ -101,33 +101,39 @@ async function createReviewAction(formData: FormData) {
   }
   if (!(rating >= 1 && rating <= 5)) throw new Error("Ocena poza zakresem");
 
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { listing: { select: { userId: true } } },
-  });
-  if (!booking) throw new Error("Nie znaleziono rezerwacji");
+const booking = await prisma.booking.findUnique({
+  where: { id: bookingId },
+  select: {
+    id: true,
+    renterId: true,
+    ownerId: true,
+    status: true,
+    endDate: true,
+  },
+});
+if (!booking) throw new Error("Nie znaleziono rezerwacji");
 
   const now = new Date();
   const isParticipant =
-    booking.renterId === reviewerId || booking.listing.userId === reviewerId;
+  booking.renterId === reviewerId || booking.ownerId === reviewerId;
 
-  if (!isParticipant) throw new Error("Brak uprawnień");
-  if (booking.status !== "CONFIRMED" || booking.endDate > now) {
-    throw new Error("Można oceniać tylko potwierdzone i zakończone rezerwacje");
-  }
+ if (!isParticipant) throw new Error("Brak uprawnień");
+if (booking.status !== "CONFIRMED" || booking.endDate > now) {
+  throw new Error("Można oceniać tylko potwierdzone i zakończone rezerwacje");
+}
 
-  let revieweeId: string;
-  if (role === "OWNER") {
-    // Najemca ocenia właściciela
-    if (booking.renterId !== reviewerId)
-      throw new Error("Nieprawidłowa rola dla tej rezerwacji");
-    revieweeId = booking.listing.userId;
-  } else {
-    // Właściciel ocenia najemcę
-    if (booking.listing.userId !== reviewerId)
-      throw new Error("Nieprawidłowa rola dla tej rezerwacji");
-    revieweeId = booking.renterId;
-  }
+let revieweeId: string;
+if (role === "OWNER") {
+  // Najemca ocenia właściciela
+  if (booking.renterId !== reviewerId)
+    throw new Error("Nieprawidłowa rola dla tej rezerwacji");
+  revieweeId = booking.ownerId;
+} else {
+  // Właściciel ocenia najemcę
+  if (booking.ownerId !== reviewerId)
+    throw new Error("Nieprawidłowa rola dla tej rezerwacji");
+  revieweeId = booking.renterId;
+}
 
   const existing = await prisma.review.findFirst({
     where: { bookingId, reviewerId, revieweeId },
@@ -196,7 +202,7 @@ if (mSort === "num_asc") madeOrderBy = { bookingNumber: "asc" };
   const oTo = parseDay(p.oTo) ? endOfDay(parseDay(p.oTo)!) : undefined;
   const oSort = p.oSort ?? "start_desc";
 
-  const ownerWhere: Prisma.BookingWhereInput = { listing: { userId } };
+  const ownerWhere: Prisma.BookingWhereInput = { ownerId: userId };
   if (oStatus !== "all") ownerWhere.status = oStatus;
   if (oFrom || oTo) {
     ownerWhere.startDate = { gte: oFrom, lte: oTo };
