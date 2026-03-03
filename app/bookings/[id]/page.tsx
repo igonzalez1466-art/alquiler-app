@@ -162,7 +162,7 @@ export default async function BookingPage({
 
   if (!booking) return notFound();
 
-  const logisticsEnabled = booking.status === "CONFIRMED" || booking.status === "PAID";
+  const logisticsEnabled = booking.status === "PAID";
 
   const isOwner = !!userId && booking.ownerId === userId;
   const isRenter = !!userId && booking.renterId === userId;
@@ -257,9 +257,24 @@ export default async function BookingPage({
         <>
           {/* ===== Płatność ===== */}
           <section className="border rounded bg-white overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold">Płatność</h2>
-            </div>
+            <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
+  <h2 className="text-lg font-semibold">Płatność</h2>
+
+  {badge(
+    booking.status === "PAID"
+      ? "Opłacona"
+      : booking.status === "AWAITING_PAYMENT"
+      ? "Oczekuje na płatność"
+      : booking.status === "CONFIRMED"
+      ? "Zatwierdzona (bez płatności)"
+      : "—",
+    booking.status === "PAID"
+      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+      : booking.status === "AWAITING_PAYMENT"
+      ? "bg-amber-100 text-amber-800 border-amber-200"
+      : "bg-gray-100 text-gray-700 border-gray-200"
+  )}
+</div>
 
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -304,7 +319,7 @@ export default async function BookingPage({
           {/* ✅ LOGISTYKA tylko po akceptacji */}
           {!logisticsEnabled ? (
             <section className="p-4 border rounded bg-white text-sm text-gray-600">
-              Logistyka (dostawa i zwrot) będzie dostępna dopiero po akceptacji rezerwacji przez właściciela.
+              Logistyka (dostawa i zwrot) będzie dostępna dopiero po opłaceniu rezerwacji.
             </section>
           ) : (
             <>
