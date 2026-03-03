@@ -258,22 +258,31 @@ export default async function BookingPage({
           {/* ===== Płatność ===== */}
           <section className="border rounded bg-white overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
-  <h2 className="text-lg font-semibold">Płatność</h2>
+    <div className="flex items-center gap-2">
+    {badge(
+      booking.status === "PAID"
+        ? "Opłacona"
+        : booking.status === "AWAITING_PAYMENT"
+        ? "Oczekuje na płatność"
+        : booking.status === "PENDING"
+        ? "Oczekuje na akceptację"
+        : booking.status,
+      booking.status === "PAID"
+        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+        : booking.status === "AWAITING_PAYMENT"
+        ? "bg-amber-100 text-amber-800 border-amber-200"
+        : "bg-gray-100 text-gray-800 border-gray-200"
+    )}
 
-  {badge(
-    booking.status === "PAID"
-      ? "Opłacona"
-      : booking.status === "AWAITING_PAYMENT"
-      ? "Oczekuje na płatność"
-      : booking.status === "CONFIRMED"
-      ? "Zatwierdzona (bez płatności)"
-      : "—",
-    booking.status === "PAID"
-      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-      : booking.status === "AWAITING_PAYMENT"
-      ? "bg-amber-100 text-amber-800 border-amber-200"
-      : "bg-gray-100 text-gray-700 border-gray-200"
-  )}
+    {isRenter && booking.status === "AWAITING_PAYMENT" && (
+      <Link
+        href={`/bookings/${booking.id}/pay`}
+        className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
+      >
+        Opłać
+      </Link>
+    )}
+  </div>
 </div>
 
             <div className="p-4 space-y-3">
