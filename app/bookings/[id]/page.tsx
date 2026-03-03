@@ -255,75 +255,77 @@ export default async function BookingPage({
 
       {!isRejected && (
         <>
-          {/* ===== Płatność ===== */}
-          <section className="border rounded bg-white overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
+   {/* ===== Płatność ===== */}
+<section className="border rounded bg-white overflow-hidden">
+  <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between gap-3">
+    <h2 className="text-lg font-semibold">Płatność</h2>
+
     <div className="flex items-center gap-2">
-    {badge(
-      booking.status === "PAID"
-        ? "Opłacona"
-        : booking.status === "AWAITING_PAYMENT"
-        ? "Oczekuje na płatność"
-        : booking.status === "PENDING"
-        ? "Oczekuje na akceptację"
-        : booking.status,
-      booking.status === "PAID"
-        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-        : booking.status === "AWAITING_PAYMENT"
-        ? "bg-amber-100 text-amber-800 border-amber-200"
-        : "bg-gray-100 text-gray-800 border-gray-200"
-    )}
+      {badge(
+        booking.status === "PAID"
+          ? "Opłacona"
+          : booking.status === "AWAITING_PAYMENT" || booking.status === "CONFIRMED"
+          ? "Oczekuje na płatność"
+          : booking.status === "PENDING"
+          ? "Oczekuje na akceptację"
+          : booking.status,
+        booking.status === "PAID"
+          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+          : booking.status === "AWAITING_PAYMENT" || booking.status === "CONFIRMED"
+          ? "bg-amber-100 text-amber-800 border-amber-200"
+          : "bg-gray-100 text-gray-800 border-gray-200"
+      )}
 
-    {isRenter && booking.status === "AWAITING_PAYMENT" && (
-      <Link
-        href={`/bookings/${booking.id}/pay`}
-        className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
-      >
-        Opłać
-      </Link>
-    )}
+      {isRenter && (booking.status === "AWAITING_PAYMENT" || booking.status === "CONFIRMED") && (
+        <Link
+          href={`/bookings/${booking.id}/pay`}
+          className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
+        >
+          Opłać
+        </Link>
+      )}
+    </div>
   </div>
-</div>
 
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border p-3">
-                  <div className="text-xs text-gray-500">Od</div>
-                  <div className="font-semibold">{fmtDate(booking.startDate)}</div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-xs text-gray-500">Do</div>
-                  <div className="font-semibold">{fmtDate(booking.endDate)}</div>
-                </div>
-              </div>
+  <div className="p-4 space-y-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="rounded-lg border p-3">
+        <div className="text-xs text-gray-500">Od</div>
+        <div className="font-semibold">{fmtDate(booking.startDate)}</div>
+      </div>
+      <div className="rounded-lg border p-3">
+        <div className="text-xs text-gray-500">Do</div>
+        <div className="font-semibold">{fmtDate(booking.endDate)}</div>
+      </div>
+    </div>
 
-              <div className="rounded-lg border">
-                <div className="divide-y">
-                  <div className="flex justify-between px-3 py-2 text-sm">
-                    <span>Liczba dni</span>
-                    <span>{days}</span>
-                  </div>
-                  <div className="flex justify-between px-3 py-2 text-sm">
-                    <span>Cena za dzień</span>
-                    <span>{pricePerDay} zł</span>
-                  </div>
-                  <div className="flex justify-between px-3 py-2 text-sm">
-                    <span>Koszt najmu</span>
-                    <span>{rentTotal} zł</span>
-                  </div>
-                  <div className="flex justify-between px-3 py-2 text-sm">
-                    <span>Kaucja (zwrotna)</span>
-                    <span>{deposit} zł</span>
-                  </div>
-                </div>
-              </div>
+    <div className="rounded-lg border">
+      <div className="divide-y">
+        <div className="flex justify-between px-3 py-2 text-sm">
+          <span>Liczba dni</span>
+          <span>{days}</span>
+        </div>
+        <div className="flex justify-between px-3 py-2 text-sm">
+          <span>Cena za dzień</span>
+          <span>{pricePerDay} zł</span>
+        </div>
+        <div className="flex justify-between px-3 py-2 text-sm">
+          <span>Koszt najmu</span>
+          <span>{rentTotal} zł</span>
+        </div>
+        <div className="flex justify-between px-3 py-2 text-sm">
+          <span>Kaucja (zwrotna)</span>
+          <span>{deposit} zł</span>
+        </div>
+      </div>
+    </div>
 
-              <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
-                <span className="font-semibold">Razem do zapłaty</span>
-                <span className="font-bold text-indigo-700">{total} zł</span>
-              </div>
-            </div>
-          </section>
+    <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
+      <span className="font-semibold">Razem do zapłaty</span>
+      <span className="font-bold text-indigo-700">{total} zł</span>
+    </div>
+  </div>
+</section>
 
           {/* ✅ LOGISTYKA tylko po akceptacji */}
           {!logisticsEnabled ? (
