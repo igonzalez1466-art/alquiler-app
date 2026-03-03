@@ -10,6 +10,9 @@ import { openChatFromBookingAction } from "./actions";
 import ShippingForm from "./_components/ShippingForm";
 import ReturnForm from "./_components/ReturnForm";
 
+import { confirmDeliveryAction } from "./_actions/confirmDeliveryAction";
+import { confirmReturnAction } from "./_actions/confirmReturnAction";
+
 // ===== Helpers =====
 const fmt = (d?: Date | null) =>
   d
@@ -80,6 +83,22 @@ const shippingClass: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-700 border-gray-200",
 };
 
+const deliveryConfirmLabel: Record<string, string> = {
+  NOT_REQUESTED: "Nie wymaga potwierdzenia",
+  AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie odbioru",
+  CONFIRMED: "Odbiór potwierdzony",
+  DISPUTED: "Spór",
+  AUTO_CONFIRMED: "Automatycznie potwierdzono",
+};
+
+const returnConfirmLabel: Record<string, string> = {
+  NOT_REQUESTED: "Nie wymaga potwierdzenia",
+  AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie zwrotu",
+  CONFIRMED: "Zwrot potwierdzony",
+  DISPUTED: "Spór",
+  AUTO_CONFIRMED: "Automatycznie potwierdzono",
+};
+
 export default async function BookingPage({
   params,
 }: {
@@ -92,7 +111,43 @@ export default async function BookingPage({
 
   const booking = await prisma.booking.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      bookingNumber: true,
+      listingId: true,
+      renterId: true,
+      ownerId: true,
+
+      startDate: true,
+      endDate: true,
+      status: true,
+      createdAt: true,
+
+      // shipping
+      shippingStatus: true,
+      carrier: true,
+      trackingNumber: true,
+      shippedAt: true,
+      deliveredAt: true,
+
+      // delivery confirmations
+      deliveryConfirmationStatus: true,
+      deliveryConfirmedAt: true,
+      deliveryConfirmBy: true,
+
+      // return shipping
+      returnStatus: true,
+      returnCarrier: true,
+      returnTrackingNumber: true,
+      returnShippedAt: true,
+      returnDeliveredAt: true,
+
+      // return confirmations
+      returnConfirmationStatus: true,
+      returnConfirmedAt: true,
+      returnConfirmBy: true,
+
+      // listing + renter
       listing: {
         select: {
           id: true,
@@ -108,16 +163,28 @@ export default async function BookingPage({
 
   if (!booking) return notFound();
 
-  const isOwner = !!userId && booking.listing?.userId === userId;
+  const isOwner = !!userId && booking.ownerId === userId;
   const isRenter = !!userId && booking.renterId === userId;
 
   const isRejected = booking.status === "CANCELLED";
 
+  // reglas de edición (puedes endurecer a PAID si quieres)
   const canOwnerEditShipping = isOwner && booking.status === "CONFIRMED";
   const canRenterEditReturn = isRenter && booking.status === "CONFIRMED";
+
+  const deliveryLocked =
+    booking.deliveryConfirmationStatus === "CONFIRMED" ||
+    booking.deliveryConfirmationStatus === "AUTO_CONFIRMED";
+
   const returnLocked =
-  booking.returnConfirmationStatus === "CONFIRMED" ||
-  booking.returnConfirmationStatus === "AUTO_CONFIRMED";
+    booking.returnConfirmationStatus === "CONFIRMED" ||
+    booking.returnConfirmationStatus === "AUTO_CONFIRMED";
+
+  const renterCanConfirmDelivery =
+    isRenter && booking.deliveryConfirmationStatus === "AWAITING_CONFIRMATION";
+
+  const ownerCanConfirmReturn =
+    isOwner && booking.returnConfirmationStatus === "AWAITING_CONFIRMATION";
 
   // ===== Cálculos =====
   const pricePerDay = booking.listing?.pricePerDay ?? 0;
@@ -129,21 +196,18 @@ export default async function BookingPage({
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-  <div className="flex items-center gap-3">
-    <h1 className="text-2xl font-bold">
-      Szczegóły rezerwacji
-    </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Szczegóły rezerwacji</h1>
 
-    <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700 border">
-      #{booking.bookingNumber}
-    </span>
-  </div>
+          <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700 border">
+            #{booking.bookingNumber}
+          </span>
+        </div>
 
-  <Link href="/bookings" className="text-blue-600 underline">
-    ← Wróć
-  </Link>
-</div>
-
+        <Link href="/bookings" className="text-blue-600 underline">
+          ← Wróć
+        </Link>
+      </div>
 
       {/* ===== Info general ===== */}
       <section className="p-4 border rounded bg-white space-y-2">
@@ -170,7 +234,7 @@ export default async function BookingPage({
           <div className="flex flex-col items-end gap-2">
             {badge(
               statusLabel[booking.status] ?? booking.status,
-              statusClass[booking.status]
+              statusClass[booking.status] ?? "bg-gray-100 text-gray-800 border-gray-200"
             )}
 
             {userId && (
@@ -206,15 +270,11 @@ export default async function BookingPage({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-lg border p-3">
                   <div className="text-xs text-gray-500">Od</div>
-                  <div className="font-semibold">
-                    {fmtDate(booking.startDate)}
-                  </div>
+                  <div className="font-semibold">{fmtDate(booking.startDate)}</div>
                 </div>
                 <div className="rounded-lg border p-3">
                   <div className="text-xs text-gray-500">Do</div>
-                  <div className="font-semibold">
-                    {fmtDate(booking.endDate)}
-                  </div>
+                  <div className="font-semibold">{fmtDate(booking.endDate)}</div>
                 </div>
               </div>
 
@@ -249,26 +309,50 @@ export default async function BookingPage({
           {/* ===== Dostawa ===== */}
           <section className="p-4 border rounded bg-white space-y-3">
             <h2 className="text-lg font-semibold flex items-center gap-2">
-  Dostawa
-  <span className="text-xs text-gray-400 font-normal">
-    (uzupełnia właściciel)
-  </span>
-</h2>
+              Dostawa
+              <span className="text-xs text-gray-400 font-normal">
+                (uzupełnia właściciel)
+              </span>
+            </h2>
 
-
-            {badge(
-              shippingLabel[booking.shippingStatus],
-              shippingClass[booking.shippingStatus]
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {badge(
+                shippingLabel[booking.shippingStatus] ?? booking.shippingStatus,
+                shippingClass[booking.shippingStatus] ?? "bg-gray-100 text-gray-800 border-gray-200"
+              )}
+              {badge(
+                deliveryConfirmLabel[booking.deliveryConfirmationStatus] ?? booking.deliveryConfirmationStatus,
+                booking.deliveryConfirmationStatus === "AWAITING_CONFIRMATION"
+                  ? "bg-amber-50 text-amber-900 border-amber-200"
+                  : "bg-gray-50 text-gray-700 border-gray-200"
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
               <div>Przewoźnik: {booking.carrier ?? "—"}</div>
               <div>Numer śledzenia: {booking.trackingNumber ?? "—"}</div>
               <div>Wysłano: {fmt(booking.shippedAt)}</div>
               <div>Dostarczono: {fmt(booking.deliveredAt)}</div>
+              <div>Potwierdzone: {fmt(booking.deliveryConfirmedAt)}</div>
+              <div>Potwierdź do: {fmt(booking.deliveryConfirmBy)}</div>
             </div>
 
-            {canOwnerEditShipping && (
+            {/* ✅ renter button */}
+            {renterCanConfirmDelivery && (
+              <form
+                action={async () => {
+                  "use server";
+                  await confirmDeliveryAction(id);
+                }}
+              >
+                <button className="w-full sm:w-auto bg-emerald-600 text-white rounded px-4 py-2">
+                  Potwierdzam odbiór
+                </button>
+              </form>
+            )}
+
+            {/* ✅ owner can edit shipping only if not locked */}
+            {canOwnerEditShipping && !deliveryLocked && (
               <ShippingForm
                 bookingId={id}
                 initial={{
@@ -280,31 +364,58 @@ export default async function BookingPage({
                 }}
               />
             )}
+
+            {deliveryLocked && (
+              <p className="text-xs text-gray-500">
+                Odbiór został potwierdzony — edycja dostawy zablokowana.
+              </p>
+            )}
           </section>
 
           {/* ===== Zwrot ===== */}
           <section className="p-4 border rounded bg-white space-y-3">
             <h2 className="text-lg font-semibold flex items-center gap-2">
-  Zwrot
-  <span className="text-xs text-gray-400 font-normal">
-    (uzupełnia najemca)
-  </span>
-</h2>
+              Zwrot
+              <span className="text-xs text-gray-400 font-normal">
+                (uzupełnia najemca)
+              </span>
+            </h2>
 
-
-            {badge(
-              shippingLabel[booking.returnStatus],
-              shippingClass[booking.returnStatus]
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {badge(
+                shippingLabel[booking.returnStatus] ?? booking.returnStatus,
+                shippingClass[booking.returnStatus] ?? "bg-gray-100 text-gray-800 border-gray-200"
+              )}
+              {badge(
+                returnConfirmLabel[booking.returnConfirmationStatus] ?? booking.returnConfirmationStatus,
+                booking.returnConfirmationStatus === "AWAITING_CONFIRMATION"
+                  ? "bg-amber-50 text-amber-900 border-amber-200"
+                  : "bg-gray-50 text-gray-700 border-gray-200"
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
               <div>Przewoźnik: {booking.returnCarrier ?? "—"}</div>
-              <div>
-                Numer śledzenia: {booking.returnTrackingNumber ?? "—"}
-              </div>
+              <div>Numer śledzenia: {booking.returnTrackingNumber ?? "—"}</div>
               <div>Wysłano: {fmt(booking.returnShippedAt)}</div>
               <div>Odebrano: {fmt(booking.returnDeliveredAt)}</div>
+              <div>Potwierdzone: {fmt(booking.returnConfirmedAt)}</div>
+              <div>Potwierdź do: {fmt(booking.returnConfirmBy)}</div>
             </div>
+
+            {/* ✅ owner button */}
+            {ownerCanConfirmReturn && (
+              <form
+                action={async () => {
+                  "use server";
+                  await confirmReturnAction(id);
+                }}
+              >
+                <button className="w-full sm:w-auto bg-emerald-600 text-white rounded px-4 py-2">
+                  Potwierdzam zwrot
+                </button>
+              </form>
+            )}
 
             {canRenterEditReturn && (
               <ReturnForm
@@ -316,6 +427,12 @@ export default async function BookingPage({
                   returnTrackingNumber: booking.returnTrackingNumber,
                 }}
               />
+            )}
+
+            {returnLocked && (
+              <p className="text-xs text-gray-500">
+                Zwrot został potwierdzony — edycja zablokowana.
+              </p>
             )}
           </section>
         </>

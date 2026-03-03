@@ -22,13 +22,26 @@ export async function updateShippingAction(formData: FormData) {
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
-  const shippingStatus = String(
-    formData.get("shippingStatus") || ""
-  ) as ShippingStatus;
+  const rawStatus = String(formData.get("shippingStatus") || "");
   const carrier = String(formData.get("carrier") || "").trim();
   const trackingNumber = String(formData.get("trackingNumber") || "").trim();
 
   if (!bookingId) throw new Error("Brak bookingId");
+
+  const allowed: ShippingStatus[] = [
+    "NOT_REQUIRED",
+    "PENDING",
+    "READY",
+    "SHIPPED",
+    "DELIVERED",
+    "LOST",
+    "CANCELLED",
+  ];
+
+  const shippingStatus = rawStatus as ShippingStatus;
+  if (!allowed.includes(shippingStatus)) {
+    throw new Error("Nieprawidłowy status wysyłki");
+  }
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -38,19 +51,25 @@ export async function updateShippingAction(formData: FormData) {
       shippingStatus: true,
       shippedAt: true,
       deliveredAt: true,
-      listing: { select: { userId: true } },
+
+      // ✅ para permisos
+      ownerId: true,
+
+      // ✅ para handshake entrega
+      deliveryConfirmationStatus: true,
+      deliveryConfirmBy: true,
     },
   });
 
   if (!booking) throw new Error("Rezerwacja nie istnieje");
 
-  // ✅ Solo owner
-  if (booking.listing.userId !== userId) {
+  // ✅ Solo owner (mejor usar ownerId snapshot)
+  if (booking.ownerId !== userId) {
     throw new Error("Brak uprawnień (tylko właściciel)");
   }
 
-  // ✅ Solo cuando la reserva está confirmada
-  if (booking.status !== "CONFIRMED") {
+  // ✅ Solo cuando la reserva está confirmada (ajusta a PAID si quieres)
+  if (booking.status !== "CONFIRMED" && booking.status !== "PAID") {
     throw new Error("Wysyłka jest dostępna tylko dla potwierdzonych rezerwacji");
   }
 
@@ -60,6 +79,7 @@ export async function updateShippingAction(formData: FormData) {
   }
 
   const now = new Date();
+  const hasTracking = !!trackingNumber;
 
   // ✅ Prisma bien tipado
   const data: Prisma.BookingUpdateInput = {
@@ -75,6 +95,14 @@ export async function updateShippingAction(formData: FormData) {
       ? { deliveredAt: now }
       : {}),
   };
+
+  // ✅ Iniciar confirmación de entrega cuando el owner marca SHIPPED/DELIVERED
+  if (shippingStatus === "SHIPPED" || shippingStatus === "DELIVERED") {
+    data.deliveryConfirmationStatus = "AWAITING_CONFIRMATION";
+    data.deliveryConfirmBy = new Date(
+      now.getTime() + (hasTracking ? 24 : 48) * 60 * 60 * 1000
+    );
+  }
 
   await prisma.booking.update({
     where: { id: bookingId },
