@@ -52,56 +52,58 @@ export async function updateShippingAction(formData: FormData) {
       shippedAt: true,
       deliveredAt: true,
 
-      // ✅ para permisos
+      // permisos
       ownerId: true,
 
-      // ✅ para handshake entrega
+      // handshake entrega
       deliveryConfirmationStatus: true,
       deliveryConfirmBy: true,
+      deliveryConfirmedAt: true,
     },
   });
 
   if (!booking) throw new Error("Rezerwacja nie istnieje");
 
-  // ✅ Solo owner (mejor usar ownerId snapshot)
+  // ✅ Solo owner (snapshot)
   if (booking.ownerId !== userId) {
     throw new Error("Brak uprawnień (tylko właściciel)");
   }
 
-  // ✅ Solo cuando la reserva está confirmada (ajusta a PAID si quieres)
+  // ✅ Solo CONFIRMED/PAID
   if (booking.status !== "CONFIRMED" && booking.status !== "PAID") {
     throw new Error("Wysyłka jest dostępna tylko dla potwierdzonych rezerwacji");
   }
 
-  // ✅ Bloqueo total si ya está entregado
+  // ✅ Bloqueo total si ya está entregado (shippingStatus final)
   if (booking.shippingStatus === "DELIVERED") {
     throw new Error("Nie można edytować — przesyłka została dostarczona");
   }
 
   const now = new Date();
-  const hasTracking = !!trackingNumber;
 
-  // ✅ Prisma bien tipado
+  // ✅ Update base
   const data: Prisma.BookingUpdateInput = {
     shippingStatus,
     carrier: carrier || null,
     trackingNumber: trackingNumber || null,
 
-    ...(shippingStatus === "SHIPPED" && !booking.shippedAt
-      ? { shippedAt: now }
-      : {}),
-
-    ...(shippingStatus === "DELIVERED" && !booking.deliveredAt
-      ? { deliveredAt: now }
-      : {}),
+    ...(shippingStatus === "SHIPPED" && !booking.shippedAt ? { shippedAt: now } : {}),
+    ...(shippingStatus === "DELIVERED" && !booking.deliveredAt ? { deliveredAt: now } : {}),
   };
 
-  // ✅ Iniciar confirmación de entrega cuando el owner marca SHIPPED/DELIVERED
-  if (shippingStatus === "SHIPPED" || shippingStatus === "DELIVERED") {
+  /**
+   * ✅ Iniciar confirmación SOLO cuando se marca como DELIVERED
+   * - Solo si todavía no se pidió (NOT_REQUESTED)
+   * - No pisar si ya está CONFIRMED/AUTO_CONFIRMED/DISPUTED
+   */
+  if (
+    shippingStatus === "DELIVERED" &&
+    booking.deliveryConfirmationStatus === "NOT_REQUESTED"
+  ) {
     data.deliveryConfirmationStatus = "AWAITING_CONFIRMATION";
-    data.deliveryConfirmBy = new Date(
-      now.getTime() + (hasTracking ? 24 : 48) * 60 * 60 * 1000
-    );
+
+    // ventana para confirmar (ej. 48h)
+    data.deliveryConfirmBy = new Date(now.getTime() + 48 * 60 * 60 * 1000);
   }
 
   await prisma.booking.update({
