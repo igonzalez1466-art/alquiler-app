@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/app/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -10,26 +11,25 @@ type ReturnStatus = "PENDING" | "READY" | "SHIPPED" | "DELIVERED" | "LOST" | "CA
 
 export async function updateReturnAction(formData: FormData) {
   const session = (await getServerSession(authConfig)) as Session | null;
-
   const userId = session?.user?.id;
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
   const rawReturnStatus = String(formData.get("returnStatus") || "");
-
-// normaliza valores legacy por si el frontend manda algo viejo
-const normalizedReturnStatus =
-  rawReturnStatus === "RETURN_PENDING" ? "PENDING" :
-  rawReturnStatus === "RETURNED" ? "DELIVERED" :
-  rawReturnStatus;
-
-const returnStatus = normalizedReturnStatus as ReturnStatus;
-const allowed: ReturnStatus[] = ["PENDING", "READY", "SHIPPED", "DELIVERED", "LOST", "CANCELLED"];
-if (!allowed.includes(returnStatus)) throw new Error("Nieprawidłowy status zwrotu");
   const returnCarrier = String(formData.get("returnCarrier") || "").trim();
   const returnTrackingNumber = String(formData.get("returnTrackingNumber") || "").trim();
 
   if (!bookingId) throw new Error("Brak bookingId");
+
+  // normaliza valores legacy por si el frontend manda algo viejo
+  const normalizedReturnStatus =
+    rawReturnStatus === "RETURN_PENDING" ? "PENDING" :
+    rawReturnStatus === "RETURNED" ? "DELIVERED" :
+    rawReturnStatus;
+
+  const returnStatus = normalizedReturnStatus as ReturnStatus;
+  const allowed: ReturnStatus[] = ["PENDING", "READY", "SHIPPED", "DELIVERED", "LOST", "CANCELLED"];
+  if (!allowed.includes(returnStatus)) throw new Error("Nieprawidłowy status zwrotu");
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -37,37 +37,65 @@ if (!allowed.includes(returnStatus)) throw new Error("Nieprawidłowy status zwro
       id: true,
       status: true,
       renterId: true,
+
       returnStatus: true,
       returnShippedAt: true,
       returnDeliveredAt: true,
+
+      // handshake zwrotu
       returnConfirmationStatus: true,
+      returnConfirmBy: true,
+      returnConfirmedAt: true,
     },
   });
+
   if (!booking) throw new Error("Rezerwacja nie istnieje");
 
+  // ✅ solo renter
   if (booking.renterId !== userId) throw new Error("Brak uprawnień (tylko najemca)");
-  if (booking.status !== "CONFIRMED") throw new Error("Zwrot tylko dla potwierdzonych rezerwacji");
 
+  // ✅ solo CONFIRMED/PAID (yo recomiendo permitir PAID también, por consistencia)
+  if (booking.status !== "CONFIRMED" && booking.status !== "PAID") {
+    throw new Error("Zwrot tylko dla potwierdzonych rezerwacji");
+  }
+
+  // ✅ bloqueo total si ya confirmado el zwrot
   if (
-  booking.returnConfirmationStatus === "CONFIRMED" ||
-  booking.returnConfirmationStatus === "AUTO_CONFIRMED"
-) {
-  throw new Error("Nie można edytować — zwrot został zakończony");
-}
+    booking.returnConfirmationStatus === "CONFIRMED" ||
+    booking.returnConfirmationStatus === "AUTO_CONFIRMED"
+  ) {
+    throw new Error("Nie można edytować — zwrot został zakończony");
+  }
+
   const now = new Date();
 
-  const data: Record<string, unknown> = {
+  // ✅ Prisma bien tipado
+  const data: Prisma.BookingUpdateInput = {
     returnStatus,
     returnCarrier: returnCarrier || null,
     returnTrackingNumber: returnTrackingNumber || null,
+
+    ...(returnStatus === "SHIPPED" && !booking.returnShippedAt ? { returnShippedAt: now } : {}),
+    ...(returnStatus === "DELIVERED" && !booking.returnDeliveredAt ? { returnDeliveredAt: now } : {}),
   };
 
-  if (returnStatus === "SHIPPED" && !booking.returnShippedAt) data.returnShippedAt = now;
-  if (returnStatus === "DELIVERED" && !booking.returnDeliveredAt) data.returnDeliveredAt = now;
+  /**
+   * ✅ Iniciar confirmación SOLO cuando renter marca DELIVERED
+   * - Solo si todavía no se pidió (NOT_REQUESTED)
+   * - No pisar si ya está en disputa / etc.
+   */
+  if (
+    returnStatus === "DELIVERED" &&
+    booking.returnConfirmationStatus === "NOT_REQUESTED"
+  ) {
+    data.returnConfirmationStatus = "AWAITING_CONFIRMATION";
+    // ventana para confirmar (ej. 48h)
+    data.returnConfirmBy = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  }
 
   await prisma.booking.update({
     where: { id: bookingId },
-    data: data as never,
+    data,
   });
 
   revalidatePath(`/bookings/${bookingId}`);
