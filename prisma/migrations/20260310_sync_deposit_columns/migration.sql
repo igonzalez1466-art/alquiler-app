@@ -1,0 +1,10 @@
+ALTER TABLE "public"."Booking"
+ADD COLUMN IF NOT EXISTS "depositChargeId" TEXT,
+ADD COLUMN IF NOT EXISTS "depositLastError" TEXT,
+ADD COLUMN IF NOT EXISTS "depositPaidAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "depositRefundId" TEXT,
+ADD COLUMN IF NOT EXISTS "depositRefundedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "depositRefundedCents" INTEGER,
+ADD COLUMN IF NOT EXISTS "depositReleaseAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "depositRetainedCents" INTEGER,
+ADD COLUMN IF NOT EXISTS "depositRetentionReason" TEXT;

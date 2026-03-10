@@ -170,26 +170,21 @@ model Booking {
   id            String   @id @default(cuid())
   bookingNumber Int      @unique @default(autoincrement())
 
-  // --- Relaciones / actores ---
   listingId String
   renterId  String
-
-  // ✅ NUEVO (temporalmente nullable para migración)
   ownerId   String
 
   listing Listing @relation(fields: [listingId], references: [id])
   renter  User    @relation("BookingRenter", fields: [renterId], references: [id])
-  owner   User   @relation("BookingOwner", fields: [ownerId], references: [id])
+  owner   User    @relation("BookingOwner", fields: [ownerId], references: [id])
 
   reviews Review[]
 
-  // --- Fechas + estado booking ---
   startDate DateTime
   endDate   DateTime
   status    BookingStatus @default(PENDING)
   createdAt DateTime      @default(now())
 
-  // --- Pagos ---
   paymentStatus PaymentStatus @default(PENDING)
   paymentMethod PaymentMethod?
   paymentRef    String?
@@ -197,42 +192,42 @@ model Booking {
   amountCents  Int?
   depositCents Int?
 
-  // ID específico del PaymentIntent de la fianza
-  depositPaymentIntentId String?
-
-  // estado específico de la fianza
-  depositStatus DepositStatus @default(NONE)
+  depositPaymentIntentId  String?
+  depositChargeId         String?
+  depositRefundId         String?
+  depositStatus           DepositStatus @default(NONE)
+  depositPaidAt           DateTime?
+  depositRefundedAt       DateTime?
+  depositRefundedCents    Int?
+  depositRetainedCents    Int?
+  depositReleaseAt        DateTime?
+  depositLastError        String?
 
   paidAt     DateTime?
   refundedAt DateTime?
 
-  // --- Logística: envío/entrega ---
   shippingStatus ShippingStatus @default(PENDING)
   carrier        String?
   trackingNumber String?
   shippedAt      DateTime?
   deliveredAt    DateTime?
 
-  // ✅ NUEVO: confirmación de entrega por el inquilino
   deliveryConfirmationStatus DeliveryConfirmationStatus @default(NOT_REQUESTED)
   deliveryConfirmedAt        DateTime?
   deliveryConfirmedBy        DeliveryConfirmedBy?
   deliveryConfirmBy          DateTime?
 
-  // --- Logística: devolución ---
   returnStatus         ShippingStatus @default(PENDING)
   returnCarrier        String?
   returnTrackingNumber String?
   returnShippedAt      DateTime?
   returnDeliveredAt    DateTime?
 
-  // ✅ NUEVO: confirmación de devolución por el dueño
   returnConfirmationStatus ReturnConfirmationStatus @default(NOT_REQUESTED)
   returnConfirmedAt        DateTime?
   returnConfirmedBy        ReturnConfirmedBy?
   returnConfirmBy          DateTime?
 
-  // ✅ NUEVO: ventana de daños
   damageClaimStatus DamageClaimStatus @default(NONE)
   damageClaimBy     DateTime?
 
@@ -240,6 +235,8 @@ model Booking {
   @@index([renterId])
   @@index([ownerId])
   @@index([paymentStatus])
+  @@index([depositStatus])
+  @@index([depositReleaseAt])
   @@index([shippingStatus])
   @@index([returnStatus])
   @@index([carrier, trackingNumber])
@@ -382,10 +379,14 @@ enum ConversationCloseReason {
 }
 
 enum DepositStatus {
-  NONE
-  HELD
-  RELEASED
-  CAPTURED
+ NONE
+  PENDING
+  PAID
+  REFUND_PENDING
+  REFUNDED
+  PARTIALLY_REFUNDED
+  RETAINED
+  FAILED
 }
 
 enum DeliveryConfirmationStatus {
