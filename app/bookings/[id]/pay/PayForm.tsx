@@ -1,6 +1,4 @@
 "use client";
-console.log("PK", process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-
 
 import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -15,21 +13,14 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-function InnerPayForm({
-  rentClientSecret,
-  depositClientSecret,
-}: {
-  rentClientSecret: string;
-  depositClientSecret: string;
-}) {
-  const [step, setStep] = useState<"rent" | "deposit" | "done">("rent");
-  const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-
+function InnerPayForm() {
   const stripe = useStripe();
   const elements = useElements();
 
-  async function confirmCurrentPayment() {
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+
+  async function handleSubmit() {
     if (!stripe || !elements) return;
 
     setProcessing(true);
@@ -37,137 +28,51 @@ function InnerPayForm({
 
     const result = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        // si quieres redirecciones, pon return_url
-        // return_url: window.location.href
-      },
       redirect: "if_required",
+      confirmParams: {
+        // Opcional si quieres soportar redirect methods mejor
+        // return_url: `${window.location.origin}/bookings`
+      },
     });
 
     setProcessing(false);
 
     if (result.error) {
-      setError(result.error.message ?? "Error confirmando el pago");
-      return false;
+      setError(result.error.message ?? "Wystąpił błąd podczas płatności");
+      return;
     }
-    return true;
+
+    // Si no hubo error, el PI quedó confirmado o en proceso
+    window.location.href = "/bookings";
   }
 
   return (
     <div className="max-w-md">
-      {step === "rent" && (
-        <>
-          <h2 className="text-lg font-semibold mb-2">Zapłać za wynajem</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Ta kwota zostanie pobrana teraz.
-          </p>
-
-          <PaymentElement />
-
-          <button
-            className="mt-4 px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-            disabled={!stripe || !elements || processing}
-            onClick={async () => {
-              const ok = await confirmCurrentPayment();
-              if (ok) setStep("deposit");
-            }}
-          >
-            {processing ? "Przetwarzanie….." : "Zapłać za wynajem"}
-          </button>
-
-          {error && <p className="mt-2 text-red-600">{error}</p>}
-        </>
-      )}
-
-      {step === "deposit" && (
-        <DepositStep
-          depositClientSecret={depositClientSecret}
-          onDone={() => setStep("done")}
-        />
-      )}
-
-      {step === "done" && (
-        <div className="p-4 rounded border">
-          <h2 className="text-lg font-semibold">✅ Płatność zakończona</h2>
-          <p className="text-sm text-gray-600">
-            Wynajem opłacony, kaucja zablokowana (niepobrana)..
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DepositStep({
-  depositClientSecret,
-  onDone,
-}: {
-  depositClientSecret: string;
-  onDone: () => void;
-}) {
-  return (
-    <Elements stripe={stripePromise} options={{ clientSecret: depositClientSecret }}>
-      <DepositInner onDone={onDone} />
-    </Elements>
-  );
-}
-
-function DepositInner({ onDone }: { onDone: () => void }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-
-  async function confirmDepositHold() {
-    if (!stripe || !elements) return;
-
-    setProcessing(true);
-    setError(null);
-
-    const result = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-    });
-
-    setProcessing(false);
-
-    if (result.error) {
-      setError(result.error.message ?? "Error confirmando la fianza");
-      return;
-    }
-
-    onDone();
-  }
-
-  return (
-    <>
-      <h2 className="text-lg font-semibold mb-2">Zablokuj kaucję</h2>
+      <h2 className="text-lg font-semibold mb-2">Zapłać za rezerwację</h2>
       <p className="text-sm text-gray-600 mb-4">
-         Kaucja wymaga karty. Zablokujemy środki tymczasowo — nie pobierzemy ich.
+        Ta kwota obejmuje koszt wynajmu oraz kaucję zwrotną.
       </p>
 
       <PaymentElement />
 
       <button
+        type="button"
         className="mt-4 px-4 py-2 rounded bg-black text-white disabled:opacity-50"
         disabled={!stripe || !elements || processing}
-        onClick={confirmDepositHold}
+        onClick={handleSubmit}
       >
-        {processing ? "Przetwarzanie..." : "Zablokuj kaucję"}
+        {processing ? "Przetwarzanie..." : "Zapłać teraz"}
       </button>
 
       {error && <p className="mt-2 text-red-600">{error}</p>}
-    </>
+    </div>
   );
 }
 
-export default function PayForm(props: {
-  rentClientSecret: string;
-  depositClientSecret: string;
-}) {
+export default function PayForm({ clientSecret }: { clientSecret: string }) {
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret: props.rentClientSecret }}>
-      <InnerPayForm {...props} />
+    <Elements stripe={stripePromise} options={{ clientSecret }}>
+      <InnerPayForm />
     </Elements>
   );
 }
