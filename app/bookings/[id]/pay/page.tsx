@@ -13,11 +13,11 @@ export default function PayBookingPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<{
-    rentClientSecret: string;
-    depositClientSecret: string;
+    clientSecret: string;
     currency: string;
     rentAmountCents: number;
     depositAmountCents: number;
+    totalAmountCents: number;
   } | null>(null);
 
   useEffect(() => {
@@ -43,9 +43,9 @@ export default function PayBookingPage({
     load();
   }, [bookingId]);
 
-  if (loading) return <p>Trwa ładowanie płatności……</p>;
+  if (loading) return <p>Trwa ładowanie płatności…</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!data) return <p>Nie udało się załadować danych płatności..</p>;
+  if (!data) return <p>Nie udało się załadować danych płatności.</p>;
 
   const formatMoney = (cents: number) =>
     new Intl.NumberFormat("pl-PL", {
@@ -57,26 +57,23 @@ export default function PayBookingPage({
     <div className="p-6 space-y-6 max-w-lg">
       <h1 className="text-xl font-semibold">Opłać rezerwację</h1>
 
-      {/* ✅ RESUMEN CON IMPORTES */}
       <div className="bg-gray-50 border rounded-lg p-4 text-sm space-y-2">
         <p>
-          ✔ <strong>Wynajem:</strong>{" "}
-          {formatMoney(data.rentAmountCents)} (płatność teraz)
+          ✔ <strong>Wynajem:</strong> {formatMoney(data.rentAmountCents)} (płatność teraz)
         </p>
         <p>
-          🧊 <strong>Kaucja:</strong>{" "}
-          {formatMoney(data.depositAmountCents)} (pobierana teraz)
+          💳 <strong>Kaucja:</strong> {formatMoney(data.depositAmountCents)} (pobierana teraz)
         </p>
         <p className="text-gray-500 text-xs">
-          Do zapłaty teraz:  {formatMoney(data.rentAmountCents + data.depositAmountCents)}
+          Kaucja zostanie zwrócona po prawidłowym zakończeniu wypożyczenia,
+          jeśli nie zostaną zgłoszone szkody.
+        </p>
+        <p className="text-gray-700 font-medium">
+          Do zapłaty teraz: {formatMoney(data.totalAmountCents)}
         </p>
       </div>
 
-      {/* Stripe Form */}
-      <PayForm
-        rentClientSecret={data.rentClientSecret}
-        depositClientSecret={data.depositClientSecret}
-      />
+      <PayForm clientSecret={data.clientSecret} />
     </div>
   );
 }
