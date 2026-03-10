@@ -65,10 +65,10 @@ export default function PayBookingPage({
         </p>
         <p>
           🧊 <strong>Kaucja:</strong>{" "}
-          {formatMoney(data.depositAmountCents)} (tylko blokada środków)
+          {formatMoney(data.depositAmountCents)} (pobierana teraz)
         </p>
         <p className="text-gray-500 text-xs">
-          Do zapłaty teraz: {formatMoney(data.rentAmountCents)}
+          Do zapłaty teraz:  {formatMoney(data.rentAmountCents + data.depositAmountCents)}
         </p>
       </div>
 
