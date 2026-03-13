@@ -6,14 +6,12 @@ import { prisma } from "@/app/lib/prisma";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!secretKey || !webhookSecret) {
-    console.error("Missing Stripe env vars", {
-      hasSecretKey: !!secretKey,
-      hasWebhookSecret: !!webhookSecret,
-    });
+    console.error("Missing Stripe env vars");
     return new NextResponse("Missing Stripe env vars", { status: 500 });
   }
 
@@ -31,20 +29,32 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      webhookSecret
+    );
   } catch (err) {
     console.error("Webhook signature failed", err);
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
   try {
+
     switch (event.type) {
+
+      // =====================================================
+      // PAYMENT SUCCEEDED → BOOKING PAID
+      // =====================================================
       case "payment_intent.succeeded": {
+
         const pi = event.data.object as Stripe.PaymentIntent;
+
         const bookingId = pi.metadata?.bookingId;
         const kind = pi.metadata?.kind;
 
         if (!bookingId || kind !== "booking_payment") {
+          console.log("Ignoring PI", pi.id, bookingId, kind);
           break;
         }
 
@@ -54,47 +64,50 @@ export async function POST(req: Request) {
         await prisma.booking.update({
           where: { id: bookingId },
           data: {
+
             status: "PAID",
             paymentStatus: "PAID",
             paymentMethod: "CARD",
             paymentRef: pi.id,
             paidAt: new Date(),
 
-            // parte del alquiler
+            // alquiler
             amountCents: rentAmountCents,
 
-            // parte de la fianza
+            // fianza
             depositCents: depositAmountCents,
             depositStatus: depositAmountCents > 0 ? "PAID" : "NONE",
             depositPaidAt: depositAmountCents > 0 ? new Date() : null,
 
-            // opcional: reutilizamos este campo para localizar luego refunds
+            // guardamos PI para posibles refunds
             depositPaymentIntentId: depositAmountCents > 0 ? pi.id : null,
           },
         });
 
-        console.log("✅ Booking paid:", bookingId, pi.id);
+        console.log("✅ Booking PAID:", bookingId);
+
         break;
       }
 
+      // =====================================================
+      // REFUND DE FIANZA
+      // =====================================================
       case "charge.refunded": {
+
         const charge = event.data.object as Stripe.Charge;
+
         const paymentIntentId =
           typeof charge.payment_intent === "string"
             ? charge.payment_intent
             : charge.payment_intent?.id;
 
-        if (!paymentIntentId) {
-          break;
-        }
+        if (!paymentIntentId) break;
 
         const booking = await prisma.booking.findFirst({
           where: { depositPaymentIntentId: paymentIntentId },
         });
 
-        if (!booking || !booking.depositCents) {
-          break;
-        }
+        if (!booking || !booking.depositCents) break;
 
         const refundedCents = charge.amount_refunded;
         const retainedCents = Math.max(booking.depositCents - refundedCents, 0);
@@ -105,13 +118,9 @@ export async function POST(req: Request) {
           | "RETAINED"
           | "PAID" = "PAID";
 
-        if (refundedCents === 0) {
-          depositStatus = "RETAINED";
-        } else if (refundedCents >= booking.depositCents) {
-          depositStatus = "REFUNDED";
-        } else {
-          depositStatus = "PARTIALLY_REFUNDED";
-        }
+        if (refundedCents === 0) depositStatus = "RETAINED";
+        else if (refundedCents >= booking.depositCents) depositStatus = "REFUNDED";
+        else depositStatus = "PARTIALLY_REFUNDED";
 
         await prisma.booking.update({
           where: { id: booking.id },
@@ -123,11 +132,7 @@ export async function POST(req: Request) {
           },
         });
 
-        console.log("↩️ Deposit refund updated:", booking.id, {
-          refundedCents,
-          retainedCents,
-          depositStatus,
-        });
+        console.log("↩️ Deposit refund updated:", booking.id);
 
         break;
       }
@@ -137,8 +142,9 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ received: true });
+
   } catch (err) {
-    console.error("Webhook error:", err);
+    console.error("Webhook handler error", err);
     return new NextResponse("Webhook handler failed", { status: 500 });
   }
 }
