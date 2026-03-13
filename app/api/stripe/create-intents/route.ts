@@ -47,85 +47,87 @@ export async function POST(req: Request) {
   // Importes (en céntimos)
   const rentAmount = booking.amountCents ?? 0;
   const depositAmount = booking.depositCents ?? 0;
-  const currency = "pln"; // si algún día lo guardas en BD, cámbialo a booking/listing
+  const totalAmount = rentAmount + depositAmount;
+
+  const currency = "pln";
 
   if (rentAmount <= 0) return new NextResponse("Invalid amountCents for rent", { status: 400 });
-  if (depositAmount <= 0) return new NextResponse("Invalid depositCents for deposit", { status: 400 });
+  if (depositAmount < 0) return new NextResponse("Invalid depositCents for deposit", { status: 400 });
+  if (totalAmount <= 0) return new NextResponse("Invalid total amount", { status: 400 });
 
   const stripe = new Stripe(secretKey, {
-    // Si te funciona tal cual, OK. Si Stripe te diera problemas, elimina apiVersion
     apiVersion: "2025-09-30.clover",
   });
 
-  // Idempotencia: si ya existen IDs, devolvemos client_secret (ideal para refresh)
-  // Nota: paymentRef lo usamos como rentPaymentIntentId
-  if (booking.paymentRef && booking.depositPaymentIntentId) {
-    const [rentPI, depositPI] = await Promise.all([
-      stripe.paymentIntents.retrieve(booking.paymentRef),
-      stripe.paymentIntents.retrieve(booking.depositPaymentIntentId),
-    ]);
+  // ==========================================================
+  // IDEMPOTENCIA: si ya existe PaymentIntent reutilizable
+  // ==========================================================
+  if (booking.paymentRef) {
+    try {
+      const existingPI = await stripe.paymentIntents.retrieve(booking.paymentRef);
 
-    return NextResponse.json({
-      rentClientSecret: rentPI.client_secret,
-      depositClientSecret: depositPI.client_secret,
-      rentPaymentIntentId: rentPI.id,
-      depositPaymentIntentId: depositPI.id,
+      if (
+        existingPI.client_secret &&
+        existingPI.status !== "succeeded" &&
+        existingPI.status !== "canceled"
+      ) {
+        return NextResponse.json({
+          clientSecret: existingPI.client_secret,
+          paymentIntentId: existingPI.id,
 
-      // ✅ NUEVO: para mostrar importes en la UI
-      currency,
-      rentAmountCents: rentAmount,
-      depositAmountCents: depositAmount,
+          currency,
+          rentAmountCents: rentAmount,
+          depositAmountCents: depositAmount,
+          totalAmountCents: totalAmount,
+        });
+      }
+    } catch (err) {
+      console.error("Failed retrieving existing PI", err);
+    }
+
+    // si el PI viejo ya no sirve -> limpiamos
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        paymentRef: null,
+        depositPaymentIntentId: null,
+      },
     });
   }
 
-  const transferGroup = `BOOKING_${booking.id}`;
-
-  // 1) RENT: cobro normal
-  const rentPI = await stripe.paymentIntents.create({
-    amount: rentAmount,
+  // ==========================================================
+  // PAYMENT INTENT ÚNICO (rent + deposit)
+  // ==========================================================
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: totalAmount,
     currency,
-    automatic_payment_methods: { enabled: true },
-    transfer_group: transferGroup,
-    metadata: {
-      bookingId: booking.id,
-      kind: "rent",
-      listingId: booking.listingId,
-      renterId: booking.renterId,
-    },
-  });
-
-  // 2) DEPOSIT: HOLD (manual capture)
-  const depositPI = await stripe.paymentIntents.create({
-    amount: depositAmount,
-    currency,
-    capture_method: "manual", // <- HOLD real
     automatic_payment_methods: { enabled: true },
     metadata: {
       bookingId: booking.id,
-      kind: "deposit",
+      kind: "booking_payment",
       listingId: booking.listingId,
       renterId: booking.renterId,
+      rentAmountCents: String(rentAmount),
+      depositAmountCents: String(depositAmount),
     },
   });
 
-  // Guardamos IDs en Booking
+  // Guardamos ID
   await prisma.booking.update({
     where: { id: booking.id },
     data: {
-      paymentRef: rentPI.id, // ✅ rent PI
-      depositPaymentIntentId: depositPI.id, // ✅ deposit PI
+      paymentRef: paymentIntent.id,
+      depositPaymentIntentId: null,
     },
   });
 
   return NextResponse.json({
-    rentClientSecret: rentPI.client_secret,
-    depositClientSecret: depositPI.client_secret,
-    rentPaymentIntentId: rentPI.id,
-    depositPaymentIntentId: depositPI.id,
+    clientSecret: paymentIntent.client_secret,
+    paymentIntentId: paymentIntent.id,
 
-    // ✅ NUEVO: para mostrar importes en la UI
     currency,
     rentAmountCents: rentAmount,
     depositAmountCents: depositAmount,
+    totalAmountCents: totalAmount,
   });
 }
