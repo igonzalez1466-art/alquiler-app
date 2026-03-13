@@ -169,8 +169,14 @@ export async function approveBookingAction(bookingId: string) {
   const ref = `#${booking.bookingNumber}`;
   
   // ✅ calcula días (mínimo 1)
-  const ms = booking.endDate.getTime() - booking.startDate.getTime();
-  const days = Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+const start = new Date(booking.startDate);
+start.setHours(0, 0, 0, 0);
+
+const end = new Date(booking.endDate);
+end.setHours(0, 0, 0, 0);
+
+const days =
+  Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
 
   // ✅ precio/día y fianza desde Listing
   const pricePerDay = booking.listing.pricePerDay; // Int (zł)
