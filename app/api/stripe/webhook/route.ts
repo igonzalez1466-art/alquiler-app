@@ -2,11 +2,35 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
+import { sendMail } from "@/app/lib/mailer";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+function fmt(d: Date | string) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
+    dt.getDate()
+  ).padStart(2, "0")}`;
+}
 
+function emailSignature() {
+  return `
+    <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
+    <p style="margin:0; font-size:13px; color:#555;">
+      Pozdrawiamy,<br/>
+      <strong>Zespół MojaSzafa</strong>
+    </p>
+    <p style="margin-top:6px; font-size:11px; color:#888;">
+      Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
+    </p>
+  `;
+}
+
+function moneyPLNFromCents(v: number) {
+  return `${new Intl.NumberFormat("pl-PL").format(v / 100)} zł`;
+}
+
+export async function POST(req: Request) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -29,25 +53,18 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      rawBody,
-      sig,
-      webhookSecret
-    );
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error("Webhook signature failed", err);
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
   try {
-
     switch (event.type) {
-
       // =====================================================
-      // PAYMENT SUCCEEDED → BOOKING PAID
+      // PAYMENT SUCCEEDED → BOOKING PAID + EMAIL AL OWNER
       // =====================================================
       case "payment_intent.succeeded": {
-
         const pi = event.data.object as Stripe.PaymentIntent;
 
         const bookingId = pi.metadata?.bookingId;
@@ -61,10 +78,29 @@ export async function POST(req: Request) {
         const rentAmountCents = Number(pi.metadata?.rentAmountCents ?? "0");
         const depositAmountCents = Number(pi.metadata?.depositAmountCents ?? "0");
 
+        // Leer booking antes del update para evitar emails duplicados
+        const existingBooking = await prisma.booking.findUnique({
+          where: { id: bookingId },
+          include: {
+            renter: true,
+            listing: {
+              include: {
+                user: true,
+              },
+            },
+          },
+        });
+
+        if (!existingBooking) {
+          console.error("Booking not found:", bookingId);
+          break;
+        }
+
+        const wasAlreadyPaid = existingBooking.paymentStatus === "PAID";
+
         await prisma.booking.update({
           where: { id: bookingId },
           data: {
-
             status: "PAID",
             paymentStatus: "PAID",
             paymentMethod: "CARD",
@@ -86,6 +122,97 @@ export async function POST(req: Request) {
 
         console.log("✅ Booking PAID:", bookingId);
 
+        // Solo enviar email la primera vez
+        if (!wasAlreadyPaid) {
+          const owner = existingBooking.listing.user;
+          const ownerEmail = owner?.email;
+
+          if (!ownerEmail) {
+            console.log("Owner has no email, skipping mail", bookingId);
+            break;
+          }
+
+          const renter = existingBooking.renter;
+          const listing = existingBooking.listing;
+
+          const ref = `#${existingBooking.bookingNumber}`;
+          const s = fmt(existingBooking.startDate);
+          const e = fmt(existingBooking.endDate);
+          const title = listing.title ?? "Przedmiot";
+          const totalCents = rentAmountCents + depositAmountCents;
+
+          await sendMail({
+            to: ownerEmail,
+            subject: `Płatność potwierdzona ${ref}: ${title}`,
+            html: `
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+
+  <p>Cześć ${owner.name ?? ""},</p>
+
+  <p>
+    Płatność za rezerwację została <strong>pomyślnie potwierdzona</strong>.
+  </p>
+
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${title}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> ${ref}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Klient:</strong> ${renter?.name ?? "Użytkownik"}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Daty:</strong> ${s} → ${e}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Kwota opłacona:</strong> ${moneyPLNFromCents(totalCents)}
+    </p>
+
+    ${
+      depositAmountCents > 0
+        ? `
+    <p style="margin:4px 0;">
+      <strong>Kaucja:</strong> ${moneyPLNFromCents(depositAmountCents)}
+    </p>
+    `
+        : ""
+    }
+
+  </div>
+
+  <p>
+    Możesz teraz przygotować wysyłkę przedmiotu
+    lub skontaktować się z klientem, aby ustalić sposób przekazania.
+  </p>
+
+  <div style="margin-top:18px; padding:14px; background:#dcfce7; border:1px solid #86efac; border-radius:8px; color:#166534;">
+    <strong>Gotowe do realizacji:</strong><br/>
+    Płatność została zaksięgowana. Możesz przejść do realizacji zamówienia.
+  </div>
+
+  <p>
+    <a href="${process.env.APP_URL}/bookings/${existingBooking.id}"
+       style="display:inline-block; margin-top:14px; padding:10px 16px; 
+              background:#111827; color:white; text-decoration:none; 
+              border-radius:6px; font-weight:500;">
+      Zobacz szczegóły rezerwacji
+    </a>
+  </p>
+
+  ${emailSignature()}
+
+</div>
+            `,
+          });
+        }
+
         break;
       }
 
@@ -93,7 +220,6 @@ export async function POST(req: Request) {
       // REFUND DE FIANZA
       // =====================================================
       case "charge.refunded": {
-
         const charge = event.data.object as Stripe.Charge;
 
         const paymentIntentId =
@@ -126,7 +252,8 @@ export async function POST(req: Request) {
           where: { id: booking.id },
           data: {
             depositStatus,
-            depositRefundedAt: refundedCents > 0 ? new Date() : booking.depositRefundedAt,
+            depositRefundedAt:
+              refundedCents > 0 ? new Date() : booking.depositRefundedAt,
             depositRefundedCents: refundedCents,
             depositRetainedCents: retainedCents,
           },
@@ -142,7 +269,6 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ received: true });
-
   } catch (err) {
     console.error("Webhook handler error", err);
     return new NextResponse("Webhook handler failed", { status: 500 });
