@@ -78,7 +78,6 @@ export async function POST(req: Request) {
         const rentAmountCents = Number(pi.metadata?.rentAmountCents ?? "0");
         const depositAmountCents = Number(pi.metadata?.depositAmountCents ?? "0");
 
-        // Leer booking antes del update para evitar emails duplicados
         const existingBooking = await prisma.booking.findUnique({
           where: { id: bookingId },
           include: {
@@ -107,22 +106,18 @@ export async function POST(req: Request) {
             paymentRef: pi.id,
             paidAt: new Date(),
 
-            // alquiler
             amountCents: rentAmountCents,
 
-            // fianza
             depositCents: depositAmountCents,
             depositStatus: depositAmountCents > 0 ? "PAID" : "NONE",
             depositPaidAt: depositAmountCents > 0 ? new Date() : null,
 
-            // guardamos PI para posibles refunds
             depositPaymentIntentId: depositAmountCents > 0 ? pi.id : null,
           },
         });
 
         console.log("✅ Booking PAID:", bookingId);
 
-        // Solo enviar email la primera vez
         if (!wasAlreadyPaid) {
           const owner = existingBooking.listing.user;
           const ownerEmail = owner?.email;
@@ -238,15 +233,13 @@ export async function POST(req: Request) {
         const refundedCents = charge.amount_refunded;
         const retainedCents = Math.max(booking.depositCents - refundedCents, 0);
 
-        let depositStatus:
-          | "REFUNDED"
-          | "PARTIALLY_REFUNDED"
-          | "RETAINED"
-          | "PAID" = "PAID";
+        let depositStatus: "REFUNDED" | "PARTIALLY_REFUNDED" | "PAID" = "PAID";
 
-        if (refundedCents === 0) depositStatus = "RETAINED";
-        else if (refundedCents >= booking.depositCents) depositStatus = "REFUNDED";
-        else depositStatus = "PARTIALLY_REFUNDED";
+        if (refundedCents >= booking.depositCents) {
+          depositStatus = "REFUNDED";
+        } else if (refundedCents > 0) {
+          depositStatus = "PARTIALLY_REFUNDED";
+        }
 
         await prisma.booking.update({
           where: { id: booking.id },

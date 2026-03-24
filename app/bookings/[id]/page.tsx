@@ -9,6 +9,7 @@ import { openChatFromBookingAction } from "./actions";
 
 import ShippingForm from "./_components/ShippingForm";
 import ReturnForm from "./_components/ReturnForm";
+import DepositActions from "./_components/DepositActions";
 
 import { confirmDeliveryAction } from "./_actions/confirmDeliveryAction";
 import { confirmReturnAction } from "./_actions/confirmReturnAction";
@@ -37,6 +38,8 @@ const fmtDate = (d?: Date | null) =>
 const badge = (label: string, cls: string) => (
   <span className={`text-xs px-2 py-1 rounded border ${cls}`}>{label}</span>
 );
+
+const moneyCents = (v?: number | null) => `${Math.round((v ?? 0) / 100)} zł`;
 
 function daysInclusive(a: Date, b: Date) {
   const start = new Date(a);
@@ -99,6 +102,28 @@ const returnConfirmLabel: Record<string, string> = {
   AUTO_CONFIRMED: "Automatycznie potwierdzono",
 };
 
+const depositLabel: Record<string, string> = {
+  NONE: "Brak kaucji",
+  PENDING: "Oczekuje",
+  PAID: "Opłacona",
+  REFUND_PENDING: "Zwrot w toku",
+  REFUNDED: "Zwrócona",
+  PARTIALLY_REFUNDED: "Częściowo zwrócona",
+  RETAINED: "Zatrzymana",
+  FAILED: "Błąd",
+};
+
+const depositClass: Record<string, string> = {
+  NONE: "bg-gray-100 text-gray-700 border-gray-200",
+  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  PAID: "bg-sky-100 text-sky-800 border-sky-200",
+  REFUND_PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  REFUNDED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  PARTIALLY_REFUNDED: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  RETAINED: "bg-rose-100 text-rose-700 border-rose-200",
+  FAILED: "bg-rose-100 text-rose-700 border-rose-200",
+};
+
 export default async function BookingPage({
   params,
 }: {
@@ -122,6 +147,15 @@ export default async function BookingPage({
       endDate: true,
       status: true,
       createdAt: true,
+
+      paymentStatus: true,
+      depositCents: true,
+      depositStatus: true,
+      depositPaidAt: true,
+      depositRefundedAt: true,
+      depositRefundedCents: true,
+      depositRetainedCents: true,
+      depositLastError: true,
 
       // shipping
       shippingStatus: true,
@@ -185,7 +219,6 @@ export default async function BookingPage({
   const ownerCanConfirmReturn =
     isOwner && booking.returnConfirmationStatus === "AWAITING_CONFIRMATION";
 
-  // ✅ NUEVO: solo permitir devolución cuando la entrega ya esté entregada y confirmada
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
     (booking.deliveryConfirmationStatus === "CONFIRMED" ||
@@ -200,6 +233,18 @@ export default async function BookingPage({
   const days = daysInclusive(booking.startDate, booking.endDate);
   const rentTotal = days > 0 ? days * pricePerDay : 0;
   const total = rentTotal + deposit;
+
+  const returnCompleted =
+    booking.returnConfirmationStatus === "CONFIRMED" ||
+    booking.returnConfirmationStatus === "AUTO_CONFIRMED";
+
+  const canOwnerManageDeposit =
+    isOwner &&
+    booking.status === "PAID" &&
+    returnCompleted &&
+    !!booking.depositCents &&
+    booking.depositCents > 0 &&
+    booking.depositStatus === "PAID";
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -517,6 +562,48 @@ export default async function BookingPage({
                 {returnLocked && (
                   <p className="text-xs text-gray-500">
                     Zwrot został potwierdzony — edycja zablokowana.
+                  </p>
+                )}
+              </section>
+
+              {/* ===== Kaucja ===== */}
+              <section className="p-4 border rounded bg-white space-y-3">
+                <h2 className="text-lg font-semibold">Kaucja</h2>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {badge(
+                    depositLabel[booking.depositStatus] ?? booking.depositStatus,
+                    depositClass[booking.depositStatus] ??
+                      "bg-gray-100 text-gray-800 border-gray-200"
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div>Kaucja pobrana: {moneyCents(booking.depositCents)}</div>
+                  <div>Zwrócono: {moneyCents(booking.depositRefundedCents)}</div>
+                  <div>Zatrzymano: {moneyCents(booking.depositRetainedCents)}</div>
+                  <div>Data zwrotu: {fmt(booking.depositRefundedAt)}</div>
+                </div>
+
+                {booking.depositLastError && (
+                  <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-3">
+                    Ostatni błąd: {booking.depositLastError}
+                  </div>
+                )}
+
+                {!booking.depositCents || booking.depositCents <= 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Ta rezerwacja nie zawiera kaucji.
+                  </p>
+                ) : !returnCompleted ? (
+                  <p className="text-xs text-gray-500">
+                    Zarządzanie kaucją będzie dostępne po potwierdzeniu zwrotu.
+                  </p>
+                ) : canOwnerManageDeposit ? (
+                  <DepositActions bookingId={booking.id} />
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Kaucja została już rozliczona lub jest w trakcie rozliczania.
                   </p>
                 )}
               </section>
