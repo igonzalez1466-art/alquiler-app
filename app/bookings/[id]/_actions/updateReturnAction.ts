@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
+import { sendMail } from "@/app/lib/mailer";
 
 type ReturnStatus =
   | "PENDING"
@@ -14,6 +15,26 @@ type ReturnStatus =
   | "DELIVERED"
   | "LOST"
   | "CANCELLED";
+
+function fmt(d: Date | string) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
+    dt.getDate()
+  ).padStart(2, "0")}`;
+}
+
+function emailSignature() {
+  return `
+    <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
+    <p style="margin:0; font-size:13px; color:#555;">
+      Pozdrawiamy,<br/>
+      <strong>Zespół MojaSzafa</strong>
+    </p>
+    <p style="margin-top:6px; font-size:11px; color:#888;">
+      Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
+    </p>
+  `;
+}
 
 export async function updateReturnAction(formData: FormData) {
   const session = (await getServerSession(authConfig)) as Session | null;
@@ -27,7 +48,6 @@ export async function updateReturnAction(formData: FormData) {
 
   if (!bookingId) throw new Error("Brak bookingId");
 
-  // normaliza valores legacy por si el frontend manda algo viejo
   const normalizedReturnStatus =
     rawReturnStatus === "RETURN_PENDING"
       ? "PENDING"
@@ -53,38 +73,54 @@ export async function updateReturnAction(formData: FormData) {
     where: { id: bookingId },
     select: {
       id: true,
+      bookingNumber: true,
       status: true,
       renterId: true,
+      startDate: true,
+      endDate: true,
 
-      // ✅ entrega
       shippingStatus: true,
       deliveryConfirmationStatus: true,
 
-      // ✅ zwrot
       returnStatus: true,
+      returnCarrier: true,
+      returnTrackingNumber: true,
       returnShippedAt: true,
       returnDeliveredAt: true,
 
-      // ✅ handshake zwrotu
       returnConfirmationStatus: true,
       returnConfirmBy: true,
       returnConfirmedAt: true,
+
+      listing: {
+        select: {
+          title: true,
+        },
+      },
+      owner: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+      renter: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
   if (!booking) throw new Error("Rezerwacja nie istnieje");
 
-  // ✅ solo renter
   if (booking.renterId !== userId) {
     throw new Error("Brak uprawnień (tylko najemca)");
   }
 
-  // ✅ solo reserva pagada
   if (booking.status !== "PAID") {
     throw new Error("Zwrot można uzupełnić dopiero po opłaceniu rezerwacji");
   }
 
-  // ✅ NUEVO: solo permitir zwrot después de entrega completada
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
     (booking.deliveryConfirmationStatus === "CONFIRMED" ||
@@ -94,7 +130,6 @@ export async function updateReturnAction(formData: FormData) {
     throw new Error("Zwrot można uzupełnić dopiero po potwierdzeniu dostawy");
   }
 
-  // ✅ bloqueo total si ya confirmado el zwrot
   if (
     booking.returnConfirmationStatus === "CONFIRMED" ||
     booking.returnConfirmationStatus === "AUTO_CONFIRMED"
@@ -118,17 +153,12 @@ export async function updateReturnAction(formData: FormData) {
       : {}),
   };
 
-  /**
-   * ✅ Iniciar confirmación SOLO cuando renter marca DELIVERED
-   * - Solo si todavía no se pidió (NOT_REQUESTED)
-   * - No pisar si ya está en disputa / etc.
-   */
-  if (
+  const shouldRequestReturnConfirmation =
     returnStatus === "DELIVERED" &&
-    booking.returnConfirmationStatus === "NOT_REQUESTED"
-  ) {
+    booking.returnConfirmationStatus === "NOT_REQUESTED";
+
+  if (shouldRequestReturnConfirmation) {
     data.returnConfirmationStatus = "AWAITING_CONFIRMATION";
-    // ventana para confirmar (48h)
     data.returnConfirmBy = new Date(now.getTime() + 48 * 60 * 60 * 1000);
   }
 
@@ -136,6 +166,90 @@ export async function updateReturnAction(formData: FormData) {
     where: { id: bookingId },
     data,
   });
+
+  if (shouldRequestReturnConfirmation) {
+    const ownerEmail = booking.owner?.email;
+
+    if (ownerEmail) {
+      const ref = `#${booking.bookingNumber}`;
+      const title = booking.listing?.title ?? "Przedmiot";
+      const s = fmt(booking.startDate);
+      const e = fmt(booking.endDate);
+
+      await sendMail({
+        to: ownerEmail,
+        subject: `Potwierdź zwrot ${ref}: ${title}`,
+        html: `
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+
+  <p>Cześć ${booking.owner?.name ?? ""},</p>
+
+  <p>Najemca oznaczył zwrot jako <strong>dostarczony</strong>.</p>
+
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${title}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> ${ref}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Najemca:</strong> ${booking.renter?.name ?? "Użytkownik"}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Daty rezerwacji:</strong> ${s} → ${e}
+    </p>
+
+    ${
+      returnCarrier
+        ? `
+    <p style="margin:4px 0;">
+      <strong>Przewoźnik zwrotu:</strong> ${returnCarrier}
+    </p>
+    `
+        : ""
+    }
+
+    ${
+      returnTrackingNumber
+        ? `
+    <p style="margin:4px 0;">
+      <strong>Numer śledzenia zwrotu:</strong> ${returnTrackingNumber}
+    </p>
+    `
+        : ""
+    }
+  </div>
+
+  <p>
+    Zaloguj się do panelu i potwierdź odbiór zwracanego przedmiotu.
+  </p>
+
+  <p>
+    <a href="${process.env.APP_URL}/bookings/${booking.id}"
+       style="display:inline-block; margin-top:12px; padding:12px 18px;
+              background:#111827; color:white; text-decoration:none;
+              border-radius:6px; font-weight:600;">
+      Potwierdź zwrot
+    </a>
+  </p>
+
+  <div style="margin-top:18px; padding:14px; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px; color:#1e3a8a;">
+    <strong>Ważne:</strong><br/>
+    Potwierdź zwrot dopiero po faktycznym otrzymaniu przedmiotu.<br/>
+    Po potwierdzeniu zwrotu będzie można rozliczyć kaucję.
+  </div>
+
+  ${emailSignature()}
+
+</div>
+        `,
+      });
+    }
+  }
 
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath(`/bookings`);

@@ -16,13 +16,15 @@ type Props = {
 export default function ReturnForm({ bookingId, locked, initial }: Props) {
   const [loading, setLoading] = useState(false);
 
-  // ✅ Normalización por si existe algún valor legacy en BD
+  // normalización por si existe algún valor legacy en BD
   const defaultStatus =
     initial.returnStatus === "RETURN_PENDING"
       ? "PENDING"
       : initial.returnStatus === "RETURNED"
       ? "DELIVERED"
       : initial.returnStatus;
+
+  const disabled = locked || loading;
 
   return (
     <form
@@ -39,15 +41,13 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
       <input type="hidden" name="bookingId" value={bookingId} />
 
       <div>
-        <label className="block text-sm text-gray-600">
-          Status zwrotu
-        </label>
+        <label className="block text-sm text-gray-600">Status zwrotu</label>
 
         <select
           name="returnStatus"
           defaultValue={defaultStatus}
           className="border rounded p-2 w-full"
-          disabled={locked || loading}
+          disabled={disabled}
         >
           <option value="PENDING">Zwrot: oczekuje</option>
           <option value="READY">Zwrot: przygotowany</option>
@@ -73,7 +73,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
           defaultValue={initial.returnCarrier ?? ""}
           className="border rounded p-2 w-full"
           placeholder="np. InPost"
-          disabled={locked || loading}
+          disabled={disabled}
         />
       </div>
 
@@ -85,12 +85,13 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
           name="returnTrackingNumber"
           defaultValue={initial.returnTrackingNumber ?? ""}
           className="border rounded p-2 w-full"
-          disabled={locked || loading}
+          placeholder="np. 123456789"
+          disabled={disabled}
         />
       </div>
 
       <button
-        disabled={locked || loading}
+        disabled={disabled}
         className="bg-indigo-600 text-white rounded px-4 py-2 disabled:opacity-60"
       >
         {loading ? "Zapisywanie..." : "Zapisz zwrot"}
