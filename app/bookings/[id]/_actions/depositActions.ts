@@ -123,6 +123,9 @@ export async function releaseDepositAction(formData: FormData) {
       data: {
         depositStatus: "REFUND_PENDING",
         depositLastError: null,
+        depositDecisionAt: new Date(),
+        depositDecisionById: userId,
+        depositRetentionReason: null,
       },
     });
 
@@ -187,12 +190,155 @@ export async function releaseDepositAction(formData: FormData) {
   revalidatePath(`/bookings`);
 }
 
+export async function partialReleaseDepositAction(formData: FormData) {
+  const session = await getServerSession(authConfig);
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Brak dostępu");
+
+  const bookingId = String(formData.get("bookingId") || "");
+  const refundAmountZl = Number(formData.get("refundAmountZl") || "0");
+  const reason = String(formData.get("reason") || "").trim();
+
+  if (!bookingId) throw new Error("Brak bookingId");
+
+  const booking = await getOwnerBooking(bookingId, userId);
+
+  const depositCents = booking.depositCents;
+  if (depositCents == null || depositCents <= 0) {
+    throw new Error("Ta rezerwacja nie ma kaucji");
+  }
+
+  if (booking.depositStatus !== "PAID") {
+    throw new Error("Kaucja nie jest w stanie umożliwiającym częściowy zwrot");
+  }
+
+  const paymentIntentId = booking.depositPaymentIntentId;
+  if (!paymentIntentId) {
+    throw new Error("Brak depositPaymentIntentId");
+  }
+
+  if (!Number.isFinite(refundAmountZl) || refundAmountZl <= 0) {
+    throw new Error("Nieprawidłowa kwota zwrotu");
+  }
+
+  if (!reason) {
+    throw new Error("Podaj powód częściowego zatrzymania kaucji");
+  }
+
+  const refundAmountCents = Math.round(refundAmountZl * 100);
+
+  if (refundAmountCents <= 0 || refundAmountCents >= depositCents) {
+    throw new Error("Kwota zwrotu musi być większa od 0 i mniejsza od pełnej kaucji");
+  }
+
+  const retainedCents = depositCents - refundAmountCents;
+
+  const stripe = getStripe();
+
+  try {
+    await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      amount: refundAmountCents,
+      metadata: {
+        bookingId: booking.id,
+        kind: "deposit_partial_refund",
+      },
+    });
+
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        depositStatus: "REFUND_PENDING",
+        depositLastError: null,
+        depositDecisionAt: new Date(),
+        depositDecisionById: userId,
+        depositRetentionReason: reason,
+        depositRetainedCents: retainedCents,
+      },
+    });
+
+    if (booking.renter?.email) {
+      await sendMail({
+        to: booking.renter.email,
+        subject: `Częściowy zwrot kaucji #${booking.bookingNumber}: ${booking.listing.title ?? "Przedmiot"}`,
+        html: `
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+
+  <p>Cześć ${booking.renter.name ?? ""},</p>
+
+  <p>Dla rezerwacji <strong>#${booking.bookingNumber}</strong> rozpoczęliśmy <strong>częściowy zwrot kaucji</strong>.</p>
+
+  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
+      ${booking.listing.title ?? "Przedmiot"}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Zwracana kwota:</strong> ${moneyPLNFromCents(refundAmountCents)}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Zatrzymana kwota:</strong> ${moneyPLNFromCents(retainedCents)}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Powód:</strong> ${reason}
+    </p>
+  </div>
+
+  <p>
+    Środki powinny wrócić na Twoją metodę płatności po przetworzeniu zwrotu przez Stripe i bank.
+  </p>
+
+  <p>
+    <a href="${process.env.APP_URL}/bookings/${booking.id}"
+       style="display:inline-block; margin-top:12px; padding:12px 18px;
+              background:#111827; color:white; text-decoration:none;
+              border-radius:6px; font-weight:600;">
+      Zobacz rezerwację
+    </a>
+  </p>
+
+  <div style="margin-top:18px; padding:14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; color:#92400e;">
+    <strong>Ważne:</strong><br/>
+    Część kaucji została zatrzymana przez właściciela. Szczegóły znajdziesz w panelu rezerwacji.
+  </div>
+
+  ${emailSignature()}
+
+</div>
+        `,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Refund failed";
+
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        depositLastError: message,
+      },
+    });
+
+    throw err;
+  }
+
+  revalidatePath(`/bookings/${booking.id}`);
+  revalidatePath(`/bookings`);
+}
+
 export async function retainDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
+  const reason = String(formData.get("reason") || "").trim();
+
   if (!bookingId) throw new Error("Brak bookingId");
 
   const booking = await getOwnerBooking(bookingId, userId);
@@ -206,6 +352,10 @@ export async function retainDepositAction(formData: FormData) {
     throw new Error("Kaucja nie jest w stanie umożliwiającym zatrzymanie");
   }
 
+  if (!reason) {
+    throw new Error("Podaj powód zatrzymania kaucji");
+  }
+
   await prisma.booking.update({
     where: { id: booking.id },
     data: {
@@ -213,6 +363,9 @@ export async function retainDepositAction(formData: FormData) {
       depositRefundedCents: 0,
       depositRetainedCents: depositCents,
       depositLastError: null,
+      depositDecisionAt: new Date(),
+      depositDecisionById: userId,
+      depositRetentionReason: reason,
     },
   });
 
@@ -238,6 +391,10 @@ export async function retainDepositAction(formData: FormData) {
 
     <p style="margin:4px 0;">
       <strong>Zatrzymana kwota:</strong> ${moneyPLNFromCents(depositCents)}
+    </p>
+
+    <p style="margin:4px 0;">
+      <strong>Powód:</strong> ${reason}
     </p>
   </div>
 

@@ -202,7 +202,9 @@ model Booking {
   depositRetainedCents    Int?
   depositReleaseAt        DateTime?
   depositLastError        String?
-
+  depositDecisionAt      DateTime?
+  depositDecisionById    String?
+  depositRetentionReason String?
   paidAt     DateTime?
   refundedAt DateTime?
 

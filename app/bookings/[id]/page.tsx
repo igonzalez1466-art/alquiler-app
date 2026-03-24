@@ -600,7 +600,8 @@ export default async function BookingPage({
                     Zarządzanie kaucją będzie dostępne po potwierdzeniu zwrotu.
                   </p>
                 ) : canOwnerManageDeposit ? (
-                  <DepositActions bookingId={booking.id} />
+                  <DepositActions bookingId={booking.id}
+  depositZl={Math.round((booking.depositCents ?? 0) / 100)} />
                 ) : (
                   <p className="text-xs text-gray-500">
                     Kaucja została już rozliczona lub jest w trakcie rozliczania.
