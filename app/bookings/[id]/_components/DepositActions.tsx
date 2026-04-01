@@ -7,138 +7,48 @@ import {
   retainDepositAction,
 } from "../_actions/depositActions";
 
-type Props = {
-  bookingId: string;
-  depositZl: number;
-};
+export default function DepositActions({ bookingId, depositZl }: any) {
+  const [mode, setMode] = useState("refund");
+  const [loading, setLoading] = useState(false);
+  const [amount, setAmount] = useState(depositZl - 1);
+  const [reason, setReason] = useState("");
 
-export default function DepositActions({ bookingId, depositZl }: Props) {
-  const [loading, setLoading] = useState<null | "refund" | "partial" | "retain">(null);
-  const [refundAmountZl, setRefundAmountZl] = useState(
-    depositZl > 1 ? depositZl - 1 : 1
-  );
-  const [partialReason, setPartialReason] = useState("");
-  const [retainReason, setRetainReason] = useState("");
+  const retained = depositZl - amount;
 
   return (
-    <div className="space-y-5">
-      <form
-        action={async (formData) => {
-          setLoading("refund");
-          try {
-            await releaseDepositAction(formData);
-          } finally {
-            setLoading(null);
-          }
-        }}
-      >
-        <input type="hidden" name="bookingId" value={bookingId} />
-        <button
-          disabled={loading !== null}
-          className="bg-emerald-600 text-white rounded px-4 py-2 disabled:opacity-60"
-        >
-          {loading === "refund" ? "Przetwarzanie..." : "Zwróć całą kaucję"}
-        </button>
-      </form>
+    <div className="space-y-4">
 
-      <div className="border rounded p-4 space-y-3">
-        <h3 className="font-medium">Częściowy zwrot kaucji</h3>
-
-        <form
-          action={async (formData) => {
-            setLoading("partial");
-            try {
-              await partialReleaseDepositAction(formData);
-            } finally {
-              setLoading(null);
-            }
-          }}
-          className="space-y-3"
-        >
-          <input type="hidden" name="bookingId" value={bookingId} />
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Kwota do zwrotu (zł)
-            </label>
-            <input
-              type="number"
-              name="refundAmountZl"
-              min={1}
-              max={Math.max(1, depositZl - 1)}
-              step={1}
-              value={refundAmountZl}
-              onChange={(e) => setRefundAmountZl(Number(e.target.value))}
-              className="border rounded p-2 w-full sm:w-48"
-              disabled={loading !== null}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Powód częściowego zatrzymania
-            </label>
-            <textarea
-              name="reason"
-              value={partialReason}
-              onChange={(e) => setPartialReason(e.target.value)}
-              className="border rounded p-2 w-full"
-              rows={3}
-              placeholder="np. zabrudzenie wymagające czyszczenia"
-              disabled={loading !== null}
-              required
-            />
-          </div>
-
-          <button
-            disabled={loading !== null}
-            className="bg-amber-600 text-white rounded px-4 py-2 disabled:opacity-60"
-          >
-            {loading === "partial" ? "Przetwarzanie..." : "Zwróć część kaucji"}
-          </button>
-        </form>
+      <div className="space-y-2">
+        <label><input type="radio" checked={mode==="refund"} onChange={()=>setMode("refund")} /> Całość</label>
+        <label><input type="radio" checked={mode==="partial"} onChange={()=>setMode("partial")} /> Część</label>
+        <label><input type="radio" checked={mode==="retain"} onChange={()=>setMode("retain")} /> Zatrzymaj</label>
       </div>
 
-      <div className="border rounded p-4 space-y-3">
-        <h3 className="font-medium">Zatrzymaj całą kaucję</h3>
-
-        <form
-          action={async (formData) => {
-            setLoading("retain");
-            try {
-              await retainDepositAction(formData);
-            } finally {
-              setLoading(null);
-            }
-          }}
-          className="space-y-3"
-        >
-          <input type="hidden" name="bookingId" value={bookingId} />
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Powód zatrzymania
-            </label>
-            <textarea
-              name="reason"
-              value={retainReason}
-              onChange={(e) => setRetainReason(e.target.value)}
-              className="border rounded p-2 w-full"
-              rows={3}
-              placeholder="np. uszkodzenie materiału"
-              disabled={loading !== null}
-              required
-            />
-          </div>
-
-          <button
-            disabled={loading !== null}
-            className="bg-rose-600 text-white rounded px-4 py-2 disabled:opacity-60"
-          >
-            {loading === "retain" ? "Zapisywanie..." : "Zatrzymaj kaucję"}
-          </button>
+      {mode==="refund" && (
+        <form action={releaseDepositAction}>
+          <input type="hidden" name="bookingId" value={bookingId}/>
+          <button disabled={loading}>Zwróć całość</button>
         </form>
-      </div>
+      )}
+
+      {mode==="partial" && (
+        <form action={partialReleaseDepositAction}>
+          <input type="hidden" name="bookingId" value={bookingId}/>
+          <input name="refundAmountZl" value={amount} onChange={e=>setAmount(Number(e.target.value))}/>
+          <textarea name="reason" value={reason} onChange={e=>setReason(e.target.value)}/>
+          <div>Zwrot: {amount} zł</div>
+          <div>Zatrzymane: {retained} zł</div>
+          <button>Zwróć część</button>
+        </form>
+      )}
+
+      {mode==="retain" && (
+        <form action={retainDepositAction}>
+          <input type="hidden" name="bookingId" value={bookingId}/>
+          <textarea name="reason" value={reason} onChange={e=>setReason(e.target.value)}/>
+          <button>Zatrzymaj</button>
+        </form>
+      )}
     </div>
   );
 }

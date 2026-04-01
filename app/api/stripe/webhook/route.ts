@@ -1,8 +1,8 @@
-// app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
 import { sendMail } from "@/app/lib/mailer";
+import { DepositStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -61,9 +61,6 @@ export async function POST(req: Request) {
 
   try {
     switch (event.type) {
-      // =====================================================
-      // PAYMENT SUCCEEDED → BOOKING PAID + EMAIL AL OWNER
-      // =====================================================
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
 
@@ -109,7 +106,8 @@ export async function POST(req: Request) {
             amountCents: rentAmountCents,
 
             depositCents: depositAmountCents,
-            depositStatus: depositAmountCents > 0 ? "PAID" : "NONE",
+            depositStatus:
+              depositAmountCents > 0 ? DepositStatus.PAID : DepositStatus.NONE,
             depositPaidAt: depositAmountCents > 0 ? new Date() : null,
 
             depositPaymentIntentId: depositAmountCents > 0 ? pi.id : null,
@@ -211,9 +209,6 @@ export async function POST(req: Request) {
         break;
       }
 
-      // =====================================================
-      // REFUND DE FIANZA
-      // =====================================================
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
 
@@ -226,33 +221,63 @@ export async function POST(req: Request) {
 
         const booking = await prisma.booking.findFirst({
           where: { depositPaymentIntentId: paymentIntentId },
+          select: {
+            id: true,
+            depositCents: true,
+            depositStatus: true,
+            depositRefundedAt: true,
+            depositReleaseAt: true,
+          },
         });
 
         if (!booking || !booking.depositCents) break;
 
+        const allowedStatuses: DepositStatus[] = [
+          DepositStatus.PAID,
+          DepositStatus.REFUND_PENDING,
+          DepositStatus.PARTIALLY_REFUNDED,
+          DepositStatus.REFUNDED,
+        ];
+
+        if (!allowedStatuses.includes(booking.depositStatus)) {
+          console.log(
+            "Ignoring deposit webhook due to status",
+            booking.id,
+            booking.depositStatus
+          );
+          break;
+        }
+
         const refundedCents = charge.amount_refunded;
         const retainedCents = Math.max(booking.depositCents - refundedCents, 0);
 
-        let depositStatus: "REFUNDED" | "PARTIALLY_REFUNDED" | "PAID" = "PAID";
+        let depositStatus: DepositStatus = DepositStatus.PAID;
 
         if (refundedCents >= booking.depositCents) {
-          depositStatus = "REFUNDED";
+          depositStatus = DepositStatus.REFUNDED;
         } else if (refundedCents > 0) {
-          depositStatus = "PARTIALLY_REFUNDED";
+          depositStatus = DepositStatus.PARTIALLY_REFUNDED;
         }
 
         await prisma.booking.update({
           where: { id: booking.id },
           data: {
             depositStatus,
-            depositRefundedAt:
-              refundedCents > 0 ? new Date() : booking.depositRefundedAt,
             depositRefundedCents: refundedCents,
             depositRetainedCents: retainedCents,
+            depositRefundedAt:
+              refundedCents > 0 ? new Date() : booking.depositRefundedAt,
+            depositReleaseAt:
+              refundedCents > 0 ? new Date() : booking.depositReleaseAt,
+            depositLastError: null,
           },
         });
 
-        console.log("↩️ Deposit refund updated:", booking.id);
+        console.log("↩️ Deposit refund updated:", booking.id, {
+          refundedCents,
+          retainedCents,
+          depositStatus,
+        });
 
         break;
       }

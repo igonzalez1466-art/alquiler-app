@@ -36,31 +36,9 @@ function moneyPLNFromCents(v: number) {
 async function getOwnerBooking(bookingId: string, userId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: {
-      id: true,
-      bookingNumber: true,
-      ownerId: true,
-      status: true,
-
-      depositCents: true,
-      depositStatus: true,
-      depositPaymentIntentId: true,
-      depositRefundedCents: true,
-      depositRetainedCents: true,
-
-      returnConfirmationStatus: true,
-
-      renter: {
-        select: {
-          name: true,
-          email: true,
-        },
-      },
-      listing: {
-        select: {
-          title: true,
-        },
-      },
+    include: {
+      renter: true,
+      listing: { include: { user: true } },
     },
   });
 
@@ -82,255 +60,111 @@ async function getOwnerBooking(bookingId: string, userId: string) {
   return booking;
 }
 
+function ensureDepositResolvable(booking: any) {
+  if (!booking.depositCents || booking.depositCents <= 0) {
+    throw new Error("Ta rezerwacja nie ma kaucji");
+  }
+
+  if (booking.depositStatus !== "PAID") {
+    throw new Error("Kaucja została już rozliczona");
+  }
+
+  if (!booking.depositPaymentIntentId) {
+    throw new Error("Brak depositPaymentIntentId");
+  }
+
+  return {
+    depositCents: booking.depositCents,
+    paymentIntentId: booking.depositPaymentIntentId,
+  };
+}
+
+/* =========================
+   FULL REFUND
+========================= */
 export async function releaseDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
-  if (!bookingId) throw new Error("Brak bookingId");
-
   const booking = await getOwnerBooking(bookingId, userId);
-
-  const depositCents = booking.depositCents;
-  if (depositCents == null || depositCents <= 0) {
-    throw new Error("Ta rezerwacja nie ma kaucji");
-  }
-
-  if (booking.depositStatus !== "PAID") {
-    throw new Error("Kaucja nie jest w stanie umożliwiającym zwrot");
-  }
-
-  const paymentIntentId = booking.depositPaymentIntentId;
-  if (!paymentIntentId) {
-    throw new Error("Brak depositPaymentIntentId");
-  }
+  const { depositCents, paymentIntentId } = ensureDepositResolvable(booking);
 
   const stripe = getStripe();
 
-  try {
-    await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: depositCents,
-      metadata: {
-        bookingId: booking.id,
-        kind: "deposit_full_refund",
-      },
-    });
+  await stripe.refunds.create({
+    payment_intent: paymentIntentId,
+    amount: depositCents,
+  });
 
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        depositStatus: "REFUND_PENDING",
-        depositLastError: null,
-        depositDecisionAt: new Date(),
-        depositDecisionById: userId,
-        depositRetentionReason: null,
-      },
-    });
-
-    if (booking.renter?.email) {
-      await sendMail({
-        to: booking.renter.email,
-        subject: `Zwrot kaucji rozpoczęty #${booking.bookingNumber}: ${booking.listing.title ?? "Przedmiot"}`,
-        html: `
-<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
-
-  <p>Cześć ${booking.renter.name ?? ""},</p>
-
-  <p>Rozpoczęliśmy zwrot <strong>całej kaucji</strong> dla rezerwacji <strong>#${booking.bookingNumber}</strong>.</p>
-
-  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
-    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
-      ${booking.listing.title ?? "Przedmiot"}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Kwota kaucji:</strong> ${moneyPLNFromCents(depositCents)}
-    </p>
-  </div>
-
-  <p>
-    Środki powinny wrócić na Twoją metodę płatności po przetworzeniu zwrotu przez Stripe i bank.
-  </p>
-
-  <p>
-    <a href="${process.env.APP_URL}/bookings/${booking.id}"
-       style="display:inline-block; margin-top:12px; padding:12px 18px;
-              background:#111827; color:white; text-decoration:none;
-              border-radius:6px; font-weight:600;">
-      Zobacz rezerwację
-    </a>
-  </p>
-
-  ${emailSignature()}
-
-</div>
-        `,
-      });
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Refund failed";
-
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        depositLastError: message,
-      },
-    });
-
-    throw err;
-  }
+  await prisma.booking.update({
+    where: { id: booking.id },
+    data: {
+      depositStatus: "REFUND_PENDING",
+      depositRefundedCents: depositCents,
+      depositRetainedCents: 0,
+      depositDecisionAt: new Date(),
+      depositDecisionById: userId,
+      depositRetentionReason: null,
+    },
+  });
 
   revalidatePath(`/bookings/${booking.id}`);
-  revalidatePath(`/bookings`);
 }
 
+/* =========================
+   PARTIAL REFUND
+========================= */
 export async function partialReleaseDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
   if (!userId) throw new Error("Brak dostępu");
 
   const bookingId = String(formData.get("bookingId") || "");
-  const refundAmountZl = Number(formData.get("refundAmountZl") || "0");
+  const refundZl = Number(formData.get("refundAmountZl") || "0");
   const reason = String(formData.get("reason") || "").trim();
 
-  if (!bookingId) throw new Error("Brak bookingId");
-
   const booking = await getOwnerBooking(bookingId, userId);
+  const { depositCents, paymentIntentId } = ensureDepositResolvable(booking);
 
-  const depositCents = booking.depositCents;
-  if (depositCents == null || depositCents <= 0) {
-    throw new Error("Ta rezerwacja nie ma kaucji");
-  }
+  const refundCents = Math.round(refundZl * 100);
 
-  if (booking.depositStatus !== "PAID") {
-    throw new Error("Kaucja nie jest w stanie umożliwiającym częściowy zwrot");
-  }
-
-  const paymentIntentId = booking.depositPaymentIntentId;
-  if (!paymentIntentId) {
-    throw new Error("Brak depositPaymentIntentId");
-  }
-
-  if (!Number.isFinite(refundAmountZl) || refundAmountZl <= 0) {
-    throw new Error("Nieprawidłowa kwota zwrotu");
+  if (refundCents <= 0 || refundCents >= depositCents) {
+    throw new Error("Nieprawidłowa kwota");
   }
 
   if (!reason) {
-    throw new Error("Podaj powód częściowego zatrzymania kaucji");
+    throw new Error("Podaj powód");
   }
 
-  const refundAmountCents = Math.round(refundAmountZl * 100);
-
-  if (refundAmountCents <= 0 || refundAmountCents >= depositCents) {
-    throw new Error("Kwota zwrotu musi być większa od 0 i mniejsza od pełnej kaucji");
-  }
-
-  const retainedCents = depositCents - refundAmountCents;
+  const retained = depositCents - refundCents;
 
   const stripe = getStripe();
 
-  try {
-    await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: refundAmountCents,
-      metadata: {
-        bookingId: booking.id,
-        kind: "deposit_partial_refund",
-      },
-    });
+  await stripe.refunds.create({
+    payment_intent: paymentIntentId,
+    amount: refundCents,
+  });
 
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        depositStatus: "REFUND_PENDING",
-        depositLastError: null,
-        depositDecisionAt: new Date(),
-        depositDecisionById: userId,
-        depositRetentionReason: reason,
-        depositRetainedCents: retainedCents,
-      },
-    });
-
-    if (booking.renter?.email) {
-      await sendMail({
-        to: booking.renter.email,
-        subject: `Częściowy zwrot kaucji #${booking.bookingNumber}: ${booking.listing.title ?? "Przedmiot"}`,
-        html: `
-<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
-
-  <p>Cześć ${booking.renter.name ?? ""},</p>
-
-  <p>Dla rezerwacji <strong>#${booking.bookingNumber}</strong> rozpoczęliśmy <strong>częściowy zwrot kaucji</strong>.</p>
-
-  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
-    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
-      ${booking.listing.title ?? "Przedmiot"}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Zwracana kwota:</strong> ${moneyPLNFromCents(refundAmountCents)}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Zatrzymana kwota:</strong> ${moneyPLNFromCents(retainedCents)}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Powód:</strong> ${reason}
-    </p>
-  </div>
-
-  <p>
-    Środki powinny wrócić na Twoją metodę płatności po przetworzeniu zwrotu przez Stripe i bank.
-  </p>
-
-  <p>
-    <a href="${process.env.APP_URL}/bookings/${booking.id}"
-       style="display:inline-block; margin-top:12px; padding:12px 18px;
-              background:#111827; color:white; text-decoration:none;
-              border-radius:6px; font-weight:600;">
-      Zobacz rezerwację
-    </a>
-  </p>
-
-  <div style="margin-top:18px; padding:14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; color:#92400e;">
-    <strong>Ważne:</strong><br/>
-    Część kaucji została zatrzymana przez właściciela. Szczegóły znajdziesz w panelu rezerwacji.
-  </div>
-
-  ${emailSignature()}
-
-</div>
-        `,
-      });
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Refund failed";
-
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        depositLastError: message,
-      },
-    });
-
-    throw err;
-  }
+  await prisma.booking.update({
+    where: { id: booking.id },
+    data: {
+      depositStatus: "REFUND_PENDING",
+      depositRefundedCents: refundCents,
+      depositRetainedCents: retained,
+      depositRetentionReason: reason,
+      depositDecisionAt: new Date(),
+      depositDecisionById: userId,
+    },
+  });
 
   revalidatePath(`/bookings/${booking.id}`);
-  revalidatePath(`/bookings`);
 }
 
+/* =========================
+   FULL RETAIN
+========================= */
 export async function retainDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
@@ -339,22 +173,10 @@ export async function retainDepositAction(formData: FormData) {
   const bookingId = String(formData.get("bookingId") || "");
   const reason = String(formData.get("reason") || "").trim();
 
-  if (!bookingId) throw new Error("Brak bookingId");
+  if (!reason) throw new Error("Podaj powód");
 
   const booking = await getOwnerBooking(bookingId, userId);
-
-  const depositCents = booking.depositCents;
-  if (depositCents == null || depositCents <= 0) {
-    throw new Error("Ta rezerwacja nie ma kaucji");
-  }
-
-  if (booking.depositStatus !== "PAID") {
-    throw new Error("Kaucja nie jest w stanie umożliwiającym zatrzymanie");
-  }
-
-  if (!reason) {
-    throw new Error("Podaj powód zatrzymania kaucji");
-  }
+  const { depositCents } = ensureDepositResolvable(booking);
 
   await prisma.booking.update({
     where: { id: booking.id },
@@ -362,67 +184,11 @@ export async function retainDepositAction(formData: FormData) {
       depositStatus: "RETAINED",
       depositRefundedCents: 0,
       depositRetainedCents: depositCents,
-      depositLastError: null,
+      depositRetentionReason: reason,
       depositDecisionAt: new Date(),
       depositDecisionById: userId,
-      depositRetentionReason: reason,
     },
   });
 
-  if (booking.renter?.email) {
-    await sendMail({
-      to: booking.renter.email,
-      subject: `Kaucja zatrzymana #${booking.bookingNumber}: ${booking.listing.title ?? "Przedmiot"}`,
-      html: `
-<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
-
-  <p>Cześć ${booking.renter.name ?? ""},</p>
-
-  <p>Kaucja dla rezerwacji <strong>#${booking.bookingNumber}</strong> została oznaczona jako <strong>zatrzymana</strong>.</p>
-
-  <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
-    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
-      ${booking.listing.title ?? "Przedmiot"}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Numer rezerwacji:</strong> #${booking.bookingNumber}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Zatrzymana kwota:</strong> ${moneyPLNFromCents(depositCents)}
-    </p>
-
-    <p style="margin:4px 0;">
-      <strong>Powód:</strong> ${reason}
-    </p>
-  </div>
-
-  <p>
-    Jeśli masz pytania dotyczące tej decyzji, skontaktuj się z właścicielem przez czat w aplikacji.
-  </p>
-
-  <p>
-    <a href="${process.env.APP_URL}/bookings/${booking.id}"
-       style="display:inline-block; margin-top:12px; padding:12px 18px;
-              background:#111827; color:white; text-decoration:none;
-              border-radius:6px; font-weight:600;">
-      Zobacz rezerwację
-    </a>
-  </p>
-
-  <div style="margin-top:18px; padding:14px; background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; color:#991b1b;">
-    <strong>Ważne:</strong><br/>
-    Na tym etapie kaucja nie zostanie zwrócona.
-  </div>
-
-  ${emailSignature()}
-
-</div>
-      `,
-    });
-  }
-
   revalidatePath(`/bookings/${booking.id}`);
-  revalidatePath(`/bookings`);
 }
