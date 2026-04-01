@@ -188,6 +188,8 @@ model Booking {
   paymentStatus PaymentStatus @default(PENDING)
   paymentMethod PaymentMethod?
   paymentRef    String?
+  paymentDueAt  DateTime?
+  cancelledAt   DateTime?
 
   amountCents  Int?
   depositCents Int?
@@ -202,11 +204,11 @@ model Booking {
   depositRetainedCents    Int?
   depositReleaseAt        DateTime?
   depositLastError        String?
-  depositDecisionAt      DateTime?
-  depositDecisionById    String?
-  depositRetentionReason String?
-  paidAt     DateTime?
-  refundedAt DateTime?
+  depositDecisionAt       DateTime?
+  depositDecisionById     String?
+  depositRetentionReason  String?
+  paidAt                  DateTime?
+  refundedAt              DateTime?
 
   shippingStatus ShippingStatus @default(PENDING)
   carrier        String?
@@ -237,6 +239,7 @@ model Booking {
   @@index([renterId])
   @@index([ownerId])
   @@index([paymentStatus])
+  @@index([paymentDueAt])
   @@index([depositStatus])
   @@index([depositReleaseAt])
   @@index([shippingStatus])
