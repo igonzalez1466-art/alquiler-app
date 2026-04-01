@@ -1,9 +1,5 @@
--- AlterTable
-ALTER TABLE "public"."Booking" ADD COLUMN     "cancelledAt" TIMESTAMP(3),
-ADD COLUMN     "depositDecisionAt" TIMESTAMP(3),
-ADD COLUMN     "depositDecisionById" TEXT,
-ADD COLUMN     "depositRetentionReason" TEXT,
-ADD COLUMN     "paymentDueAt" TIMESTAMP(3);
+ALTER TABLE "public"."Booking"
+ADD COLUMN IF NOT EXISTS "cancelledAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "paymentDueAt" TIMESTAMP(3);
 
--- CreateIndex
-CREATE INDEX "Booking_paymentDueAt_idx" ON "public"."Booking"("paymentDueAt");
+CREATE INDEX IF NOT EXISTS "Booking_paymentDueAt_idx" ON "public"."Booking"("paymentDueAt");

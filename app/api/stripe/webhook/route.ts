@@ -94,25 +94,27 @@ export async function POST(req: Request) {
 
         const wasAlreadyPaid = existingBooking.paymentStatus === "PAID";
 
-        await prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: "PAID",
-            paymentStatus: "PAID",
-            paymentMethod: "CARD",
-            paymentRef: pi.id,
-            paidAt: new Date(),
+await prisma.booking.update({
+  where: { id: bookingId },
+  data: {
+    status: "CONFIRMED",
+    paymentStatus: "PAID",
+    paymentMethod: "CARD",
+    paymentRef: pi.id,
+    paidAt: new Date(),
+    paymentDueAt: null,
+    cancelledAt: null,
 
-            amountCents: rentAmountCents,
+    amountCents: rentAmountCents,
 
-            depositCents: depositAmountCents,
-            depositStatus:
-              depositAmountCents > 0 ? DepositStatus.PAID : DepositStatus.NONE,
-            depositPaidAt: depositAmountCents > 0 ? new Date() : null,
+    depositCents: depositAmountCents,
+    depositStatus:
+      depositAmountCents > 0 ? DepositStatus.PAID : DepositStatus.NONE,
+    depositPaidAt: depositAmountCents > 0 ? new Date() : null,
 
-            depositPaymentIntentId: depositAmountCents > 0 ? pi.id : null,
-          },
-        });
+    depositPaymentIntentId: depositAmountCents > 0 ? pi.id : null,
+  },
+});
 
         console.log("✅ Booking PAID:", bookingId);
 

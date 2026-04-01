@@ -44,13 +44,18 @@ export async function PATCH(_req: Request, ctx: Ctx) {
     );
   }
 
-  // 2) Aceptar (idempotente) — ajusta si tu enum no es CONFIRMED
-  if (booking.status !== "CONFIRMED") {
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: "CONFIRMED" },
-    });
-  }
+ // 2) Aceptar (idempotente): pasa a "esperando pago" durante 24h
+if (booking.status === "PENDING") {
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status: "AWAITING_PAYMENT",
+      paymentStatus: "PENDING",
+      paymentDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      cancelledAt: null,
+    },
+  });
+}
 
   const start = fmt(booking.startDate);
   const end = fmt(booking.endDate);

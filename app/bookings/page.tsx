@@ -19,16 +19,22 @@ function cx(...cls: (string | false | null | undefined)[]) {
   return cls.filter(Boolean).join(" ");
 }
 
-type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
+type BookingStatus =
+  | "PENDING"
+  | "AWAITING_PAYMENT"
+  | "CONFIRMED"
+  | "CANCELLED";
 
 const statusLabel: Record<BookingStatus, string> = {
   PENDING: "Oczekująca",
+  AWAITING_PAYMENT: "Oczekuje na płatność",
   CONFIRMED: "Potwierdzona",
   CANCELLED: "Odrzucona",
 };
 
 const statusClass: Record<BookingStatus, string> = {
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  AWAITING_PAYMENT: "bg-yellow-100 text-yellow-800 border-yellow-200",
   CONFIRMED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -108,6 +114,8 @@ const booking = await prisma.booking.findUnique({
     renterId: true,
     ownerId: true,
     status: true,
+    paymentStatus: true,
+    paidAt: true,
     endDate: true,
   },
 });
@@ -118,8 +126,13 @@ if (!booking) throw new Error("Nie znaleziono rezerwacji");
   booking.renterId === reviewerId || booking.ownerId === reviewerId;
 
  if (!isParticipant) throw new Error("Brak uprawnień");
-if (booking.status !== "CONFIRMED" || booking.endDate > now) {
-  throw new Error("Można oceniać tylko potwierdzone i zakończone rezerwacje");
+if (
+  booking.status !== "CONFIRMED" ||
+  booking.paymentStatus !== "PAID" ||
+  !booking.paidAt ||
+  booking.endDate > now
+) {
+  throw new Error("Można oceniać tylko opłacone i zakończone rezerwacje");
 }
 
 let revieweeId: string;
@@ -220,14 +233,16 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
  prisma.booking.findMany({
   where: madeWhere,
   select: {
-    id: true,
-    bookingNumber: true,
-    listingId: true,
-    renterId: true,
-    startDate: true,
-    endDate: true,
-    status: true,
-    createdAt: true,
+  id: true,
+  bookingNumber: true,
+  listingId: true,
+  renterId: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+  paymentStatus: true,
+  paidAt: true,
+  createdAt: true,
     listing: {
       select: {
         id: true,
@@ -336,10 +351,11 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                   defaultValue={mStatus}
                   className="border rounded p-2 w-full"
                 >
-                  <option value="all">Wszystkie</option>
-                  <option value="PENDING">Oczekujące</option>
-                  <option value="CONFIRMED">Zaakceptowane</option>
-                  <option value="CANCELLED">Odrzucone</option>
+                <option value="all">Wszystkie</option>
+            <option value="PENDING">Oczekujące</option>
+            <option value="AWAITING_PAYMENT">Oczekuje na płatność</option>
+            <option value="CONFIRMED">Zaakceptowane</option>
+            <option value="CANCELLED">Odrzucone</option>
                 </select>
               </label>
               <label className="block">
@@ -401,12 +417,14 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
             ) : (
               <ul className="space-y-3">
                 {asRenter.map((b) => {
-                  const iCanReview =
-                    b.status === "CONFIRMED" &&
-                    b.endDate < now &&
-                    !b.reviews.some(
-                      (r) => r.reviewerId === userId && r.role === "OWNER"
-                    );
+                 const iCanReview =
+  b.status === "CONFIRMED" &&
+  b.paymentStatus === "PAID" &&
+  b.paidAt != null &&
+  b.endDate < now &&
+  !b.reviews.some(
+    (r) => r.reviewerId === userId && r.role === "OWNER"
+  );
 
                   return (
                     <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
@@ -547,6 +565,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                 >
                   <option value="all">Wszystkie</option>
                   <option value="PENDING">Oczekujące</option>
+                  <option value="AWAITING_PAYMENT">Oczekuje na płatność</option>
                   <option value="CONFIRMED">Zaakceptowane</option>
                   <option value="CANCELLED">Odrzucone</option>
                 </select>
@@ -607,12 +626,14 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
             ) : (
               <ul className="space-y-3">
                 {asOwner.map((b) => {
-                  const iCanReview =
-                    b.status === "CONFIRMED" &&
-                    b.endDate < now &&
-                    !b.reviews.some(
-                      (r) => r.reviewerId === userId && r.role === "RENTER"
-                    );
+                 const iCanReview =
+  b.status === "CONFIRMED" &&
+  b.paymentStatus === "PAID" &&
+  b.paidAt != null &&
+  b.endDate < now &&
+  !b.reviews.some(
+    (r) => r.reviewerId === userId && r.role === "RENTER"
+  );
 
                   const rs = b.renter?.id ? renterStats.get(b.renter.id) : undefined;
 
