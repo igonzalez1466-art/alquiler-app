@@ -19,7 +19,7 @@ function emailSignature() {
   return `
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
     <p style="margin:0; font-size:13px; color:#555;">
-      Pozdrawiamy,<br/>
+      PozdrawiamyJR,<br/>
       <strong>Zespół MojaSzafa</strong>
     </p>
     <p style="margin-top:6px; font-size:11px; color:#888;">
