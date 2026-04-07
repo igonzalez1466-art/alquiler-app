@@ -197,14 +197,17 @@ const moneyPLN = (v: number) =>
   const rentAmountCents = pricePerDay * days * 100;
   const depositCents = deposit * 100;
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: "CONFIRMED",
-      amountCents: rentAmountCents,
-      depositCents: depositCents,
-    },
-  });
+ await prisma.booking.update({
+  where: { id: bookingId },
+  data: {
+    status: "AWAITING_PAYMENT",
+    paymentStatus: "PENDING",
+    paymentDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    cancelledAt: null,
+    amountCents: rentAmountCents,
+    depositCents: depositCents,
+  },
+});
 
     // ✅ Si estaba cerrado (por ejemplo por una reserva antigua rechazada), reabrimos chat
   await prisma.conversation.updateMany({
