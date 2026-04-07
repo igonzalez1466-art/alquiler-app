@@ -75,6 +75,7 @@ export async function updateReturnAction(formData: FormData) {
       id: true,
       bookingNumber: true,
       status: true,
+      paymentStatus: true,
       renterId: true,
       startDate: true,
       endDate: true,
@@ -117,9 +118,9 @@ export async function updateReturnAction(formData: FormData) {
     throw new Error("Brak uprawnień (tylko najemca)");
   }
 
-  if (booking.status !== "PAID") {
-    throw new Error("Zwrot można uzupełnić dopiero po opłaceniu rezerwacji");
-  }
+  if (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID") {
+  throw new Error("Zwrot można uzupełnić dopiero po opłaceniu rezerwacji");
+}
 
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
