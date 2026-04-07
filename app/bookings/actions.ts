@@ -272,10 +272,14 @@ const moneyPLN = (v: number) =>
   </p>
 
   <div style="margin-top:18px; padding:14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px;">
-    <strong>Ważne:</strong><br/>
-    Rezerwacja będzie ważna dopiero po zaksięgowaniu płatności.<br/>
-    Po potwierdzeniu płatności otrzymasz kolejne powiadomienie.
-  </div>
+  <strong>Ważne:</strong><br/>
+  Rezerwacja będzie ważna dopiero po zaksięgowaniu płatności.<br/><br/>
+  
+  ⏳ Jeśli płatność nie zostanie dokonana w ciągu <strong>24 godzin od zatwierdzenia</strong>, 
+  rezerwacja zostanie automatycznie anulowana.<br/><br/>
+  
+  Po potwierdzeniu płatności otrzymasz kolejne powiadomienie.
+</div>
 
   ${emailSignature()}
 
