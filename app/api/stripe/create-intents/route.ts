@@ -40,9 +40,21 @@ export async function POST(req: Request) {
   if (booking.renterId !== userId) return new NextResponse("Forbidden", { status: 403 });
 
   // Solo permitimos crear intents cuando el dueño ya aprobó
-  if (booking.status !== "CONFIRMED") {
-    return new NextResponse("Booking must be CONFIRMED before payment", { status: 400 });
-  }
+  const now = new Date();
+
+if (
+  booking.status !== "AWAITING_PAYMENT" ||
+  booking.paymentStatus !== "PENDING"
+) {
+  return new NextResponse(
+    "Booking must be awaiting payment with pending payment status",
+    { status: 400 }
+  );
+}
+
+if (booking.paymentDueAt && booking.paymentDueAt < now) {
+  return new NextResponse("Booking payment window has expired", { status: 400 });
+}
 
   // Importes (en céntimos)
   const rentAmount = booking.amountCents ?? 0;
