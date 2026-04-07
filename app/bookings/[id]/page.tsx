@@ -196,7 +196,7 @@ export default async function BookingPage({
 
   if (!booking) return notFound();
 
-  const logisticsEnabled = booking.status === "PAID";
+  const logisticsEnabled = booking.paymentStatus === "PAID";
 
   const isOwner = !!userId && booking.ownerId === userId;
   const isRenter = !!userId && booking.renterId === userId;
@@ -240,7 +240,7 @@ export default async function BookingPage({
 
   const canOwnerManageDeposit =
     isOwner &&
-    booking.status === "PAID" &&
+    booking.paymentStatus  === "PAID" &&
     returnCompleted &&
     !!booking.depositCents &&
     booking.depositCents > 0 &&
@@ -317,33 +317,37 @@ export default async function BookingPage({
               <h2 className="text-lg font-semibold">Płatność</h2>
 
               <div className="flex items-center gap-2">
-                {badge(
-                  booking.status === "PAID"
-                    ? "Opłacona"
-                    : booking.status === "AWAITING_PAYMENT" ||
-                      booking.status === "CONFIRMED"
-                    ? "Oczekuje na płatność"
-                    : booking.status === "PENDING"
-                    ? "Oczekuje na akceptację"
-                    : booking.status,
-                  booking.status === "PAID"
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                    : booking.status === "AWAITING_PAYMENT" ||
-                      booking.status === "CONFIRMED"
-                    ? "bg-amber-100 text-amber-800 border-amber-200"
-                    : "bg-gray-100 text-gray-800 border-gray-200"
-                )}
+              {badge(
+  booking.paymentStatus === "PAID"
+    ? "Opłacona"
+    : booking.status === "AWAITING_PAYMENT"
+    ? "Oczekuje na płatność"
+    : booking.status === "PENDING"
+    ? "Oczekuje na akceptację"
+    : booking.status === "CANCELLED"
+    ? "Anulowana"
+    : "—",
+  booking.paymentStatus === "PAID"
+    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : booking.status === "AWAITING_PAYMENT"
+    ? "bg-amber-100 text-amber-800 border-amber-200"
+    : booking.status === "PENDING"
+    ? "bg-gray-100 text-gray-800 border-gray-200"
+    : booking.status === "CANCELLED"
+    ? "bg-rose-100 text-rose-700 border-rose-200"
+    : "bg-gray-100 text-gray-800 border-gray-200"
+)}
 
-                {isRenter &&
-                  (booking.status === "AWAITING_PAYMENT" ||
-                    booking.status === "CONFIRMED") && (
-                    <Link
-                      href={`/bookings/${booking.id}/pay`}
-                      className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
-                    >
-                      Opłać
-                    </Link>
-                  )}
+             {isRenter &&
+  booking.status === "AWAITING_PAYMENT" &&
+  booking.paymentStatus === "PENDING" && (
+    <Link
+      href={`/bookings/${booking.id}/pay`}
+      className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
+    >
+      Opłać
+    </Link>
+  )}
               </div>
             </div>
 
