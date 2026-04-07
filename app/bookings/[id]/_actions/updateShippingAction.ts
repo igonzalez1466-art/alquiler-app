@@ -71,6 +71,7 @@ export async function updateShippingAction(formData: FormData) {
       bookingNumber: true,
       status: true,
       shippingStatus: true,
+      paymentStatus: true,
       shippedAt: true,
       deliveredAt: true,
       startDate: true,
@@ -112,7 +113,7 @@ export async function updateShippingAction(formData: FormData) {
 
   // Puedes dejar CONFIRMED + PAID si quieres permitir preparar antes del pago.
   // Si prefieres alinear con la page, cambia a solo PAID.
- if (booking.status !== "PAID") {
+ if (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID") {
   throw new Error("Wysyłkę można edytować dopiero po opłaceniu rezerwacji");
 }
 
