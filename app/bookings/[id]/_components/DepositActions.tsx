@@ -9,6 +9,24 @@ import {
 
 type Mode = "refund" | "partial" | "retain";
 
+type RetentionReasonCode =
+  | "DAMAGE"
+  | "STAINING"
+  | "MISSING_ITEM"
+  | "LATE_RETURN"
+  | "CLEANING"
+  | "OTHER";
+
+const RETENTION_REASON_OPTIONS: { value: RetentionReasonCode; label: string }[] =
+  [
+    { value: "DAMAGE", label: "Uszkodzenie" },
+    { value: "STAINING", label: "Zabrudzenie" },
+    { value: "MISSING_ITEM", label: "Brak elementu" },
+    { value: "LATE_RETURN", label: "Opóźniony zwrot" },
+    { value: "CLEANING", label: "Koszt czyszczenia" },
+    { value: "OTHER", label: "Inny powód" },
+  ];
+
 export default function DepositActions({
   bookingId,
   depositZl,
@@ -18,15 +36,25 @@ export default function DepositActions({
 }) {
   const [mode, setMode] = useState<Mode>("refund");
   const [loading, setLoading] = useState(false);
-  const [amount, setAmount] = useState(Math.max(depositZl - 1, 1));
+
+  // Guardamos string para evitar efectos raros tipo 05 en el input controlado
+  const [amountInput, setAmountInput] = useState<string>(
+    String(Math.max(depositZl - 1, 1))
+  );
+
+  const [reasonCode, setReasonCode] =
+    useState<RetentionReasonCode>("DAMAGE");
   const [reason, setReason] = useState("");
 
   const safeAmount = useMemo(() => {
-    if (!Number.isFinite(amount)) return 0;
-    return Math.min(Math.max(amount, 0), depositZl);
-  }, [amount, depositZl]);
+    const parsed = parseInt(amountInput || "0", 10);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.min(Math.max(parsed, 0), depositZl);
+  }, [amountInput, depositZl]);
 
   const retained = depositZl - safeAmount;
+
+  const reasonRequired = mode === "partial" || mode === "retain";
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -170,8 +198,17 @@ export default function DepositActions({
                 min={0}
                 max={depositZl}
                 step="1"
-                value={safeAmount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                inputMode="numeric"
+                value={amountInput}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setAmountInput("");
+                    return;
+                  }
+                  const normalized = raw.replace(/^0+(?=\d)/, "");
+                  setAmountInput(normalized);
+                }}
                 className="w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
               />
               <p className="mt-1 text-xs text-zinc-500">
@@ -187,7 +224,9 @@ export default function DepositActions({
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-zinc-600">Zatrzymane przez właściciela</span>
+                <span className="text-zinc-600">
+                  Zatrzymane przez właściciela
+                </span>
                 <span className="font-semibold text-zinc-900">
                   {retained} zł
                 </span>
@@ -197,10 +236,35 @@ export default function DepositActions({
 
           <div>
             <label
-              htmlFor="reason-partial"
+              htmlFor="reasonCode-partial"
               className="mb-1.5 block text-sm font-medium text-zinc-700"
             >
               Powód zatrzymania części kaucji
+            </label>
+            <select
+              id="reasonCode-partial"
+              name="reasonCode"
+              value={reasonCode}
+              onChange={(e) =>
+                setReasonCode(e.target.value as RetentionReasonCode)
+              }
+              className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              required={reasonRequired}
+            >
+              {RETENTION_REASON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="reason-partial"
+              className="mb-1.5 block text-sm font-medium text-zinc-700"
+            >
+              Szczegóły
             </label>
             <textarea
               id="reason-partial"
@@ -209,6 +273,7 @@ export default function DepositActions({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Opisz powód potrącenia, np. uszkodzenie, zabrudzenie, brak elementu..."
+              required={reasonRequired}
               className="w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
             />
           </div>
@@ -248,10 +313,35 @@ export default function DepositActions({
 
           <div>
             <label
-              htmlFor="reason-retain"
+              htmlFor="reasonCode-retain"
               className="mb-1.5 block text-sm font-medium text-zinc-700"
             >
               Powód zatrzymania kaucji
+            </label>
+            <select
+              id="reasonCode-retain"
+              name="reasonCode"
+              value={reasonCode}
+              onChange={(e) =>
+                setReasonCode(e.target.value as RetentionReasonCode)
+              }
+              className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              required={reasonRequired}
+            >
+              {RETENTION_REASON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="reason-retain"
+              className="mb-1.5 block text-sm font-medium text-zinc-700"
+            >
+              Szczegóły
             </label>
             <textarea
               id="reason-retain"
@@ -260,6 +350,7 @@ export default function DepositActions({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Wyjaśnij, dlaczego kaucja została zatrzymana..."
+              required={reasonRequired}
               className="w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
             />
           </div>

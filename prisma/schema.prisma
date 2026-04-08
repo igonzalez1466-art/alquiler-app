@@ -207,6 +207,7 @@ model Booking {
   depositDecisionAt       DateTime?
   depositDecisionById     String?
   depositRetentionReason  String?
+  depositRetentionReasonCode DepositRetentionReasonCode?
   paidAt                  DateTime?
   refundedAt              DateTime?
 
@@ -392,6 +393,15 @@ enum DepositStatus {
   PARTIALLY_REFUNDED
   RETAINED
   FAILED
+}
+
+enum DepositRetentionReasonCode {
+  DAMAGE
+  STAINING
+  MISSING_ITEM
+  LATE_RETURN
+  CLEANING
+  OTHER
 }
 
 enum DeliveryConfirmationStatus {
