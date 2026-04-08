@@ -20,6 +20,7 @@ export async function confirmReturnAction(formData: FormData) {
       id: true,
       ownerId: true,
       status: true,
+      paymentStatus: true,
 
       // entrega
       shippingStatus: true,
@@ -39,7 +40,7 @@ export async function confirmReturnAction(formData: FormData) {
   }
 
   // solo reservas pagadas
-  if (booking.status !== "PAID") {
+  if (booking.paymentStatus !== "PAID") {
     throw new Error("Zwrot można potwierdzić dopiero po opłaceniu rezerwacji");
   }
 
