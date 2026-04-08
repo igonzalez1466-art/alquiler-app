@@ -207,7 +207,7 @@ model Booking {
   depositDecisionAt       DateTime?
   depositDecisionById     String?
   depositRetentionReason  String?
-  depositRetentionReasonCode DepositRetentionReasonCode?
+  depositRetentionReasonCode String?
   paidAt                  DateTime?
   refundedAt              DateTime?
 
