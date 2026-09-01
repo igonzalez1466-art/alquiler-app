@@ -14,38 +14,49 @@ interface CookieConsent {
 export default function AnalyticsLoader() {
   const [allowed, setAllowed] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
+  useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (!saved) return;
+
+      if (!saved) {
+        setAllowed(false);
+        return;
+      }
 
       const parsed: CookieConsent = JSON.parse(saved);
-      if (parsed.analytics) {
-        setAllowed(true);
-      }
-    } catch (e) {
-      console.warn("Error leyendo consent para analytics", e);
+      setAllowed(parsed.analytics === true);
+    } catch (error) {
+      console.warn(
+        "Error leyendo el consentimiento para Analytics:",
+        error,
+      );
+      setAllowed(false);
     }
   }, []);
 
-  if (!allowed) return null;
-
-  const GA_ID = "G-XXXXXXX"; // 🔴 pon aquí tu ID real
+  if (!allowed || !gaId) {
+    return null;
+  }
 
   return (
     <>
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
         strategy="afterInteractive"
       />
-      <Script id="ga-consent" strategy="afterInteractive">
+
+      <Script id="google-analytics" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
+
+          function gtag() {
+            window.dataLayer.push(arguments);
+          }
+
           gtag('js', new Date());
-          gtag('config', '${GA_ID}');
+          gtag('config', '${gaId}');
         `}
       </Script>
     </>
