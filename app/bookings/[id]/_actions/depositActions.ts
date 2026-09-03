@@ -9,7 +9,10 @@ import { sendMail } from "@/app/lib/mailer";
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) throw new Error("Brak STRIPE_SECRET_KEY");
+
+  if (!secretKey) {
+    throw new Error("Brak STRIPE_SECRET_KEY");
+  }
 
   return new Stripe(secretKey, {
     apiVersion: "2025-09-30.clover",
@@ -19,34 +22,85 @@ function getStripe() {
 function emailSignature() {
   return `
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
-    <p style="margin:0; font-size:13px; color:#555;">
+    <p style="margin:0;font-size:13px;color:#555;">
       Pozdrawiamy,<br/>
       <strong>Zespół MojaSzafa</strong>
     </p>
-    <p style="margin-top:6px; font-size:11px; color:#888;">
+    <p style="margin-top:6px;font-size:11px;color:#888;">
       Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
     </p>
   `;
 }
 
-function moneyPLNFromCents(v: number) {
-  return `${new Intl.NumberFormat("pl-PL").format(v / 100)} zł`;
+function moneyPLNFromCents(value: number) {
+  return `${new Intl.NumberFormat("pl-PL").format(value / 100)} zł`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function sendDepositEmail({
+  to,
+  subject,
+  html,
+}: {
+  to?: string | null;
+  subject: string;
+  html: string;
+}) {
+  if (!to) {
+    console.error("[DEPOSIT MAIL] Brak adresu e-mail najemcy");
+    return;
+  }
+
+  try {
+    await sendMail({
+      to,
+      subject,
+      html: `${html}${emailSignature()}`,
+    });
+  } catch (error) {
+    // Un fallo del correo no debe repetir ni revertir el reembolso.
+    console.error(
+      "[DEPOSIT MAIL] Nie udało się wysłać wiadomości:",
+      error
+    );
+  }
 }
 
 async function getOwnerBooking(bookingId: string, userId: string) {
   const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
+    where: {
+      id: bookingId,
+    },
     include: {
       renter: true,
-      listing: { include: { user: true } },
+      listing: {
+        include: {
+          user: true,
+        },
+      },
     },
   });
 
-  if (!booking) throw new Error("Rezerwacja nie istnieje");
-  if (booking.ownerId !== userId) throw new Error("Brak uprawnień");
+  if (!booking) {
+    throw new Error("Rezerwacja nie istnieje");
+  }
+
+  if (booking.ownerId !== userId) {
+    throw new Error("Brak uprawnień");
+  }
 
   if (booking.paymentStatus !== "PAID") {
-    throw new Error("Kaucją można zarządzać dopiero po opłaceniu rezerwacji");
+    throw new Error(
+      "Kaucją można zarządzać dopiero po opłaceniu rezerwacji"
+    );
   }
 
   const returnCompleted =
@@ -54,13 +108,19 @@ async function getOwnerBooking(bookingId: string, userId: string) {
     booking.returnConfirmationStatus === "AUTO_CONFIRMED";
 
   if (!returnCompleted) {
-    throw new Error("Kaucją można zarządzać dopiero po potwierdzeniu zwrotu");
+    throw new Error(
+      "Kaucją można zarządzać dopiero po potwierdzeniu zwrotu"
+    );
   }
 
   return booking;
 }
 
-function ensureDepositResolvable(booking: any) {
+function ensureDepositResolvable(booking: {
+  depositCents: number | null;
+  depositStatus: string;
+  depositPaymentIntentId: string | null;
+}) {
   if (!booking.depositCents || booking.depositCents <= 0) {
     throw new Error("Ta rezerwacja nie ma kaucji");
   }
@@ -82,39 +142,62 @@ function ensureDepositResolvable(booking: any) {
 /* =========================
    FULL REFUND
 ========================= */
+
 export async function releaseDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
-  if (!userId) throw new Error("Brak dostępu");
+
+  if (!userId) {
+    throw new Error("Brak dostępu");
+  }
 
   const bookingId = String(formData.get("bookingId") || "");
+
   const booking = await getOwnerBooking(bookingId, userId);
-  const { depositCents, paymentIntentId } = ensureDepositResolvable(booking);
+
+  const { depositCents, paymentIntentId } =
+    ensureDepositResolvable(booking);
 
   const stripe = getStripe();
 
-const refund = await stripe.refunds.create(
-  {
-    payment_intent: paymentIntentId,
-    amount: depositCents,
-  },
-  {
-    idempotencyKey: `deposit-full-refund-${booking.id}`,
-  }
-);
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: paymentIntentId,
+      amount: depositCents,
+    },
+    {
+      idempotencyKey: `deposit-full-refund-${booking.id}`,
+    }
+  );
 
-await prisma.booking.update({
-  where: { id: booking.id },
-  data: {
-    depositStatus: "REFUND_PENDING",
-    depositRefundId: refund.id,
-    depositRefundedCents: depositCents,
-    depositRetainedCents: 0,
-    depositDecisionAt: new Date(),
-    depositDecisionById: userId,
-    depositRetentionReason: null,
-  },
-});
+  await prisma.booking.update({
+    where: {
+      id: booking.id,
+    },
+    data: {
+      depositStatus: "REFUND_PENDING",
+      depositRefundId: refund.id,
+      depositRefundedCents: depositCents,
+      depositRetainedCents: 0,
+      depositDecisionAt: new Date(),
+      depositDecisionById: userId,
+      depositRetentionReason: null,
+      depositRetentionReasonCode: null,
+    },
+  });
+
+  await sendDepositEmail({
+    to: booking.renter.email,
+    subject: `Zwrot kaucji – rezerwacja #${booking.bookingNumber}`,
+    html: `
+      <p>Właściciel zdecydował o zwrocie pełnej kaucji.</p>
+      <p>
+        Kwota zwrotu:
+        <strong>${moneyPLNFromCents(depositCents)}</strong>
+      </p>
+      <p>Zwrot został zlecony i jest w trakcie realizacji.</p>
+    `,
+  });
 
   revalidatePath(`/bookings/${booking.id}`);
 }
@@ -122,17 +205,24 @@ await prisma.booking.update({
 /* =========================
    PARTIAL REFUND
 ========================= */
+
 export async function partialReleaseDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
-  if (!userId) throw new Error("Brak dostępu");
+
+  if (!userId) {
+    throw new Error("Brak dostępu");
+  }
 
   const bookingId = String(formData.get("bookingId") || "");
   const refundZl = Number(formData.get("refundAmountZl") || "0");
   const reason = String(formData.get("reason") || "").trim();
+  const reasonCode = String(formData.get("reasonCode") || "").trim();
 
   const booking = await getOwnerBooking(bookingId, userId);
-  const { depositCents, paymentIntentId } = ensureDepositResolvable(booking);
+
+  const { depositCents, paymentIntentId } =
+    ensureDepositResolvable(booking);
 
   const refundCents = Math.round(refundZl * 100);
 
@@ -144,61 +234,113 @@ export async function partialReleaseDepositAction(formData: FormData) {
     throw new Error("Podaj powód");
   }
 
-  const retained = depositCents - refundCents;
+  if (!reasonCode) {
+    throw new Error("Wybierz powód");
+  }
 
+  const retainedCents = depositCents - refundCents;
   const stripe = getStripe();
 
-const refund = await stripe.refunds.create(
-  {
-    payment_intent: paymentIntentId,
-    amount: refundCents,
-  },
-  {
-    idempotencyKey: `deposit-partial-refund-${booking.id}`,
-  }
-);
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: paymentIntentId,
+      amount: refundCents,
+    },
+    {
+      idempotencyKey: `deposit-partial-refund-${booking.id}`,
+    }
+  );
 
-await prisma.booking.update({
-  where: { id: booking.id },
-  data: {
-    depositStatus: "REFUND_PENDING",
-    depositRefundId: refund.id,
-    depositRefundedCents: refundCents,
-    depositRetainedCents: retained,
-    depositRetentionReason: reason,
-    depositDecisionAt: new Date(),
-    depositDecisionById: userId,
-  },
-});
+  await prisma.booking.update({
+    where: {
+      id: booking.id,
+    },
+    data: {
+      depositStatus: "REFUND_PENDING",
+      depositRefundId: refund.id,
+      depositRefundedCents: refundCents,
+      depositRetainedCents: retainedCents,
+      depositRetentionReason: reason,
+      depositRetentionReasonCode: reasonCode,
+      depositDecisionAt: new Date(),
+      depositDecisionById: userId,
+    },
+  });
+
+  await sendDepositEmail({
+    to: booking.renter.email,
+    subject: `Częściowy zwrot kaucji – rezerwacja #${booking.bookingNumber}`,
+    html: `
+      <p>Właściciel zdecydował o częściowym zwrocie kaucji.</p>
+      <p>
+        Kwota zwrotu:
+        <strong>${moneyPLNFromCents(refundCents)}</strong>
+      </p>
+      <p>
+        Kwota zatrzymana:
+        <strong>${moneyPLNFromCents(retainedCents)}</strong>
+      </p>
+      <p>Powód: ${escapeHtml(reason)}</p>
+    `,
+  });
+
   revalidatePath(`/bookings/${booking.id}`);
 }
 
 /* =========================
    FULL RETAIN
 ========================= */
+
 export async function retainDepositAction(formData: FormData) {
   const session = await getServerSession(authConfig);
   const userId = session?.user?.id;
-  if (!userId) throw new Error("Brak dostępu");
+
+  if (!userId) {
+    throw new Error("Brak dostępu");
+  }
 
   const bookingId = String(formData.get("bookingId") || "");
   const reason = String(formData.get("reason") || "").trim();
+  const reasonCode = String(formData.get("reasonCode") || "").trim();
 
-  if (!reason) throw new Error("Podaj powód");
+  if (!reason) {
+    throw new Error("Podaj powód");
+  }
+
+  if (!reasonCode) {
+    throw new Error("Wybierz powód");
+  }
 
   const booking = await getOwnerBooking(bookingId, userId);
+
   const { depositCents } = ensureDepositResolvable(booking);
 
   await prisma.booking.update({
-    where: { id: booking.id },
+    where: {
+      id: booking.id,
+    },
     data: {
       depositStatus: "RETAINED",
       depositRefundedCents: 0,
       depositRetainedCents: depositCents,
       depositRetentionReason: reason,
+      depositRetentionReasonCode: reasonCode,
       depositDecisionAt: new Date(),
       depositDecisionById: userId,
     },
+  });
+
+  await sendDepositEmail({
+    to: booking.renter.email,
+    subject: `Zatrzymanie kaucji – rezerwacja #${booking.bookingNumber}`,
+    html: `
+      <p>Właściciel zdecydował o zatrzymaniu kaucji.</p>
+      <p>
+        Kwota zatrzymana:
+        <strong>${moneyPLNFromCents(depositCents)}</strong>
+      </p>
+      <p>Powód: ${escapeHtml(reason)}</p>
+    `,
   });
 
   revalidatePath(`/bookings/${booking.id}`);
