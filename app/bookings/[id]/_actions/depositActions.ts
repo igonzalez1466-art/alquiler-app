@@ -93,22 +93,28 @@ export async function releaseDepositAction(formData: FormData) {
 
   const stripe = getStripe();
 
-  await stripe.refunds.create({
+const refund = await stripe.refunds.create(
+  {
     payment_intent: paymentIntentId,
     amount: depositCents,
-  });
+  },
+  {
+    idempotencyKey: `deposit-full-refund-${booking.id}`,
+  }
+);
 
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      depositStatus: "REFUND_PENDING",
-      depositRefundedCents: depositCents,
-      depositRetainedCents: 0,
-      depositDecisionAt: new Date(),
-      depositDecisionById: userId,
-      depositRetentionReason: null,
-    },
-  });
+await prisma.booking.update({
+  where: { id: booking.id },
+  data: {
+    depositStatus: "REFUND_PENDING",
+    depositRefundId: refund.id,
+    depositRefundedCents: depositCents,
+    depositRetainedCents: 0,
+    depositDecisionAt: new Date(),
+    depositDecisionById: userId,
+    depositRetentionReason: null,
+  },
+});
 
   revalidatePath(`/bookings/${booking.id}`);
 }
@@ -142,23 +148,28 @@ export async function partialReleaseDepositAction(formData: FormData) {
 
   const stripe = getStripe();
 
-  await stripe.refunds.create({
+const refund = await stripe.refunds.create(
+  {
     payment_intent: paymentIntentId,
     amount: refundCents,
-  });
+  },
+  {
+    idempotencyKey: `deposit-partial-refund-${booking.id}`,
+  }
+);
 
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      depositStatus: "REFUND_PENDING",
-      depositRefundedCents: refundCents,
-      depositRetainedCents: retained,
-      depositRetentionReason: reason,
-      depositDecisionAt: new Date(),
-      depositDecisionById: userId,
-    },
-  });
-
+await prisma.booking.update({
+  where: { id: booking.id },
+  data: {
+    depositStatus: "REFUND_PENDING",
+    depositRefundId: refund.id,
+    depositRefundedCents: refundCents,
+    depositRetainedCents: retained,
+    depositRetentionReason: reason,
+    depositDecisionAt: new Date(),
+    depositDecisionById: userId,
+  },
+});
   revalidatePath(`/bookings/${booking.id}`);
 }
 
