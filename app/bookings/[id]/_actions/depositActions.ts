@@ -45,7 +45,7 @@ async function getOwnerBooking(bookingId: string, userId: string) {
   if (!booking) throw new Error("Rezerwacja nie istnieje");
   if (booking.ownerId !== userId) throw new Error("Brak uprawnień");
 
-  if (booking.status !== "PAID") {
+  if (booking.paymentStatus !== "PAID") {
     throw new Error("Kaucją można zarządzać dopiero po opłaceniu rezerwacji");
   }
 
