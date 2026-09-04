@@ -91,19 +91,20 @@ export async function startChatAction(formData: FormData) {
           buyerId: currentUserId,
         },
       },
+
       select: {
         id: true,
       },
     });
 
   if (existing) {
-    // Si estaba cerrada, la reabrimos al abrir
-    // manualmente el chat.
+    // Si estaba cerrada, la reabrimos al abrir el chat manualmente
     await prisma.conversation.updateMany({
       where: {
         id: existing.id,
         status: "CLOSED",
       },
+
       data: {
         status: "OPEN",
         closedAt: null,
@@ -122,6 +123,7 @@ export async function startChatAction(formData: FormData) {
         sellerId: ownerId,
         status: "OPEN",
       },
+
       select: {
         id: true,
       },
@@ -297,7 +299,7 @@ export async function createBookingAction(
           },
         });
 
-      // Reabrir o crear conversación.
+      // Reabrir o crear conversación
       await tx.conversation.upsert({
         where: {
           listingId_buyerId: {
@@ -369,9 +371,8 @@ export async function createBookingAction(
   // Se calcula EXCLUSIVAMENTE sobre el alquiler.
   // La fianza NO está sujeta a comisión.
   //
-  // Más adelante:
-  // platformFeePercent / platformFee / ownerEarnings
-  // deberían guardarse como snapshot en Booking.
+  // Más adelante estos valores deberían guardarse
+  // como snapshot económico dentro de Booking.
   //
   // ==========================================================
 
@@ -417,11 +418,16 @@ export async function createBookingAction(
   const renterTo =
     renter?.email?.trim() || "";
 
+  // URL directa al detalle de ESTA reserva
+  const bookingUrl =
+    `${baseUrl}/bookings/${booking.id}`;
+
   // ==========================================================
   // EMAILS
   // ==========================================================
 
   await Promise.allSettled([
+
     // ========================================================
     // OWNER EMAIL
     // ========================================================
@@ -475,29 +481,24 @@ export async function createBookingAction(
       (${days} ${pluralPLDay(days)})
     </p>
 
-    <!-- ==============================================
-         ALQUILER
-    =============================================== -->
+    <!-- ALQUILER -->
 
     <p style="margin:4px 0;">
       <strong>Koszt najmu:</strong>
       ${moneyPLN(alquiler)}
     </p>
 
-    <!-- ==============================================
-         COMISIÓN - SOLO OWNER
-    =============================================== -->
+    <!-- COMISIÓN - SOLO OWNER -->
 
     <p style="margin:4px 0;">
       <strong>
         Prowizja MojaSzafa (${platformFeePercent}%):
       </strong>
+
       −${moneyPLN(platformFee)}
     </p>
 
-    <!-- ==============================================
-         NETO OWNER
-    =============================================== -->
+    <!-- NETO OWNER -->
 
     <p
       style="
@@ -562,7 +563,7 @@ export async function createBookingAction(
 
   <p>
     <a
-      href="${baseUrl}/bookings"
+      href="${bookingUrl}"
       style="
         display:inline-block;
         margin-top:10px;
@@ -609,8 +610,7 @@ export async function createBookingAction(
     // RENTER EMAIL
     // ========================================================
     //
-    // IMPORTANTE:
-    // No mostramos ninguna información sobre el 15%.
+    // El renter NO ve información sobre la comisión.
     //
     // ========================================================
 
@@ -667,6 +667,7 @@ export async function createBookingAction(
       <strong>
         Kwota do zapłaty (po akceptacji):
       </strong>
+
       ${moneyPLN(total)}
     </p>
 
@@ -686,7 +687,7 @@ export async function createBookingAction(
 
   <p>
     <a
-      href="${baseUrl}/bookings"
+      href="${bookingUrl}"
       style="
         display:inline-block;
         margin-top:10px;
