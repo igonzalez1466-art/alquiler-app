@@ -25,47 +25,47 @@ model User {
   sessions            Session[]
   listings            Listing[]
   messages            Message[]
-  reviewsReceived     Review[]      @relation("UserReviewsReceived")
-  reviewsAuthored     Review[]      @relation("UserReviewsAuthored")
+  reviewsReceived     Review[]       @relation("UserReviewsReceived")
+  reviewsAuthored     Review[]       @relation("UserReviewsAuthored")
   sellerConversations Conversation[] @relation("SellerConversations")
   buyerConversations  Conversation[] @relation("BuyerConversations")
 
-  // ✅ bookings donde el usuario es INQUILINO (renter)
+  // Bookings donde el usuario es INQUILINO
   bookings Booking[] @relation("BookingRenter")
 
-  // ✅ bookings donde el usuario es DUEÑO (owner)
+  // Bookings donde el usuario es DUEÑO
   ownedBookings Booking[] @relation("BookingOwner")
 }
 
 model Listing {
-  id          String      @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   description String?
   pricePerDay Int
   city        String?
-  createdAt   DateTime    @default(now())
+  createdAt   DateTime @default(now())
   userId      String
 
   estado      Estado      @default(USADO)
   fianza      Int?
   metodoEnvio MetodoEnvio @default(RECOGIDA_LOCAL)
 
-  marca      String?
-  lat        Float?
-  lng        Float?
-  available  Boolean @default(true)
-  country    String?
-  postalCode String?
-  color      Color?
+  marca       String?
+  lat         Float?
+  lng         Float?
+  available   Boolean      @default(true)
+  country     String?
+  postalCode  String?
+  color       Color?
   garmentType GarmentType?
-  gender     Gender?
-  materials  Json?
-  size       String?
+  gender      Gender?
+  materials   Json?
+  size        String?
 
   bookings      Booking[]
   conversations Conversation[]
   images        Image[]
-  user          User @relation(fields: [userId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
 
   @@index([createdAt])
   @@index([city])
@@ -129,21 +129,21 @@ model VerificationToken {
 }
 
 model Conversation {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   listingId        String
   buyerId          String
   sellerId         String
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
   buyerLastReadAt  DateTime?
   sellerLastReadAt DateTime?
 
-  status       ConversationStatus @default(OPEN)
+  status       ConversationStatus       @default(OPEN)
   closedAt     DateTime?
   closedReason ConversationCloseReason?
 
-  seller  User        @relation("SellerConversations", fields: [sellerId], references: [id])
-  buyer   User        @relation("BuyerConversations", fields: [buyerId], references: [id])
-  listing Listing     @relation(fields: [listingId], references: [id])
+  seller   User      @relation("SellerConversations", fields: [sellerId], references: [id])
+  buyer    User      @relation("BuyerConversations", fields: [buyerId], references: [id])
+  listing  Listing   @relation(fields: [listingId], references: [id])
   messages Message[]
 
   @@unique([listingId, buyerId])
@@ -167,8 +167,8 @@ model Message {
 }
 
 model Booking {
-  id            String   @id @default(cuid())
-  bookingNumber Int      @unique @default(autoincrement())
+  id            String @id @default(cuid())
+  bookingNumber Int    @unique @default(autoincrement())
 
   listingId String
   renterId  String
@@ -185,31 +185,84 @@ model Booking {
   status    BookingStatus @default(PENDING)
   createdAt DateTime      @default(now())
 
-  paymentStatus PaymentStatus @default(PENDING)
+  paymentStatus PaymentStatus  @default(PENDING)
   paymentMethod PaymentMethod?
   paymentRef    String?
   paymentDueAt  DateTime?
   cancelledAt   DateTime?
 
-  amountCents  Int?
+  // ==========================================================
+  // SNAPSHOT ECONÓMICO DE LA RESERVA
+  // ==========================================================
+
+  // Campo existente.
+  // Actualmente utilizado por el flujo de pago para guardar
+  // el importe del alquiler confirmado/pagado.
+  amountCents Int?
+
+  // Precio por día congelado cuando se crea la reserva.
+  // Ejemplo: 40 zł = 4000 grosze.
+  pricePerDayCents Int?
+
+  // Importe total del alquiler SIN incluir la kaucja.
+  // Ejemplo: 4 días x 40 zł = 16000 grosze.
+  rentAmountCents Int?
+
+  // Comisión de MojaSzafa expresada en basis points.
+  //
+  // 100  = 1.00%
+  // 1500 = 15.00%
+  // 1550 = 15.50%
+  // 1800 = 18.00%
+  //
+  // No ponemos @default(1500) para no aplicar automáticamente
+  // el 15% a reservas históricas.
+  platformFeeRate Int?
+
+  // Importe de la comisión de MojaSzafa.
+  //
+  // Ejemplo:
+  // rentAmountCents = 16000
+  // platformFeeRate = 1500
+  // platformFeeCents = 2400
+  platformFeeCents Int?
+
+  // Importe neto del alquiler que corresponde al owner.
+  //
+  // rentAmountCents - platformFeeCents
+  //
+  // Ejemplo:
+  // 16000 - 2400 = 13600
+  ownerPayoutCents Int?
+
+  // Kaucja congelada para esta reserva.
+  // La kaucja NO está sujeta a la comisión MojaSzafa.
   depositCents Int?
 
-  depositPaymentIntentId  String?
-  depositChargeId         String?
-  depositRefundId         String?
-  depositStatus           DepositStatus @default(NONE)
-  depositPaidAt           DateTime?
-  depositRefundedAt       DateTime?
-  depositRefundedCents    Int?
-  depositRetainedCents    Int?
-  depositReleaseAt        DateTime?
-  depositLastError        String?
-  depositDecisionAt       DateTime?
-  depositDecisionById     String?
-  depositRetentionReason  String?
+  // ==========================================================
+  // Kaucja / depósito
+  // ==========================================================
+
+  depositPaymentIntentId     String?
+  depositChargeId            String?
+  depositRefundId            String?
+  depositStatus              DepositStatus @default(NONE)
+  depositPaidAt              DateTime?
+  depositRefundedAt          DateTime?
+  depositRefundedCents       Int?
+  depositRetainedCents       Int?
+  depositReleaseAt           DateTime?
+  depositLastError           String?
+  depositDecisionAt          DateTime?
+  depositDecisionById        String?
+  depositRetentionReason     String?
   depositRetentionReasonCode String?
-  paidAt                  DateTime?
-  refundedAt              DateTime?
+  paidAt                     DateTime?
+  refundedAt                 DateTime?
+
+  // ==========================================================
+  // Envío
+  // ==========================================================
 
   shippingStatus ShippingStatus @default(PENDING)
   carrier        String?
@@ -217,10 +270,18 @@ model Booking {
   shippedAt      DateTime?
   deliveredAt    DateTime?
 
+  // ==========================================================
+  // Confirmación de entrega
+  // ==========================================================
+
   deliveryConfirmationStatus DeliveryConfirmationStatus @default(NOT_REQUESTED)
   deliveryConfirmedAt        DateTime?
   deliveryConfirmedBy        DeliveryConfirmedBy?
   deliveryConfirmBy          DateTime?
+
+  // ==========================================================
+  // Devolución
+  // ==========================================================
 
   returnStatus         ShippingStatus @default(PENDING)
   returnCarrier        String?
@@ -228,10 +289,18 @@ model Booking {
   returnShippedAt      DateTime?
   returnDeliveredAt    DateTime?
 
+  // ==========================================================
+  // Confirmación de devolución
+  // ==========================================================
+
   returnConfirmationStatus ReturnConfirmationStatus @default(NOT_REQUESTED)
   returnConfirmedAt        DateTime?
   returnConfirmedBy        ReturnConfirmedBy?
   returnConfirmBy          DateTime?
+
+  // ==========================================================
+  // Daños
+  // ==========================================================
 
   damageClaimStatus DamageClaimStatus @default(NONE)
   damageClaimBy     DateTime?
@@ -385,7 +454,7 @@ enum ConversationCloseReason {
 }
 
 enum DepositStatus {
- NONE
+  NONE
   PENDING
   PAID
   REFUND_PENDING

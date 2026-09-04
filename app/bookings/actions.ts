@@ -9,6 +9,16 @@ import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 
 /* ============================================
+   CONFIGURACIÓN ECONÓMICA
+=============================================== */
+
+// Basis points:
+// 1500 = 15.00%
+// 1000 = 10.00%
+// 2000 = 20.00%
+const PLATFORM_FEE_RATE = 1500;
+
+/* ============================================
    UTILIDADES
 =============================================== */
 
@@ -18,6 +28,20 @@ function fmt(d: Date | string) {
   return `${dt.getFullYear()}-${String(
     dt.getMonth() + 1
   ).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+function diffDaysInclusive(startDate: Date, endDate: Date) {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+
+  return (
+    Math.floor(
+      (end.getTime() - start.getTime()) / 86400000
+    ) + 1
+  );
 }
 
 function emailSignature() {
@@ -111,14 +135,66 @@ export async function createBookingAction(input: {
     throw new Error("Estas fechas ya están reservadas.");
   }
 
+  /* ============================================
+     SNAPSHOT ECONÓMICO
+
+     Se congela aquí, en el momento en que el
+     usuario crea la solicitud de reserva.
+
+     Cambios posteriores en Listing.pricePerDay
+     o Listing.fianza NO modificarán esta reserva.
+  =============================================== */
+
+  const days = diffDaysInclusive(start, end);
+
+  const pricePerDay = listing.pricePerDay;
+  const deposit = listing.fianza ?? 0;
+
+  if (!pricePerDay || pricePerDay <= 0) {
+    throw new Error(
+      "El anuncio no tiene un precio por día válido."
+    );
+  }
+
+  if (deposit < 0) {
+    throw new Error(
+      "El anuncio no tiene una fianza válida."
+    );
+  }
+
+  const pricePerDayCents = pricePerDay * 100;
+
+  const rentAmountCents =
+    days * pricePerDayCents;
+
+  const depositCents =
+    deposit * 100;
+
+  const platformFeeCents = Math.round(
+    (rentAmountCents * PLATFORM_FEE_RATE) / 10_000
+  );
+
+  const ownerPayoutCents =
+    rentAmountCents - platformFeeCents;
+
   const booking = await prisma.booking.create({
     data: {
       listingId: input.listingId,
       renterId,
       ownerId: listing.userId,
+
       startDate: start,
       endDate: end,
+
       status: "PENDING",
+
+      // Snapshot económico
+      pricePerDayCents,
+      rentAmountCents,
+      platformFeeRate: PLATFORM_FEE_RATE,
+      platformFeeCents,
+      ownerPayoutCents,
+      depositCents,
     },
     include: {
       renter: true,
@@ -274,33 +350,81 @@ export async function approveBookingAction(
 
   const ref = `#${booking.bookingNumber}`;
 
-  const start = new Date(booking.startDate);
-  start.setHours(0, 0, 0, 0);
+  /* ============================================
+     ECONOMÍA DE LA RESERVA
 
-  const end = new Date(booking.endDate);
-  end.setHours(0, 0, 0, 0);
+     Reservas nuevas:
+     usamos SIEMPRE el snapshot guardado.
 
-  const days =
-    Math.floor(
-      (end.getTime() - start.getTime()) / 86400000
-    ) + 1;
+     Reservas históricas:
+     si los nuevos campos son NULL, calculamos
+     temporalmente desde Listing.
+  =============================================== */
 
-  const pricePerDay = booking.listing.pricePerDay;
-  const deposit = booking.listing.fianza ?? 0;
+  const days = diffDaysInclusive(
+    booking.startDate,
+    booking.endDate
+  );
 
-  if (!pricePerDay || pricePerDay <= 0) {
+  const fallbackPricePerDayCents =
+    booking.listing.pricePerDay * 100;
+
+  const fallbackDepositCents =
+    (booking.listing.fianza ?? 0) * 100;
+
+  const pricePerDayCents =
+    booking.pricePerDayCents ??
+    fallbackPricePerDayCents;
+
+  const rentAmountCents =
+    booking.rentAmountCents ??
+    days * pricePerDayCents;
+
+  const depositCents =
+    booking.depositCents ??
+    fallbackDepositCents;
+
+  const platformFeeRate =
+    booking.platformFeeRate ??
+    PLATFORM_FEE_RATE;
+
+  const platformFeeCents =
+    booking.platformFeeCents ??
+    Math.round(
+      (rentAmountCents * platformFeeRate) / 10_000
+    );
+
+  const ownerPayoutCents =
+    booking.ownerPayoutCents ??
+    rentAmountCents - platformFeeCents;
+
+  if (pricePerDayCents <= 0) {
     throw new Error(
-      "El anuncio no tiene un precio por día válido."
+      "La reserva no tiene un precio por día válido."
     );
   }
 
-  const total = pricePerDay * days + deposit;
+  if (depositCents < 0) {
+    throw new Error(
+      "La reserva no tiene una fianza válida."
+    );
+  }
 
-  const moneyPLN = (value: number) =>
-    `${new Intl.NumberFormat("pl-PL").format(value)} zł`;
+  const totalCents =
+    rentAmountCents + depositCents;
 
-  const rentAmountCents = pricePerDay * days * 100;
-  const depositCents = deposit * 100;
+  const moneyPLNFromCents = (value: number) =>
+    `${new Intl.NumberFormat("pl-PL").format(
+      value / 100
+    )} zł`;
+
+  /*
+   * Para reservas históricas también persistimos
+   * el snapshot calculado en el momento de aprobar.
+   *
+   * Para reservas nuevas estos valores ya existirán
+   * y simplemente se conservarán.
+   */
 
   await prisma.booking.update({
     where: {
@@ -309,11 +433,23 @@ export async function approveBookingAction(
     data: {
       status: "AWAITING_PAYMENT",
       paymentStatus: "PENDING",
+
       paymentDueAt: new Date(
         Date.now() + 24 * 60 * 60 * 1000
       ),
+
       cancelledAt: null,
+
+      // Campo legacy que sigue utilizando
+      // actualmente parte del flujo de pago.
       amountCents: rentAmountCents,
+
+      // Snapshot económico
+      pricePerDayCents,
+      rentAmountCents,
+      platformFeeRate,
+      platformFeeCents,
+      ownerPayoutCents,
       depositCents,
     },
   });
@@ -386,7 +522,7 @@ export async function approveBookingAction(
 
             <p style="margin:4px 0;">
               <strong>Kwota do zapłaty:</strong>
-              ${moneyPLN(total)}
+              ${moneyPLNFromCents(totalCents)}
             </p>
           </div>
 
