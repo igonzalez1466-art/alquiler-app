@@ -1,4 +1,5 @@
 // app/bookings/[id]/page.tsx
+
 import { prisma } from "@/app/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -15,6 +16,7 @@ import { confirmDeliveryAction } from "./_actions/confirmDeliveryAction";
 import { confirmReturnAction } from "./_actions/confirmReturnAction";
 
 // ===== Helpers =====
+
 const fmt = (d?: Date | null) =>
   d
     ? d.toLocaleString("pl-PL", {
@@ -36,20 +38,26 @@ const fmtDate = (d?: Date | null) =>
     : "—";
 
 const badge = (label: string, cls: string) => (
-  <span className={`text-xs px-2 py-1 rounded border ${cls}`}>{label}</span>
+  <span className={`text-xs px-2 py-1 rounded border ${cls}`}>
+    {label}
+  </span>
 );
 
-const moneyCents = (v?: number | null) => `${Math.round((v ?? 0) / 100)} zł`;
+const moneyCents = (v?: number | null) =>
+  `${Math.round((v ?? 0) / 100)} zł`;
 
 function daysInclusive(a: Date, b: Date) {
   const start = new Date(a);
   start.setHours(0, 0, 0, 0);
+
   const end = new Date(b);
   end.setHours(0, 0, 0, 0);
+
   return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
 }
 
 // ===== Labels =====
+
 const statusLabel: Record<string, string> = {
   PENDING: "Oczekuje na akceptację",
   CONFIRMED: "Potwierdzona",
@@ -136,6 +144,7 @@ export default async function BookingPage({
 
   const booking = await prisma.booking.findUnique({
     where: { id },
+
     select: {
       id: true,
       bookingNumber: true,
@@ -149,6 +158,7 @@ export default async function BookingPage({
       createdAt: true,
 
       paymentStatus: true,
+
       depositCents: true,
       depositStatus: true,
       depositPaidAt: true,
@@ -190,18 +200,28 @@ export default async function BookingPage({
           userId: true,
         },
       },
-      renter: { select: { id: true, name: true } },
+
+      renter: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
   });
 
   if (!booking) return notFound();
 
-  const logisticsEnabled = booking.paymentStatus === "PAID";
+  // ===== Roles =====
 
   const isOwner = !!userId && booking.ownerId === userId;
   const isRenter = !!userId && booking.renterId === userId;
 
   const isRejected = booking.status === "CANCELLED";
+
+  // ===== Payment / logistics =====
+
+  const logisticsEnabled = booking.paymentStatus === "PAID";
 
   const canOwnerEditShipping = isOwner && logisticsEnabled;
 
@@ -214,10 +234,12 @@ export default async function BookingPage({
     booking.returnConfirmationStatus === "AUTO_CONFIRMED";
 
   const renterCanConfirmDelivery =
-    isRenter && booking.deliveryConfirmationStatus === "AWAITING_CONFIRMATION";
+    isRenter &&
+    booking.deliveryConfirmationStatus === "AWAITING_CONFIRMATION";
 
   const ownerCanConfirmReturn =
-    isOwner && booking.returnConfirmationStatus === "AWAITING_CONFIRMATION";
+    isOwner &&
+    booking.returnConfirmationStatus === "AWAITING_CONFIRMATION";
 
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
@@ -227,12 +249,42 @@ export default async function BookingPage({
   const canRenterEditReturn =
     isRenter && logisticsEnabled && deliveryCompleted;
 
-  // ===== Cálculos =====
+  // =========================================================
+  // ===== Cálculos económicos ===============================
+  // =========================================================
+
   const pricePerDay = booking.listing?.pricePerDay ?? 0;
   const deposit = booking.listing?.fianza ?? 0;
-  const days = daysInclusive(booking.startDate, booking.endDate);
-  const rentTotal = days > 0 ? days * pricePerDay : 0;
+
+  const days = daysInclusive(
+    booking.startDate,
+    booking.endDate
+  );
+
+  const rentTotal =
+    days > 0 ? days * pricePerDay : 0;
+
   const total = rentTotal + deposit;
+
+  // ===== Prowizja MojaSzafa =====
+  //
+  // TEMPORAL:
+  // De momento usamos 15% fijo.
+  //
+  // Después guardaremos estos valores en Booking para que
+  // una reserva histórica conserve siempre la comisión que
+  // tenía cuando fue creada.
+  //
+  const platformFeePercent = 15;
+
+  const platformFee = Math.round(
+    rentTotal * (platformFeePercent / 100)
+  );
+
+  const ownerEarnings =
+    rentTotal - platformFee;
+
+  // =========================================================
 
   const returnCompleted =
     booking.returnConfirmationStatus === "CONFIRMED" ||
@@ -240,7 +292,7 @@ export default async function BookingPage({
 
   const canOwnerManageDeposit =
     isOwner &&
-    booking.paymentStatus  === "PAID" &&
+    booking.paymentStatus === "PAID" &&
     returnCompleted &&
     !!booking.depositCents &&
     booking.depositCents > 0 &&
@@ -248,42 +300,66 @@ export default async function BookingPage({
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
+
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Szczegóły rezerwacji</h1>
+          <h1 className="text-2xl font-bold">
+            Szczegóły rezerwacji
+          </h1>
+
           <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700 border">
             #{booking.bookingNumber}
           </span>
         </div>
 
-        <Link href="/bookings" className="text-blue-600 underline">
+        <Link
+          href="/bookings"
+          className="text-blue-600 underline"
+        >
           ← Wróć
         </Link>
       </div>
 
-      {/* ===== Info general ===== */}
+      {/* =====================================================
+          INFO GENERAL
+      ====================================================== */}
+
       <section className="p-4 border rounded bg-white space-y-2">
+
         <div className="flex items-start justify-between gap-3">
+
           <div>
-            <div className="text-sm text-gray-500">Ogłoszenie</div>
+
+            <div className="text-sm text-gray-500">
+              Ogłoszenie
+            </div>
+
             <Link
               href={`/listing/${booking.listingId}`}
               className="text-blue-700 hover:underline font-medium"
             >
               {booking.listing?.title ?? "Ogłoszenie"}
             </Link>
+
             <div className="text-sm text-gray-600 mt-1">
               {fmt(booking.startDate)} — {fmt(booking.endDate)}
             </div>
+
             <div className="text-sm text-gray-500">
               Najemca:{" "}
               <span className="font-medium">
                 {booking.renter?.name ?? "Użytkownik"}
               </span>
             </div>
+
           </div>
 
           <div className="flex flex-col items-end gap-2">
+
             {badge(
               statusLabel[booking.status] ?? booking.status,
               statusClass[booking.status] ??
@@ -292,177 +368,375 @@ export default async function BookingPage({
 
             {userId && (
               <form action={openChatFromBookingAction}>
-                <input type="hidden" name="bookingId" value={id} />
+
+                <input
+                  type="hidden"
+                  name="bookingId"
+                  value={id}
+                />
+
                 <button className="px-3 py-1.5 rounded border text-gray-700 hover:bg-gray-50">
                   Otwórz czat
                 </button>
+
               </form>
             )}
+
           </div>
+
         </div>
+
       </section>
 
+      {/* =====================================================
+          REJECTED
+      ====================================================== */}
+
       {isRejected && (
+
         <section className="p-4 border rounded bg-white text-sm text-gray-600">
-          Rezerwacja została odrzucona — szczegóły płatności, dostawy i zwrotu
-          nie są dostępne.
+
+          Rezerwacja została odrzucona — szczegóły płatności,
+          dostawy i zwrotu nie są dostępne.
+
         </section>
+
       )}
 
       {!isRejected && (
         <>
-          {/* ===== Płatność ===== */}
+
+          {/* =================================================
+              PŁATNOŚĆ
+          ================================================== */}
+
           <section className="border rounded bg-white overflow-hidden">
+
             <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Płatność</h2>
+
+              <h2 className="text-lg font-semibold">
+                Płatność
+              </h2>
 
               <div className="flex items-center gap-2">
-              {badge(
-  booking.paymentStatus === "PAID"
-    ? "Opłacona"
-    : booking.status === "AWAITING_PAYMENT"
-    ? "Oczekuje na płatność"
-    : booking.status === "PENDING"
-    ? "Oczekuje na akceptację"
-    : booking.status === "CANCELLED"
-    ? "Anulowana"
-    : "—",
-  booking.paymentStatus === "PAID"
-    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-    : booking.status === "AWAITING_PAYMENT"
-    ? "bg-amber-100 text-amber-800 border-amber-200"
-    : booking.status === "PENDING"
-    ? "bg-gray-100 text-gray-800 border-gray-200"
-    : booking.status === "CANCELLED"
-    ? "bg-rose-100 text-rose-700 border-rose-200"
-    : "bg-gray-100 text-gray-800 border-gray-200"
-)}
 
-             {isRenter &&
-  booking.status === "AWAITING_PAYMENT" &&
-  booking.paymentStatus === "PENDING" && (
-    <Link
-      href={`/bookings/${booking.id}/pay`}
-      className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
-    >
-      Opłać
-    </Link>
-  )}
+                {badge(
+                  booking.paymentStatus === "PAID"
+                    ? "Opłacona"
+                    : booking.status === "AWAITING_PAYMENT"
+                    ? "Oczekuje na płatność"
+                    : booking.status === "PENDING"
+                    ? "Oczekuje na akceptację"
+                    : booking.status === "CANCELLED"
+                    ? "Anulowana"
+                    : "—",
+
+                  booking.paymentStatus === "PAID"
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    : booking.status === "AWAITING_PAYMENT"
+                    ? "bg-amber-100 text-amber-800 border-amber-200"
+                    : booking.status === "PENDING"
+                    ? "bg-gray-100 text-gray-800 border-gray-200"
+                    : booking.status === "CANCELLED"
+                    ? "bg-rose-100 text-rose-700 border-rose-200"
+                    : "bg-gray-100 text-gray-800 border-gray-200"
+                )}
+
+                {isRenter &&
+                  booking.status === "AWAITING_PAYMENT" &&
+                  booking.paymentStatus === "PENDING" && (
+
+                    <Link
+                      href={`/bookings/${booking.id}/pay`}
+                      className="px-3 py-1.5 rounded border bg-white text-gray-800 hover:bg-gray-50"
+                    >
+                      Opłać
+                    </Link>
+
+                  )}
+
               </div>
+
             </div>
 
             <div className="p-4 space-y-3">
+
+              {/* Dates */}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
                 <div className="rounded-lg border p-3">
-                  <div className="text-xs text-gray-500">Od</div>
+
+                  <div className="text-xs text-gray-500">
+                    Od
+                  </div>
+
                   <div className="font-semibold">
                     {fmtDate(booking.startDate)}
                   </div>
+
                 </div>
+
                 <div className="rounded-lg border p-3">
-                  <div className="text-xs text-gray-500">Do</div>
-                  <div className="font-semibold">{fmtDate(booking.endDate)}</div>
+
+                  <div className="text-xs text-gray-500">
+                    Do
+                  </div>
+
+                  <div className="font-semibold">
+                    {fmtDate(booking.endDate)}
+                  </div>
+
                 </div>
+
               </div>
 
+              {/* =================================================
+                  PRICE BREAKDOWN
+              ================================================== */}
+
               <div className="rounded-lg border">
+
                 <div className="divide-y">
+
                   <div className="flex justify-between px-3 py-2 text-sm">
                     <span>Liczba dni</span>
                     <span>{days}</span>
                   </div>
+
                   <div className="flex justify-between px-3 py-2 text-sm">
                     <span>Cena za dzień</span>
                     <span>{pricePerDay} zł</span>
                   </div>
+
                   <div className="flex justify-between px-3 py-2 text-sm">
                     <span>Koszt najmu</span>
                     <span>{rentTotal} zł</span>
                   </div>
+
+                  {/* =============================================
+                      SOLO OWNER
+                  ============================================== */}
+
+                  {isOwner && (
+
+                    <div className="flex justify-between px-3 py-2 text-sm">
+
+                      <span>
+                        Prowizja MojaSzafa ({platformFeePercent}%)
+                      </span>
+
+                      <span className="text-gray-600">
+                        −{platformFee} zł
+                      </span>
+
+                    </div>
+
+                  )}
+
                   <div className="flex justify-between px-3 py-2 text-sm">
-                    <span>Kaucja (zwrotna)</span>
-                    <span>{deposit} zł</span>
+
+                    <span>
+                      Kaucja (zwrotna)
+                    </span>
+
+                    <span>
+                      {deposit} zł
+                    </span>
+
                   </div>
+
                 </div>
+
               </div>
 
-              <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
-                <span className="font-semibold">Razem do zapłaty</span>
-                <span className="font-bold text-indigo-700">{total} zł</span>
-              </div>
+              {/* =================================================
+                  OWNER TOTAL
+              ================================================== */}
+
+              {isOwner && (
+
+                <div className="rounded-lg border bg-emerald-50 px-3 py-3">
+
+                  <div className="flex justify-between items-center">
+
+                    <span className="font-semibold">
+                      Twoje wynagrodzenie
+                    </span>
+
+                    <span className="font-bold text-emerald-700">
+                      {ownerEarnings} zł
+                    </span>
+
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    Kwota za najem po odliczeniu prowizji MojaSzafa.
+                    Kaucja nie jest objęta prowizją.
+                  </p>
+
+                </div>
+
+              )}
+
+              {/* =================================================
+                  RENTER TOTAL
+              ================================================== */}
+
+              {isRenter && (
+
+                <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
+
+                  <span className="font-semibold">
+                    Razem do zapłaty
+                  </span>
+
+                  <span className="font-bold text-indigo-700">
+                    {total} zł
+                  </span>
+
+                </div>
+
+              )}
+
             </div>
+
           </section>
 
-          {/* ✅ LOGISTYKA solo tras pago */}
+          {/* =================================================
+              LOGISTYKA
+          ================================================== */}
+
           {!logisticsEnabled ? (
+
             <section className="p-4 border rounded bg-white text-sm text-gray-600">
-              Logistyka (dostawa i zwrot) będzie dostępna dopiero po opłaceniu
-              rezerwacji.
+
+              Logistyka (dostawa i zwrot) będzie dostępna dopiero
+              po opłaceniu rezerwacji.
+
             </section>
+
           ) : (
             <>
-              {/* ===== Dostawa ===== */}
+
+              {/* ===============================================
+                  DOSTAWA
+              ================================================ */}
+
               <section className="p-4 border rounded bg-white space-y-3">
+
                 <h2 className="text-lg font-semibold flex items-center gap-2">
+
                   Dostawa
+
                   <span className="text-xs text-gray-400 font-normal">
                     (uzupełnia właściciel)
                   </span>
+
                 </h2>
 
                 <div className="flex flex-wrap items-center gap-2">
+
                   {booking.deliveryConfirmationStatus !== "NOT_REQUESTED"
+
                     ? badge(
                         deliveryConfirmLabel[
                           booking.deliveryConfirmationStatus
                         ] ?? booking.deliveryConfirmationStatus,
+
                         booking.deliveryConfirmationStatus ===
-                          "AWAITING_CONFIRMATION"
+                        "AWAITING_CONFIRMATION"
+
                           ? "bg-amber-50 text-amber-900 border-amber-200"
+
                           : booking.deliveryConfirmationStatus ===
                               "CONFIRMED" ||
                             booking.deliveryConfirmationStatus ===
                               "AUTO_CONFIRMED"
+
                           ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+
                           : "bg-gray-50 text-gray-700 border-gray-200"
                       )
+
                     : badge(
                         shippingLabel[booking.shippingStatus] ??
                           booking.shippingStatus,
+
                         shippingClass[booking.shippingStatus] ??
                           "bg-gray-100 text-gray-800 border-gray-200"
                       )}
+
                 </div>
 
-                {booking.deliveryConfirmationStatus !== "NOT_REQUESTED" && (
+                {booking.deliveryConfirmationStatus !==
+                  "NOT_REQUESTED" && (
+
                   <div className="text-xs text-gray-500">
+
                     Status przewozu:{" "}
+
                     <span className="font-medium text-gray-700">
+
                       {shippingLabel[booking.shippingStatus] ??
                         booking.shippingStatus}
+
                     </span>
+
                   </div>
+
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <div>Przewoźnik: {booking.carrier ?? "—"}</div>
-                  <div>Numer śledzenia: {booking.trackingNumber ?? "—"}</div>
-                  <div>Wysłano: {fmt(booking.shippedAt)}</div>
-                  <div>Dostarczono: {fmt(booking.deliveredAt)}</div>
-                  <div>Potwierdzone: {fmt(booking.deliveryConfirmedAt)}</div>
-                  <div>Potwierdź do: {fmt(booking.deliveryConfirmBy)}</div>
+
+                  <div>
+                    Przewoźnik: {booking.carrier ?? "—"}
+                  </div>
+
+                  <div>
+                    Numer śledzenia: {booking.trackingNumber ?? "—"}
+                  </div>
+
+                  <div>
+                    Wysłano: {fmt(booking.shippedAt)}
+                  </div>
+
+                  <div>
+                    Dostarczono: {fmt(booking.deliveredAt)}
+                  </div>
+
+                  <div>
+                    Potwierdzone: {fmt(booking.deliveryConfirmedAt)}
+                  </div>
+
+                  <div>
+                    Potwierdź do: {fmt(booking.deliveryConfirmBy)}
+                  </div>
+
                 </div>
 
                 {renterCanConfirmDelivery && (
+
                   <form action={confirmDeliveryAction}>
-                    <input type="hidden" name="bookingId" value={id} />
+
+                    <input
+                      type="hidden"
+                      name="bookingId"
+                      value={id}
+                    />
+
                     <button className="w-full sm:w-auto bg-emerald-600 text-white rounded px-4 py-2">
+
                       Potwierdzam odbiór
+
                     </button>
+
                   </form>
+
                 )}
 
                 {canOwnerEditShipping && !deliveryLocked && (
+
                   <ShippingForm
                     bookingId={id}
                     initial={{
@@ -473,159 +747,303 @@ export default async function BookingPage({
                       deliveredAt: booking.deliveredAt,
                     }}
                   />
+
                 )}
 
                 {deliveryLocked && (
+
                   <p className="text-xs text-gray-500">
-                    Odbiór został potwierdzony — edycja dostawy zablokowana.
+
+                    Odbiór został potwierdzony — edycja dostawy
+                    zablokowana.
+
                   </p>
+
                 )}
+
               </section>
 
-              {/* ===== Zwrot ===== */}
+              {/* ===============================================
+                  ZWROT
+              ================================================ */}
+
               <section className="p-4 border rounded bg-white space-y-3">
+
                 <h2 className="text-lg font-semibold flex items-center gap-2">
+
                   Zwrot
+
                   <span className="text-xs text-gray-400 font-normal">
                     (uzupełnia najemca)
                   </span>
+
                 </h2>
 
                 <div className="flex flex-wrap items-center gap-2">
+
                   {booking.returnConfirmationStatus !== "NOT_REQUESTED"
+
                     ? badge(
                         returnConfirmLabel[
                           booking.returnConfirmationStatus
                         ] ?? booking.returnConfirmationStatus,
+
                         booking.returnConfirmationStatus ===
-                          "AWAITING_CONFIRMATION"
+                        "AWAITING_CONFIRMATION"
+
                           ? "bg-amber-50 text-amber-900 border-amber-200"
-                          : booking.returnConfirmationStatus === "CONFIRMED" ||
+
+                          : booking.returnConfirmationStatus ===
+                              "CONFIRMED" ||
                             booking.returnConfirmationStatus ===
                               "AUTO_CONFIRMED"
+
                           ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+
                           : "bg-gray-50 text-gray-700 border-gray-200"
                       )
+
                     : badge(
                         shippingLabel[booking.returnStatus] ??
                           booking.returnStatus,
+
                         shippingClass[booking.returnStatus] ??
                           "bg-gray-100 text-gray-800 border-gray-200"
                       )}
+
                 </div>
 
-                {booking.returnConfirmationStatus !== "NOT_REQUESTED" && (
+                {booking.returnConfirmationStatus !==
+                  "NOT_REQUESTED" && (
+
                   <div className="text-xs text-gray-500">
+
                     Status zwrotu:{" "}
+
                     <span className="font-medium text-gray-700">
+
                       {shippingLabel[booking.returnStatus] ??
                         booking.returnStatus}
+
                     </span>
+
                   </div>
+
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <div>Przewoźnik: {booking.returnCarrier ?? "—"}</div>
+
                   <div>
-                    Numer śledzenia: {booking.returnTrackingNumber ?? "—"}
+                    Przewoźnik: {booking.returnCarrier ?? "—"}
                   </div>
-                  <div>Wysłano: {fmt(booking.returnShippedAt)}</div>
-                  <div>Odebrano: {fmt(booking.returnDeliveredAt)}</div>
-                  <div>Potwierdzone: {fmt(booking.returnConfirmedAt)}</div>
-                  <div>Potwierdź do: {fmt(booking.returnConfirmBy)}</div>
+
+                  <div>
+                    Numer śledzenia:{" "}
+                    {booking.returnTrackingNumber ?? "—"}
+                  </div>
+
+                  <div>
+                    Wysłano: {fmt(booking.returnShippedAt)}
+                  </div>
+
+                  <div>
+                    Odebrano: {fmt(booking.returnDeliveredAt)}
+                  </div>
+
+                  <div>
+                    Potwierdzone: {fmt(booking.returnConfirmedAt)}
+                  </div>
+
+                  <div>
+                    Potwierdź do: {fmt(booking.returnConfirmBy)}
+                  </div>
+
                 </div>
 
                 {ownerCanConfirmReturn && (
+
                   <form action={confirmReturnAction}>
-                    <input type="hidden" name="bookingId" value={id} />
+
+                    <input
+                      type="hidden"
+                      name="bookingId"
+                      value={id}
+                    />
+
                     <button className="w-full sm:w-auto bg-emerald-600 text-white rounded px-4 py-2">
+
                       Potwierdzam zwrot
+
                     </button>
+
                   </form>
+
                 )}
 
                 {canRenterEditReturn && (
+
                   <ReturnForm
                     bookingId={id}
                     locked={returnLocked}
                     initial={{
                       returnStatus: booking.returnStatus,
                       returnCarrier: booking.returnCarrier,
-                      returnTrackingNumber: booking.returnTrackingNumber,
+                      returnTrackingNumber:
+                        booking.returnTrackingNumber,
                     }}
                   />
+
                 )}
 
                 {!canRenterEditReturn && !returnLocked && (
+
                   <p className="text-xs text-gray-500">
-                    Formularz zwrotu będzie dostępny dopiero po potwierdzeniu
-                    dostawy.
+
+                    Formularz zwrotu będzie dostępny dopiero po
+                    potwierdzeniu dostawy.
+
                   </p>
+
                 )}
 
                 {returnLocked && (
+
                   <p className="text-xs text-gray-500">
+
                     Zwrot został potwierdzony — edycja zablokowana.
+
                   </p>
+
                 )}
+
               </section>
 
-              {/* ===== Kaucja ===== */}
+              {/* ===============================================
+                  KAUCJA
+              ================================================ */}
+
               <section className="p-4 border rounded bg-white space-y-3">
-                <h2 className="text-lg font-semibold">Kaucja</h2>
+
+                <h2 className="text-lg font-semibold">
+                  Kaucja
+                </h2>
 
                 <div className="flex flex-wrap items-center gap-2">
+
                   {badge(
-                    depositLabel[booking.depositStatus] ?? booking.depositStatus,
+                    depositLabel[booking.depositStatus] ??
+                      booking.depositStatus,
+
                     depositClass[booking.depositStatus] ??
                       "bg-gray-100 text-gray-800 border-gray-200"
                   )}
+
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <div>Kaucja pobrana: {moneyCents(booking.depositCents)}</div>
-                  <div>Zwrócono: {moneyCents(booking.depositRefundedCents)}</div>
-                  <div>Zatrzymano: {moneyCents(booking.depositRetainedCents)}</div>
-                  <div>Data zwrotu: {fmt(booking.depositRefundedAt)}</div>
+
+                  <div>
+                    Kaucja pobrana:{" "}
+                    {moneyCents(booking.depositCents)}
+                  </div>
+
+                  <div>
+                    Zwrócono:{" "}
+                    {moneyCents(booking.depositRefundedCents)}
+                  </div>
+
+                  <div>
+                    Zatrzymano:{" "}
+                    {moneyCents(booking.depositRetainedCents)}
+                  </div>
+
+                  <div>
+                    Data zwrotu:{" "}
+                    {fmt(booking.depositRefundedAt)}
+                  </div>
+
                 </div>
 
                 {booking.depositLastError && (
+
                   <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-3">
+
                     Ostatni błąd: {booking.depositLastError}
+
                   </div>
+
                 )}
 
-                {!booking.depositCents || booking.depositCents <= 0 ? (
+                {!booking.depositCents ||
+                booking.depositCents <= 0 ? (
+
                   <p className="text-xs text-gray-500">
+
                     Ta rezerwacja nie zawiera kaucji.
+
                   </p>
+
                 ) : !returnCompleted ? (
+
                   <p className="text-xs text-gray-500">
-                    Zarządzanie kaucją będzie dostępne po potwierdzeniu zwrotu.
+
+                    Zarządzanie kaucją będzie dostępne po
+                    potwierdzeniu zwrotu.
+
                   </p>
+
                 ) : canOwnerManageDeposit ? (
-                  <DepositActions bookingId={booking.id}
-  depositZl={Math.round((booking.depositCents ?? 0) / 100)} />
+
+                  <DepositActions
+                    bookingId={booking.id}
+                    depositZl={Math.round(
+                      (booking.depositCents ?? 0) / 100
+                    )}
+                  />
+
                 ) : (
+
                   <p className="text-xs text-gray-500">
-                    Kaucja została już rozliczona lub jest w trakcie rozliczania.
+
+                    Kaucja została już rozliczona lub jest w
+                    trakcie rozliczania.
+
                   </p>
+
                 )}
+
               </section>
+
             </>
           )}
+
         </>
       )}
 
+      {/* =====================================================
+          OWNER ACTIONS
+      ====================================================== */}
+
       {isOwner && booking.status === "PENDING" && (
+
         <section className="p-4 border rounded bg-white">
-          <h2 className="text-lg font-semibold mb-2">Akcje</h2>
+
+          <h2 className="text-lg font-semibold mb-2">
+            Akcje
+          </h2>
+
           <div className="flex gap-3">
+
             <ApproveButton bookingId={id} />
+
             <RejectButton bookingId={id} />
+
           </div>
+
         </section>
+
       )}
+
     </div>
   );
 }
