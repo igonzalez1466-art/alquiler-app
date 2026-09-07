@@ -53,7 +53,11 @@ function daysInclusive(a: Date, b: Date) {
   const end = new Date(b);
   end.setHours(0, 0, 0, 0);
 
-  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+  return (
+    Math.floor(
+      (end.getTime() - start.getTime()) / 86_400_000
+    ) + 1
+  );
 }
 
 // ===== Labels =====
@@ -69,7 +73,8 @@ const statusLabel: Record<string, string> = {
 const statusClass: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
   CONFIRMED: "bg-sky-100 text-sky-800 border-sky-200",
-  AWAITING_PAYMENT: "bg-blue-100 text-blue-800 border-blue-200",
+  AWAITING_PAYMENT:
+    "bg-blue-100 text-blue-800 border-blue-200",
   PAID: "bg-emerald-100 text-emerald-800 border-emerald-200",
   CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -85,18 +90,26 @@ const shippingLabel: Record<string, string> = {
 };
 
 const shippingClass: Record<string, string> = {
-  NOT_REQUIRED: "bg-gray-100 text-gray-700 border-gray-200",
-  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  READY: "bg-sky-100 text-sky-800 border-sky-200",
-  SHIPPED: "bg-blue-100 text-blue-800 border-blue-200",
-  DELIVERED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  LOST: "bg-rose-100 text-rose-700 border-rose-200",
-  CANCELLED: "bg-gray-100 text-gray-700 border-gray-200",
+  NOT_REQUIRED:
+    "bg-gray-100 text-gray-700 border-gray-200",
+  PENDING:
+    "bg-amber-100 text-amber-800 border-amber-200",
+  READY:
+    "bg-sky-100 text-sky-800 border-sky-200",
+  SHIPPED:
+    "bg-blue-100 text-blue-800 border-blue-200",
+  DELIVERED:
+    "bg-emerald-100 text-emerald-800 border-emerald-200",
+  LOST:
+    "bg-rose-100 text-rose-700 border-rose-200",
+  CANCELLED:
+    "bg-gray-100 text-gray-700 border-gray-200",
 };
 
 const deliveryConfirmLabel: Record<string, string> = {
   NOT_REQUESTED: "Nie wymaga potwierdzenia",
-  AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie odbioru",
+  AWAITING_CONFIRMATION:
+    "Oczekuje na potwierdzenie odbioru",
   CONFIRMED: "Odbiór potwierdzony",
   DISPUTED: "Spór",
   AUTO_CONFIRMED: "Automatycznie potwierdzono",
@@ -104,7 +117,8 @@ const deliveryConfirmLabel: Record<string, string> = {
 
 const returnConfirmLabel: Record<string, string> = {
   NOT_REQUESTED: "Nie wymaga potwierdzenia",
-  AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie zwrotu",
+  AWAITING_CONFIRMATION:
+    "Oczekuje na potwierdzenie zwrotu",
   CONFIRMED: "Zwrot potwierdzony",
   DISPUTED: "Spór",
   AUTO_CONFIRMED: "Automatycznie potwierdzono",
@@ -122,14 +136,22 @@ const depositLabel: Record<string, string> = {
 };
 
 const depositClass: Record<string, string> = {
-  NONE: "bg-gray-100 text-gray-700 border-gray-200",
-  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  PAID: "bg-sky-100 text-sky-800 border-sky-200",
-  REFUND_PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  REFUNDED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  PARTIALLY_REFUNDED: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  RETAINED: "bg-rose-100 text-rose-700 border-rose-200",
-  FAILED: "bg-rose-100 text-rose-700 border-rose-200",
+  NONE:
+    "bg-gray-100 text-gray-700 border-gray-200",
+  PENDING:
+    "bg-amber-100 text-amber-800 border-amber-200",
+  PAID:
+    "bg-sky-100 text-sky-800 border-sky-200",
+  REFUND_PENDING:
+    "bg-amber-100 text-amber-800 border-amber-200",
+  REFUNDED:
+    "bg-emerald-100 text-emerald-800 border-emerald-200",
+  PARTIALLY_REFUNDED:
+    "bg-indigo-100 text-indigo-800 border-indigo-200",
+  RETAINED:
+    "bg-rose-100 text-rose-700 border-rose-200",
+  FAILED:
+    "bg-rose-100 text-rose-700 border-rose-200",
 };
 
 export default async function BookingPage({
@@ -159,7 +181,15 @@ export default async function BookingPage({
 
       paymentStatus: true,
 
+      // ===== Economic snapshot =====
+      pricePerDayCents: true,
+      rentAmountCents: true,
+      platformFeeRate: true,
+      platformFeeCents: true,
+      ownerPayoutCents: true,
       depositCents: true,
+
+      // ===== Deposit =====
       depositStatus: true,
       depositPaidAt: true,
       depositRefundedAt: true,
@@ -195,8 +225,12 @@ export default async function BookingPage({
         select: {
           id: true,
           title: true,
+
+          // Solo se utilizan como fallback para
+          // reservas históricas sin snapshot.
           fianza: true,
           pricePerDay: true,
+
           userId: true,
         },
       },
@@ -214,16 +248,24 @@ export default async function BookingPage({
 
   // ===== Roles =====
 
-  const isOwner = !!userId && booking.ownerId === userId;
-  const isRenter = !!userId && booking.renterId === userId;
+  const isOwner =
+    !!userId &&
+    booking.ownerId === userId;
 
-  const isRejected = booking.status === "CANCELLED";
+  const isRenter =
+    !!userId &&
+    booking.renterId === userId;
+
+  const isRejected =
+    booking.status === "CANCELLED";
 
   // ===== Payment / logistics =====
 
-  const logisticsEnabled = booking.paymentStatus === "PAID";
+  const logisticsEnabled =
+    booking.paymentStatus === "PAID";
 
-  const canOwnerEditShipping = isOwner && logisticsEnabled;
+  const canOwnerEditShipping =
+    isOwner && logisticsEnabled;
 
   const deliveryLocked =
     booking.deliveryConfirmationStatus === "CONFIRMED" ||
@@ -235,54 +277,99 @@ export default async function BookingPage({
 
   const renterCanConfirmDelivery =
     isRenter &&
-    booking.deliveryConfirmationStatus === "AWAITING_CONFIRMATION";
+    booking.deliveryConfirmationStatus ===
+      "AWAITING_CONFIRMATION";
 
   const ownerCanConfirmReturn =
     isOwner &&
-    booking.returnConfirmationStatus === "AWAITING_CONFIRMATION";
+    booking.returnConfirmationStatus ===
+      "AWAITING_CONFIRMATION";
 
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
     (booking.deliveryConfirmationStatus === "CONFIRMED" ||
-      booking.deliveryConfirmationStatus === "AUTO_CONFIRMED");
+      booking.deliveryConfirmationStatus ===
+        "AUTO_CONFIRMED");
 
   const canRenterEditReturn =
-    isRenter && logisticsEnabled && deliveryCompleted;
+    isRenter &&
+    logisticsEnabled &&
+    deliveryCompleted;
 
   // =========================================================
-  // ===== Cálculos económicos ===============================
+  // ===== Cálculos económicos desde snapshot ================
   // =========================================================
-
-  const pricePerDay = booking.listing?.pricePerDay ?? 0;
-  const deposit = booking.listing?.fianza ?? 0;
 
   const days = daysInclusive(
     booking.startDate,
     booking.endDate
   );
 
+  /*
+   * Las reservas nuevas utilizan el snapshot económico
+   * almacenado en Booking.
+   *
+   * Los fallbacks permiten seguir mostrando reservas
+   * históricas creadas antes de introducir el snapshot.
+   */
+
+  const fallbackPricePerDayCents =
+    (booking.listing?.pricePerDay ?? 0) * 100;
+
+  const fallbackDepositCents =
+    (booking.listing?.fianza ?? 0) * 100;
+
+  const pricePerDayCents =
+    booking.pricePerDayCents ??
+    fallbackPricePerDayCents;
+
+  const rentAmountCents =
+    booking.rentAmountCents ??
+    (days > 0
+      ? days * pricePerDayCents
+      : 0);
+
+  const depositCents =
+    booking.depositCents ??
+    fallbackDepositCents;
+
+  const platformFeeRate =
+    booking.platformFeeRate ??
+    1500;
+
+  const platformFeeCents =
+    booking.platformFeeCents ??
+    Math.round(
+      (rentAmountCents * platformFeeRate) /
+        10_000
+    );
+
+  const ownerPayoutCents =
+    booking.ownerPayoutCents ??
+    rentAmountCents - platformFeeCents;
+
+  // ===== Valores de presentación en PLN =====
+
+  const pricePerDay =
+    pricePerDayCents / 100;
+
   const rentTotal =
-    days > 0 ? days * pricePerDay : 0;
+    rentAmountCents / 100;
 
-  const total = rentTotal + deposit;
+  const deposit =
+    depositCents / 100;
 
-  // ===== Prowizja MojaSzafa =====
-  //
-  // TEMPORAL:
-  // De momento usamos 15% fijo.
-  //
-  // Después guardaremos estos valores en Booking para que
-  // una reserva histórica conserve siempre la comisión que
-  // tenía cuando fue creada.
-  //
-  const platformFeePercent = 15;
+  const total =
+    (rentAmountCents + depositCents) / 100;
 
-  const platformFee = Math.round(
-    rentTotal * (platformFeePercent / 100)
-  );
+  const platformFeePercent =
+    platformFeeRate / 100;
+
+  const platformFee =
+    platformFeeCents / 100;
 
   const ownerEarnings =
-    rentTotal - platformFee;
+    ownerPayoutCents / 100;
 
   // =========================================================
 
@@ -306,7 +393,9 @@ export default async function BookingPage({
       ====================================================== */}
 
       <div className="flex items-center justify-between">
+
         <div className="flex items-center gap-3">
+
           <h1 className="text-2xl font-bold">
             Szczegóły rezerwacji
           </h1>
@@ -314,6 +403,7 @@ export default async function BookingPage({
           <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700 border">
             #{booking.bookingNumber}
           </span>
+
         </div>
 
         <Link
@@ -322,6 +412,7 @@ export default async function BookingPage({
         >
           ← Wróć
         </Link>
+
       </div>
 
       {/* =====================================================
@@ -361,12 +452,15 @@ export default async function BookingPage({
           <div className="flex flex-col items-end gap-2">
 
             {badge(
-              statusLabel[booking.status] ?? booking.status,
+              statusLabel[booking.status] ??
+                booking.status,
+
               statusClass[booking.status] ??
                 "bg-gray-100 text-gray-800 border-gray-200"
             )}
 
             {userId && (
+
               <form action={openChatFromBookingAction}>
 
                 <input
@@ -380,6 +474,7 @@ export default async function BookingPage({
                 </button>
 
               </form>
+
             )}
 
           </div>
@@ -421,24 +516,33 @@ export default async function BookingPage({
               <div className="flex items-center gap-2">
 
                 {badge(
+
                   booking.paymentStatus === "PAID"
                     ? "Opłacona"
+
                     : booking.status === "AWAITING_PAYMENT"
                     ? "Oczekuje na płatność"
+
                     : booking.status === "PENDING"
                     ? "Oczekuje na akceptację"
+
                     : booking.status === "CANCELLED"
                     ? "Anulowana"
+
                     : "—",
 
                   booking.paymentStatus === "PAID"
                     ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+
                     : booking.status === "AWAITING_PAYMENT"
                     ? "bg-amber-100 text-amber-800 border-amber-200"
+
                     : booking.status === "PENDING"
                     ? "bg-gray-100 text-gray-800 border-gray-200"
+
                     : booking.status === "CANCELLED"
                     ? "bg-rose-100 text-rose-700 border-rose-200"
+
                     : "bg-gray-100 text-gray-800 border-gray-200"
                 )}
 
@@ -637,12 +741,14 @@ export default async function BookingPage({
 
                 <div className="flex flex-wrap items-center gap-2">
 
-                  {booking.deliveryConfirmationStatus !== "NOT_REQUESTED"
+                  {booking.deliveryConfirmationStatus !==
+                  "NOT_REQUESTED"
 
                     ? badge(
                         deliveryConfirmLabel[
                           booking.deliveryConfirmationStatus
-                        ] ?? booking.deliveryConfirmationStatus,
+                        ] ??
+                          booking.deliveryConfirmationStatus,
 
                         booking.deliveryConfirmationStatus ===
                         "AWAITING_CONFIRMATION"
@@ -660,10 +766,14 @@ export default async function BookingPage({
                       )
 
                     : badge(
-                        shippingLabel[booking.shippingStatus] ??
+                        shippingLabel[
+                          booking.shippingStatus
+                        ] ??
                           booking.shippingStatus,
 
-                        shippingClass[booking.shippingStatus] ??
+                        shippingClass[
+                          booking.shippingStatus
+                        ] ??
                           "bg-gray-100 text-gray-800 border-gray-200"
                       )}
 
@@ -678,7 +788,9 @@ export default async function BookingPage({
 
                     <span className="font-medium text-gray-700">
 
-                      {shippingLabel[booking.shippingStatus] ??
+                      {shippingLabel[
+                        booking.shippingStatus
+                      ] ??
                         booking.shippingStatus}
 
                     </span>
@@ -694,7 +806,8 @@ export default async function BookingPage({
                   </div>
 
                   <div>
-                    Numer śledzenia: {booking.trackingNumber ?? "—"}
+                    Numer śledzenia:{" "}
+                    {booking.trackingNumber ?? "—"}
                   </div>
 
                   <div>
@@ -706,11 +819,13 @@ export default async function BookingPage({
                   </div>
 
                   <div>
-                    Potwierdzone: {fmt(booking.deliveryConfirmedAt)}
+                    Potwierdzone:{" "}
+                    {fmt(booking.deliveryConfirmedAt)}
                   </div>
 
                   <div>
-                    Potwierdź do: {fmt(booking.deliveryConfirmBy)}
+                    Potwierdź do:{" "}
+                    {fmt(booking.deliveryConfirmBy)}
                   </div>
 
                 </div>
@@ -735,16 +850,22 @@ export default async function BookingPage({
 
                 )}
 
-                {canOwnerEditShipping && !deliveryLocked && (
+                {canOwnerEditShipping &&
+                  !deliveryLocked && (
 
                   <ShippingForm
                     bookingId={id}
                     initial={{
-                      shippingStatus: booking.shippingStatus,
-                      carrier: booking.carrier,
-                      trackingNumber: booking.trackingNumber,
-                      shippedAt: booking.shippedAt,
-                      deliveredAt: booking.deliveredAt,
+                      shippingStatus:
+                        booking.shippingStatus,
+                      carrier:
+                        booking.carrier,
+                      trackingNumber:
+                        booking.trackingNumber,
+                      shippedAt:
+                        booking.shippedAt,
+                      deliveredAt:
+                        booking.deliveredAt,
                     }}
                   />
 
@@ -781,12 +902,14 @@ export default async function BookingPage({
 
                 <div className="flex flex-wrap items-center gap-2">
 
-                  {booking.returnConfirmationStatus !== "NOT_REQUESTED"
+                  {booking.returnConfirmationStatus !==
+                  "NOT_REQUESTED"
 
                     ? badge(
                         returnConfirmLabel[
                           booking.returnConfirmationStatus
-                        ] ?? booking.returnConfirmationStatus,
+                        ] ??
+                          booking.returnConfirmationStatus,
 
                         booking.returnConfirmationStatus ===
                         "AWAITING_CONFIRMATION"
@@ -804,10 +927,14 @@ export default async function BookingPage({
                       )
 
                     : badge(
-                        shippingLabel[booking.returnStatus] ??
+                        shippingLabel[
+                          booking.returnStatus
+                        ] ??
                           booking.returnStatus,
 
-                        shippingClass[booking.returnStatus] ??
+                        shippingClass[
+                          booking.returnStatus
+                        ] ??
                           "bg-gray-100 text-gray-800 border-gray-200"
                       )}
 
@@ -822,7 +949,9 @@ export default async function BookingPage({
 
                     <span className="font-medium text-gray-700">
 
-                      {shippingLabel[booking.returnStatus] ??
+                      {shippingLabel[
+                        booking.returnStatus
+                      ] ??
                         booking.returnStatus}
 
                     </span>
@@ -834,7 +963,8 @@ export default async function BookingPage({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
 
                   <div>
-                    Przewoźnik: {booking.returnCarrier ?? "—"}
+                    Przewoźnik:{" "}
+                    {booking.returnCarrier ?? "—"}
                   </div>
 
                   <div>
@@ -843,19 +973,23 @@ export default async function BookingPage({
                   </div>
 
                   <div>
-                    Wysłano: {fmt(booking.returnShippedAt)}
+                    Wysłano:{" "}
+                    {fmt(booking.returnShippedAt)}
                   </div>
 
                   <div>
-                    Odebrano: {fmt(booking.returnDeliveredAt)}
+                    Odebrano:{" "}
+                    {fmt(booking.returnDeliveredAt)}
                   </div>
 
                   <div>
-                    Potwierdzone: {fmt(booking.returnConfirmedAt)}
+                    Potwierdzone:{" "}
+                    {fmt(booking.returnConfirmedAt)}
                   </div>
 
                   <div>
-                    Potwierdź do: {fmt(booking.returnConfirmBy)}
+                    Potwierdź do:{" "}
+                    {fmt(booking.returnConfirmBy)}
                   </div>
 
                 </div>
@@ -886,8 +1020,10 @@ export default async function BookingPage({
                     bookingId={id}
                     locked={returnLocked}
                     initial={{
-                      returnStatus: booking.returnStatus,
-                      returnCarrier: booking.returnCarrier,
+                      returnStatus:
+                        booking.returnStatus,
+                      returnCarrier:
+                        booking.returnCarrier,
                       returnTrackingNumber:
                         booking.returnTrackingNumber,
                     }}
@@ -895,7 +1031,8 @@ export default async function BookingPage({
 
                 )}
 
-                {!canRenterEditReturn && !returnLocked && (
+                {!canRenterEditReturn &&
+                  !returnLocked && (
 
                   <p className="text-xs text-gray-500">
 
@@ -931,10 +1068,14 @@ export default async function BookingPage({
                 <div className="flex flex-wrap items-center gap-2">
 
                   {badge(
-                    depositLabel[booking.depositStatus] ??
+                    depositLabel[
+                      booking.depositStatus
+                    ] ??
                       booking.depositStatus,
 
-                    depositClass[booking.depositStatus] ??
+                    depositClass[
+                      booking.depositStatus
+                    ] ??
                       "bg-gray-100 text-gray-800 border-gray-200"
                   )}
 
@@ -944,22 +1085,30 @@ export default async function BookingPage({
 
                   <div>
                     Kaucja pobrana:{" "}
-                    {moneyCents(booking.depositCents)}
+                    {moneyCents(
+                      booking.depositCents
+                    )}
                   </div>
 
                   <div>
                     Zwrócono:{" "}
-                    {moneyCents(booking.depositRefundedCents)}
+                    {moneyCents(
+                      booking.depositRefundedCents
+                    )}
                   </div>
 
                   <div>
                     Zatrzymano:{" "}
-                    {moneyCents(booking.depositRetainedCents)}
+                    {moneyCents(
+                      booking.depositRetainedCents
+                    )}
                   </div>
 
                   <div>
                     Data zwrotu:{" "}
-                    {fmt(booking.depositRefundedAt)}
+                    {fmt(
+                      booking.depositRefundedAt
+                    )}
                   </div>
 
                 </div>
@@ -968,7 +1117,8 @@ export default async function BookingPage({
 
                   <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-3">
 
-                    Ostatni błąd: {booking.depositLastError}
+                    Ostatni błąd:{" "}
+                    {booking.depositLastError}
 
                   </div>
 
@@ -997,7 +1147,8 @@ export default async function BookingPage({
                   <DepositActions
                     bookingId={booking.id}
                     depositZl={Math.round(
-                      (booking.depositCents ?? 0) / 100
+                      (booking.depositCents ?? 0) /
+                        100
                     )}
                   />
 
@@ -1024,7 +1175,8 @@ export default async function BookingPage({
           OWNER ACTIONS
       ====================================================== */}
 
-      {isOwner && booking.status === "PENDING" && (
+      {isOwner &&
+        booking.status === "PENDING" && (
 
         <section className="p-4 border rounded bg-white">
 
