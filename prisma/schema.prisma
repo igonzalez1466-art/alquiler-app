@@ -19,37 +19,34 @@ model User {
   verificationCode      String?
   verificationExpiresAt DateTime?
 
+  // Stripe Connect account del usuario cuando actúa como owner.
+  stripeAccountId String? @unique
+
   role Role @default(USER)
 
   accounts            Account[]
-  sessions            Session[]
+  ownedBookings       Booking[]      @relation("BookingOwner")
+  bookings            Booking[]      @relation("BookingRenter")
+  buyerConversations  Conversation[] @relation("BuyerConversations")
+  sellerConversations Conversation[] @relation("SellerConversations")
   listings            Listing[]
   messages            Message[]
   reviewsReceived     Review[]       @relation("UserReviewsReceived")
   reviewsAuthored     Review[]       @relation("UserReviewsAuthored")
-  sellerConversations Conversation[] @relation("SellerConversations")
-  buyerConversations  Conversation[] @relation("BuyerConversations")
-
-  // Bookings donde el usuario es INQUILINO
-  bookings Booking[] @relation("BookingRenter")
-
-  // Bookings donde el usuario es DUEÑO
-  ownedBookings Booking[] @relation("BookingOwner")
+  sessions            Session[]
 }
 
 model Listing {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String?
   pricePerDay Int
   city        String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime     @default(now())
   userId      String
-
-  estado      Estado      @default(USADO)
+  estado      Estado       @default(USADO)
   fianza      Int?
-  metodoEnvio MetodoEnvio @default(RECOGIDA_LOCAL)
-
+  metodoEnvio MetodoEnvio  @default(RECOGIDA_LOCAL)
   marca       String?
   lat         Float?
   lng         Float?
@@ -129,21 +126,20 @@ model VerificationToken {
 }
 
 model Conversation {
-  id               String    @id @default(cuid())
+  id               String                   @id @default(cuid())
   listingId        String
   buyerId          String
   sellerId         String
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime                 @default(now())
   buyerLastReadAt  DateTime?
   sellerLastReadAt DateTime?
+  status           ConversationStatus       @default(OPEN)
+  closedAt         DateTime?
+  closedReason     ConversationCloseReason?
 
-  status       ConversationStatus       @default(OPEN)
-  closedAt     DateTime?
-  closedReason ConversationCloseReason?
-
-  seller   User      @relation("SellerConversations", fields: [sellerId], references: [id])
   buyer    User      @relation("BuyerConversations", fields: [buyerId], references: [id])
   listing  Listing   @relation(fields: [listingId], references: [id])
+  seller   User      @relation("SellerConversations", fields: [sellerId], references: [id])
   messages Message[]
 
   @@unique([listingId, buyerId])
@@ -160,8 +156,8 @@ model Message {
   text           String
   createdAt      DateTime @default(now())
 
-  sender       User         @relation(fields: [senderId], references: [id])
   conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation(fields: [senderId], references: [id])
 
   @@index([conversationId])
 }
@@ -175,8 +171,8 @@ model Booking {
   ownerId   String
 
   listing Listing @relation(fields: [listingId], references: [id])
-  renter  User    @relation("BookingRenter", fields: [renterId], references: [id])
   owner   User    @relation("BookingOwner", fields: [ownerId], references: [id])
+  renter  User    @relation("BookingRenter", fields: [renterId], references: [id])
 
   reviews Review[]
 
@@ -195,49 +191,46 @@ model Booking {
   // SNAPSHOT ECONÓMICO DE LA RESERVA
   // ==========================================================
 
-  // Campo existente.
-  // Actualmente utilizado por el flujo de pago para guardar
-  // el importe del alquiler confirmado/pagado.
+  // Importe del alquiler utilizado por el flujo de pago.
   amountCents Int?
 
-  // Precio por día congelado cuando se crea la reserva.
-  // Ejemplo: 40 zł = 4000 grosze.
+  // Precio por día congelado al crear la reserva.
   pricePerDayCents Int?
 
-  // Importe total del alquiler SIN incluir la kaucja.
-  // Ejemplo: 4 días x 40 zł = 16000 grosze.
+  // Importe total del alquiler sin incluir la kaucja.
   rentAmountCents Int?
 
   // Comisión de MojaSzafa expresada en basis points.
-  //
-  // 100  = 1.00%
-  // 1500 = 15.00%
-  // 1550 = 15.50%
-  // 1800 = 18.00%
-  //
-  // No ponemos @default(1500) para no aplicar automáticamente
-  // el 15% a reservas históricas.
+  // 1500 = 15.00 %
   platformFeeRate Int?
 
   // Importe de la comisión de MojaSzafa.
-  //
-  // Ejemplo:
-  // rentAmountCents = 16000
-  // platformFeeRate = 1500
-  // platformFeeCents = 2400
   platformFeeCents Int?
 
   // Importe neto del alquiler que corresponde al owner.
-  //
   // rentAmountCents - platformFeeCents
-  //
-  // Ejemplo:
-  // 16000 - 2400 = 13600
   ownerPayoutCents Int?
 
   // Kaucja congelada para esta reserva.
-  // La kaucja NO está sujeta a la comisión MojaSzafa.
+  // La kaucja NO está sujeta a comisión.
   depositCents Int?
+
+  // ==========================================================
+  // STRIPE CONNECT / TRANSFERENCIAS AL OWNER
+  // ==========================================================
+
+  // Transferencia Stripe del alquiler neto al owner.
+  // Este importe ya tiene descontada la comisión de MojaSzafa.
+  ownerTransferId    String?   @unique
+  ownerTransferCents Int?
+  ownerTransferredAt DateTime?
+
+  // Transferencia Stripe de la parte retenida de la kaucja
+  // que corresponde al owner como compensación.
+  // Esta cantidad NO tiene comisión de MojaSzafa.
+  depositTransferId       String?   @unique
+  depositTransferredCents Int?
+  depositTransferredAt    DateTime?
 
   // ==========================================================
   // Kaucja / depósito
@@ -257,8 +250,9 @@ model Booking {
   depositDecisionById        String?
   depositRetentionReason     String?
   depositRetentionReasonCode String?
-  paidAt                     DateTime?
-  refundedAt                 DateTime?
+
+  paidAt     DateTime?
+  refundedAt DateTime?
 
   // ==========================================================
   // Envío
@@ -331,9 +325,9 @@ model Review {
   comment    String?
   createdAt  DateTime   @default(now())
 
+  booking  Booking @relation(fields: [bookingId], references: [id])
   reviewee User    @relation("UserReviewsReceived", fields: [revieweeId], references: [id])
   reviewer User    @relation("UserReviewsAuthored", fields: [reviewerId], references: [id])
-  booking  Booking @relation(fields: [bookingId], references: [id])
 
   @@unique([bookingId, reviewerId, revieweeId])
   @@index([revieweeId])
