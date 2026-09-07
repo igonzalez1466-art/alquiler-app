@@ -8,7 +8,19 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 
-// ===== Helper días (incluye el día inicial) =====
+/* ============================================================
+   CONFIGURACIÓN ECONÓMICA
+============================================================ */
+
+// Basis points:
+// 1500 = 15.00%
+const PLATFORM_FEE_RATE = 1500;
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+// Días de alquiler, incluyendo día inicial y final
 function diffDaysInclusive(a: Date, b: Date) {
   const start = new Date(
     Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
@@ -19,16 +31,18 @@ function diffDaysInclusive(a: Date, b: Date) {
   );
 
   return (
-    Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1
+    Math.floor(
+      (end.getTime() - start.getTime()) / 86_400_000
+    ) + 1
   );
 }
 
-// ===== Pluralización polaca =====
+// Pluralización polaca
 function pluralPLDay(n: number) {
   return n === 1 ? "dzień" : "dni";
 }
 
-// ===== Base URL estable para emails =====
+// Base URL estable para emails
 function getEmailBaseUrl(): string {
   const raw =
     process.env.APP_URL || "http://localhost:3000";
@@ -38,7 +52,7 @@ function getEmailBaseUrl(): string {
     : raw;
 }
 
-// ===== Firma fija =====
+// Firma fija
 function emailSignature() {
   return `
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
@@ -49,14 +63,15 @@ function emailSignature() {
     </p>
 
     <p style="margin-top:6px; font-size:11px; color:#888;">
-      Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.
+      Ta wiadomość została wysłana automatycznie —
+      prosimy na nią nie odpowiadać.
     </p>
   `;
 }
 
-// ============================================================
-// START CHAT
-// ============================================================
+/* ============================================================
+   START CHAT
+============================================================ */
 
 export async function startChatAction(formData: FormData) {
   const session = (await getServerSession(
@@ -98,7 +113,7 @@ export async function startChatAction(formData: FormData) {
     });
 
   if (existing) {
-    // Si estaba cerrada, la reabrimos al abrir el chat manualmente
+    // Si estaba cerrada, la reabrimos
     await prisma.conversation.updateMany({
       where: {
         id: existing.id,
@@ -132,9 +147,9 @@ export async function startChatAction(formData: FormData) {
   redirect(`/chat/${created.id}`);
 }
 
-// ============================================================
-// CREATE BOOKING + EMAILS
-// ============================================================
+/* ============================================================
+   CREATE BOOKING + EMAILS
+============================================================ */
 
 export async function createBookingAction(
   formData: FormData
@@ -149,9 +164,9 @@ export async function createBookingAction(
     redirect("/login");
   }
 
-  // ==========================================================
-  // FORM DATA
-  // ==========================================================
+  /* ==========================================================
+     FORM DATA
+  ========================================================== */
 
   const listingId =
     formData.get("listingId")?.toString();
@@ -186,9 +201,9 @@ export async function createBookingAction(
     );
   }
 
-  // ==========================================================
-  // LISTING
-  // ==========================================================
+  /* ==========================================================
+     LISTING
+  ========================================================== */
 
   const listing =
     await prisma.listing.findUnique({
@@ -231,9 +246,72 @@ export async function createBookingAction(
     );
   }
 
-  // ==========================================================
-  // CREATE BOOKING
-  // ==========================================================
+  /* ==========================================================
+     SNAPSHOT ECONÓMICO
+
+     Se calcula ANTES de crear Booking.
+
+     A partir de este momento, los cambios posteriores
+     en Listing.pricePerDay o Listing.fianza no deben
+     modificar la economía de esta reserva.
+  ========================================================== */
+
+  const days =
+    diffDaysInclusive(
+      startDate,
+      endDate
+    );
+
+  if (days <= 0) {
+    redirect(
+      `/listing/${listingId}?error=fechas-invalidas`
+    );
+  }
+
+  if (
+    !listing.pricePerDay ||
+    listing.pricePerDay <= 0
+  ) {
+    redirect(
+      `/listing/${listingId}?error=precio-invalido`
+    );
+  }
+
+  if (
+    listing.fianza !== null &&
+    listing.fianza < 0
+  ) {
+    redirect(
+      `/listing/${listingId}?error=fianza-invalida`
+    );
+  }
+
+  // Precio diario congelado
+  const pricePerDayCents =
+    listing.pricePerDay * 100;
+
+  // Alquiler completo
+  const rentAmountCents =
+    days * pricePerDayCents;
+
+  // Fianza: NO está sujeta a comisión
+  const depositCents =
+    (listing.fianza ?? 0) * 100;
+
+  // Comisión MojaSzafa: 15% del alquiler
+  const platformFeeCents =
+    Math.round(
+      (rentAmountCents * PLATFORM_FEE_RATE) /
+        10_000
+    );
+
+  // Importe del alquiler correspondiente al owner
+  const ownerPayoutCents =
+    rentAmountCents - platformFeeCents;
+
+  /* ==========================================================
+     CREATE BOOKING
+  ========================================================== */
 
   const booking =
     await prisma.$transaction(async (tx) => {
@@ -288,6 +366,14 @@ export async function createBookingAction(
             endDate,
 
             status: "PENDING",
+
+            // Snapshot económico
+            pricePerDayCents,
+            rentAmountCents,
+            platformFeeRate: PLATFORM_FEE_RATE,
+            platformFeeCents,
+            ownerPayoutCents,
+            depositCents,
           },
 
           select: {
@@ -296,6 +382,14 @@ export async function createBookingAction(
             startDate: true,
             endDate: true,
             status: true,
+
+            // Snapshot económico
+            pricePerDayCents: true,
+            rentAmountCents: true,
+            platformFeeRate: true,
+            platformFeeCents: true,
+            ownerPayoutCents: true,
+            depositCents: true,
           },
         });
 
@@ -325,9 +419,9 @@ export async function createBookingAction(
       return newBooking;
     });
 
-  // ==========================================================
-  // RENTER
-  // ==========================================================
+  /* ==========================================================
+     RENTER
+  ========================================================== */
 
   const renter =
     await prisma.user.findUnique({
@@ -341,55 +435,36 @@ export async function createBookingAction(
       },
     });
 
-  // ==========================================================
-  // CÁLCULOS ECONÓMICOS
-  // ==========================================================
+  /* ==========================================================
+     IMPORTES PARA EMAIL
 
-  const days =
-    diffDaysInclusive(
-      startDate,
-      endDate
-    );
+     Usamos el mismo snapshot económico.
+     No volvemos a calcular desde Listing.
+  ========================================================== */
 
   const alquiler =
-    days * listing.pricePerDay;
+    rentAmountCents / 100;
 
   const fianza =
-    listing.fianza ?? 0;
+    depositCents / 100;
 
   // Total que pagará el renter
   const total =
-    alquiler + fianza;
+    (rentAmountCents + depositCents) / 100;
 
-  // ==========================================================
-  // COMISIÓN MOJASZAFA
-  // ==========================================================
-  //
-  // TEMPORAL:
-  // Comisión fija del 15%.
-  //
-  // Se calcula EXCLUSIVAMENTE sobre el alquiler.
-  // La fianza NO está sujeta a comisión.
-  //
-  // Más adelante estos valores deberían guardarse
-  // como snapshot económico dentro de Booking.
-  //
-  // ==========================================================
-
-  const platformFeePercent = 15;
+  // 1500 basis points -> 15
+  const platformFeePercent =
+    PLATFORM_FEE_RATE / 100;
 
   const platformFee =
-    Math.round(
-      alquiler *
-        (platformFeePercent / 100)
-    );
+    platformFeeCents / 100;
 
   const ownerEarnings =
-    alquiler - platformFee;
+    ownerPayoutCents / 100;
 
-  // ==========================================================
-  // FORMATTERS
-  // ==========================================================
+  /* ==========================================================
+     FORMATTERS
+  ========================================================== */
 
   const d = (x: Date) =>
     x.toLocaleDateString(
@@ -422,15 +497,15 @@ export async function createBookingAction(
   const bookingUrl =
     `${baseUrl}/bookings/${booking.id}`;
 
-  // ==========================================================
-  // EMAILS
-  // ==========================================================
+  /* ==========================================================
+     EMAILS
+  ========================================================== */
 
   await Promise.allSettled([
 
-    // ========================================================
-    // OWNER EMAIL
-    // ========================================================
+    /* ========================================================
+       OWNER EMAIL
+    ======================================================== */
 
     ownerTo
       ? sendMail({
@@ -606,13 +681,11 @@ export async function createBookingAction(
         })
       : Promise.resolve(),
 
-    // ========================================================
-    // RENTER EMAIL
-    // ========================================================
-    //
-    // El renter NO ve información sobre la comisión.
-    //
-    // ========================================================
+    /* ========================================================
+       RENTER EMAIL
+
+       El renter NO ve información sobre la comisión.
+    ======================================================== */
 
     renterTo
       ? sendMail({
@@ -728,9 +801,9 @@ export async function createBookingAction(
       : Promise.resolve(),
   ]);
 
-  // ==========================================================
-  // REVALIDATE + REDIRECT
-  // ==========================================================
+  /* ==========================================================
+     REVALIDATE + REDIRECT
+  ========================================================== */
 
   revalidatePath(
     `/listing/${listingId}`
