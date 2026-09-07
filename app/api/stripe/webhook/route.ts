@@ -48,48 +48,39 @@ export async function POST(req: Request) {
   if (!secretKey || !webhookSecret) {
     console.error("Missing Stripe env vars");
 
-    return new NextResponse(
-      "Missing Stripe env vars",
-      { status: 500 }
-    );
+    return new NextResponse("Missing Stripe env vars", {
+      status: 500,
+    });
   }
 
   const stripe = new Stripe(secretKey, {
     apiVersion: "2025-09-30.clover",
   });
 
-  const sig =
-    req.headers.get("stripe-signature");
+  const sig = req.headers.get("stripe-signature");
 
   if (!sig) {
-    return new NextResponse(
-      "Missing stripe-signature",
-      { status: 400 }
-    );
+    return new NextResponse("Missing stripe-signature", {
+      status: 400,
+    });
   }
 
-  const rawBody =
-    await req.text();
+  const rawBody = await req.text();
 
   let event: Stripe.Event;
 
   try {
-    event =
-      stripe.webhooks.constructEvent(
-        rawBody,
-        sig,
-        webhookSecret
-      );
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      webhookSecret
+    );
   } catch (err) {
-    console.error(
-      "Webhook signature failed",
-      err
-    );
+    console.error("Webhook signature failed", err);
 
-    return new NextResponse(
-      "Invalid signature",
-      { status: 400 }
-    );
+    return new NextResponse("Invalid signature", {
+      status: 400,
+    });
   }
 
   // ==========================================================
@@ -98,7 +89,6 @@ export async function POST(req: Request) {
 
   try {
     switch (event.type) {
-
       // ======================================================
       // PAYMENT SUCCESS
       // ======================================================
@@ -132,14 +122,20 @@ export async function POST(req: Request) {
         // ====================================================
         // AMOUNTS FROM STRIPE METADATA
         // ====================================================
+        //
+        // Estos importes vienen del PaymentIntent.
+        // Para reservas nuevas NO son la fuente principal
+        // de verdad: Booking contiene el snapshot económico.
+        //
+        // ====================================================
 
-        const rentAmountCents =
+        const stripeRentAmountCents =
           Number(
             pi.metadata?.rentAmountCents ??
               "0"
           );
 
-        const depositAmountCents =
+        const stripeDepositAmountCents =
           Number(
             pi.metadata?.depositAmountCents ??
               "0"
@@ -175,6 +171,121 @@ export async function POST(req: Request) {
           break;
         }
 
+        // ====================================================
+        // ECONOMIC SNAPSHOT
+        // ====================================================
+        //
+        // Booking es la fuente de verdad económica.
+        //
+        // Para reservas antiguas que todavía no tengan
+        // snapshot utilizamos los importes recibidos de Stripe
+        // como fallback.
+        //
+        // ====================================================
+
+        const rentAmountCents =
+          existingBooking.rentAmountCents ??
+          stripeRentAmountCents;
+
+        const depositAmountCents =
+          existingBooking.depositCents ??
+          stripeDepositAmountCents;
+
+        const platformFeeRate =
+          existingBooking.platformFeeRate;
+
+        const platformFeeCents =
+          existingBooking.platformFeeCents;
+
+        const ownerPayoutCents =
+          existingBooking.ownerPayoutCents;
+
+        // ====================================================
+        // BASIC AMOUNT VALIDATION
+        // ====================================================
+
+        if (
+          !Number.isFinite(rentAmountCents) ||
+          rentAmountCents <= 0 ||
+          !Number.isFinite(depositAmountCents) ||
+          depositAmountCents < 0
+        ) {
+          throw new Error(
+            `Invalid booking amounts for ${bookingId}`
+          );
+        }
+
+        // ====================================================
+        // COMPLETE SNAPSHOT?
+        // ====================================================
+
+        const hasEconomicSnapshot =
+          existingBooking.rentAmountCents != null &&
+          existingBooking.depositCents != null &&
+          platformFeeRate != null &&
+          platformFeeCents != null &&
+          ownerPayoutCents != null;
+
+        // ====================================================
+        // VALIDATE STRIPE AGAINST SNAPSHOT
+        // ====================================================
+        //
+        // Si la reserva tiene snapshot completo, Stripe debe
+        // contener exactamente los mismos importes.
+        //
+        // ====================================================
+
+        if (hasEconomicSnapshot) {
+          if (
+            stripeRentAmountCents !==
+              rentAmountCents ||
+            stripeDepositAmountCents !==
+              depositAmountCents
+          ) {
+            console.error(
+              "Stripe metadata does not match booking snapshot",
+              {
+                bookingId,
+
+                stripeRentAmountCents,
+                bookingRentAmountCents:
+                  rentAmountCents,
+
+                stripeDepositAmountCents,
+                bookingDepositAmountCents:
+                  depositAmountCents,
+              }
+            );
+
+            throw new Error(
+              `Stripe amounts do not match booking snapshot for ${bookingId}`
+            );
+          }
+
+          // La comisión + pago al owner debe ser
+          // exactamente igual al alquiler.
+          if (
+            platformFeeCents +
+              ownerPayoutCents !==
+            rentAmountCents
+          ) {
+            console.error(
+              "Invalid economic snapshot",
+              {
+                bookingId,
+                rentAmountCents,
+                platformFeeRate,
+                platformFeeCents,
+                ownerPayoutCents,
+              }
+            );
+
+            throw new Error(
+              `Invalid economic snapshot for ${bookingId}`
+            );
+          }
+        }
+
         // Evita enviar el email otra vez si Stripe
         // reintenta el webhook.
         const wasAlreadyPaid =
@@ -205,11 +316,13 @@ export async function POST(req: Request) {
 
             cancelledAt: null,
 
-            // Importe del alquiler
+            // Importe del alquiler.
+            // Para reservas nuevas procede del snapshot.
             amountCents:
               rentAmountCents,
 
-            // Kaucja
+            // Kaucja.
+            // Para reservas nuevas procede del snapshot.
             depositCents:
               depositAmountCents,
 
@@ -287,36 +400,39 @@ export async function POST(req: Request) {
             depositAmountCents;
 
           // ==================================================
-          // COMISIÓN MOJASZAFA
+          // ECONOMIC SNAPSHOT FOR OWNER EMAIL
           // ==================================================
           //
-          // TEMPORAL:
-          // Comisión fija del 15%.
+          // Para reservas nuevas estos valores salen
+          // directamente del snapshot.
           //
-          // IMPORTANTE:
-          // Se calcula solamente sobre el alquiler.
-          // La kaucja no tiene comisión.
-          //
-          // Más adelante estos valores deberán guardarse
-          // como snapshot en Booking.
+          // El 1500 solamente actúa como fallback para
+          // reservas históricas que no tengan snapshot.
           //
           // ==================================================
 
-          const platformFeePercent =
-            15;
+          const emailPlatformFeeRate =
+            platformFeeRate ??
+            1500;
 
-          const platformFeeCents =
+          const emailPlatformFeeCents =
+            platformFeeCents ??
             Math.round(
-              rentAmountCents *
-                (
-                  platformFeePercent /
-                  100
-                )
+              (
+                rentAmountCents *
+                emailPlatformFeeRate
+              ) /
+                10_000
             );
 
-          const ownerEarningsCents =
+          const emailOwnerEarningsCents =
+            ownerPayoutCents ??
             rentAmountCents -
-            platformFeeCents;
+              emailPlatformFeeCents;
+
+          const platformFeePercent =
+            emailPlatformFeeRate /
+            100;
 
           // ==================================================
           // DIRECT BOOKING URL
@@ -426,7 +542,7 @@ export async function POST(req: Request) {
       </strong>
 
       −${moneyPLNFromCents(
-        platformFeeCents
+        emailPlatformFeeCents
       )}
 
     </p>
@@ -455,7 +571,7 @@ export async function POST(req: Request) {
         "
       >
         ${moneyPLNFromCents(
-          ownerEarningsCents
+          emailOwnerEarningsCents
         )}
       </span>
 
@@ -639,11 +755,11 @@ export async function POST(req: Request) {
 
         const allowedStatuses:
           DepositStatus[] = [
-          DepositStatus.PAID,
-          DepositStatus.REFUND_PENDING,
-          DepositStatus.PARTIALLY_REFUNDED,
-          DepositStatus.REFUNDED,
-        ];
+            DepositStatus.PAID,
+            DepositStatus.REFUND_PENDING,
+            DepositStatus.PARTIALLY_REFUNDED,
+            DepositStatus.REFUNDED,
+          ];
 
         if (
           !allowedStatuses.includes(
