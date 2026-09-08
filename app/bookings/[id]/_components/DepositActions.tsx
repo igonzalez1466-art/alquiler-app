@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   releaseDepositAction,
   partialReleaseDepositAction,
   retainDepositAction,
+  retrySettlementAction,
 } from "../_actions/depositActions";
 
 type Mode = "refund" | "partial" | "retain";
@@ -30,10 +32,13 @@ const RETENTION_REASON_OPTIONS: { value: RetentionReasonCode; label: string }[] 
 export default function DepositActions({
   bookingId,
   depositZl,
+  settlementPending = false,
 }: {
   bookingId: string;
   depositZl: number;
+  settlementPending?: boolean;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("refund");
   const [loading, setLoading] = useState(false);
 
@@ -55,6 +60,23 @@ export default function DepositActions({
   const retained = depositZl - safeAmount;
 
   const reasonRequired = mode === "partial" || mode === "retain";
+
+  if (settlementPending) return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <p>Rozliczenie rozpoczęte. Kwota i powód są zapisane i nie można ich zmienić.</p>
+      <button disabled={loading} className="mt-3 rounded bg-zinc-900 px-4 py-2 text-white disabled:opacity-50"
+        onClick={async () => {
+          setLoading(true);
+          try {
+            const form = new FormData();
+            form.set("bookingId", bookingId);
+            await retrySettlementAction(form);
+            window.location.reload();
+          } catch (error) { alert(error instanceof Error ? error.message : "Błąd rozliczenia"); }
+          finally { setLoading(false); router.refresh(); }
+        }}>{loading ? "Przetwarzanie…" : "Ponów rozliczenie"}</button>
+    </section>
+  );
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -143,7 +165,7 @@ export default function DepositActions({
               setLoading(true);
               await releaseDepositAction(formData);
             } finally {
-              setLoading(false);
+              setLoading(false); router.refresh();
             }
           }}
           className="space-y-4"
@@ -176,7 +198,7 @@ export default function DepositActions({
               setLoading(true);
               await partialReleaseDepositAction(formData);
             } finally {
-              setLoading(false);
+              setLoading(false); router.refresh();
             }
           }}
           className="space-y-4"
@@ -295,7 +317,7 @@ export default function DepositActions({
               setLoading(true);
               await retainDepositAction(formData);
             } finally {
-              setLoading(false);
+              setLoading(false); router.refresh();
             }
           }}
           className="space-y-4"

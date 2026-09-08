@@ -191,6 +191,8 @@ export default async function BookingPage({
 
       // ===== Deposit =====
       depositStatus: true,
+      settlementDecision: true,
+      settlementCompletedAt: true,
       depositPaidAt: true,
       depositRefundedAt: true,
       depositRefundedCents: true,
@@ -383,7 +385,7 @@ export default async function BookingPage({
     returnCompleted &&
     !!booking.depositCents &&
     booking.depositCents > 0 &&
-    booking.depositStatus === "PAID";
+    (booking.depositStatus === "PAID" || (!!booking.settlementDecision && !booking.settlementCompletedAt));
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -1145,6 +1147,7 @@ export default async function BookingPage({
                 ) : canOwnerManageDeposit ? (
 
                   <DepositActions
+                    settlementPending={!!booking.settlementDecision && !booking.settlementCompletedAt}
                     bookingId={booking.id}
                     depositZl={Math.round(
                       (booking.depositCents ?? 0) /

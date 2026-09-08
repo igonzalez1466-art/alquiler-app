@@ -162,7 +162,26 @@ model Message {
   @@index([conversationId])
 }
 
+model SettlementOperation {
+  id String @id @default(cuid())
+  bookingId String
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  kind String
+  params Json
+  attempt Int @default(1)
+  status String @default("READY")
+  startedAt DateTime?
+  stripeId String? @unique
+  amount Int?
+  lastErrorCode String?
+  @@unique([bookingId, kind])
+}
+
 model Booking {
+  settlementDecision Json?
+  settlementCompletedAt DateTime?
+  settlementLegacyReview Boolean @default(false)
+  settlementOperations SettlementOperation[]
   id            String @id @default(cuid())
   bookingNumber Int    @unique @default(autoincrement())
 

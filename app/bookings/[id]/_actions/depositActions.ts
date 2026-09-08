@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { lockSettlementDecision, settlementOperation, finishSettlement, type SettlementDecision } from "@/app/lib/settlement";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -18,6 +19,10 @@ const RETENTION_REASON_CODES = [
 
 type RetentionReasonCode =
   (typeof RETENTION_REASON_CODES)[number];
+
+type OwnerBooking = Awaited<
+  ReturnType<typeof getOwnerBooking>
+>;
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -73,7 +78,9 @@ function getBookingUrl(bookingId: string) {
   return `${baseUrl.replace(/\/$/, "")}/bookings/${bookingId}`;
 }
 
-function parseReasonCode(value: FormDataEntryValue | null) {
+function parseReasonCode(
+  value: FormDataEntryValue | null
+) {
   const reasonCode = String(value || "");
 
   if (
@@ -97,7 +104,9 @@ async function sendDepositEmail({
   html: string;
 }) {
   if (!to) {
-    console.error("[DEPOSIT MAIL] Brak adresu e-mail najemcy");
+    console.error(
+      "[DEPOSIT MAIL] Brak adresu e-mail najemcy"
+    );
     return;
   }
 
@@ -108,7 +117,6 @@ async function sendDepositEmail({
       html: `${html}${emailSignature()}`,
     });
   } catch (error) {
-    // El correo no debe cancelar ni repetir una operación de Stripe.
     console.error(
       "[DEPOSIT MAIL] Nie udało się wysłać wiadomości:",
       error
@@ -161,17 +169,16 @@ async function getOwnerBooking(
   return booking;
 }
 
-function ensureDepositResolvable(booking: {
-  depositCents: number | null;
-  depositStatus: string;
-  depositPaymentIntentId: string | null;
-}) {
-  if (!booking.depositCents || booking.depositCents <= 0) {
-    throw new Error("Ta rezerwacja nie ma kaucji");
-  }
+/* =========================
+   VALIDATION
+========================= */
 
-  if (booking.depositStatus !== "PAID") {
-    throw new Error("Kaucja została już rozliczona");
+function getDepositData(booking: OwnerBooking) {
+  if (
+    booking.depositCents == null ||
+    booking.depositCents <= 0
+  ) {
+    throw new Error("Ta rezerwacja nie ma kaucji");
   }
 
   if (!booking.depositPaymentIntentId) {
@@ -180,72 +187,232 @@ function ensureDepositResolvable(booking: {
 
   return {
     depositCents: booking.depositCents,
-    paymentIntentId: booking.depositPaymentIntentId,
+    paymentIntentId:
+      booking.depositPaymentIntentId,
   };
+}
+
+function ensureNewDepositDecision(
+  booking: OwnerBooking
+) {
+  if (booking.settlementDecision && !booking.settlementCompletedAt) return;
+
+  if (booking.depositStatus !== "PAID") {
+    throw new Error("Kaucja została już rozliczona");
+  }
+
+  if (booking.depositDecisionAt) {
+    throw new Error(
+      "Decyzja dotycząca kaucji została już podjęta"
+    );
+  }
+}
+
+function validateEconomicSnapshot(
+  booking: OwnerBooking
+) {
+  if (
+    booking.rentAmountCents == null ||
+    booking.platformFeeCents == null ||
+    booking.ownerPayoutCents == null ||
+    booking.ownerPayoutCents <= 0
+  ) {
+    throw new Error(
+      "Brak kompletnego snapshotu ekonomicznego rezerwacji"
+    );
+  }
+
+  if (
+    booking.rentAmountCents !==
+    booking.platformFeeCents +
+      booking.ownerPayoutCents
+  ) {
+    throw new Error(
+      "Nieprawidłowy snapshot ekonomiczny rezerwacji"
+    );
+  }
+
+  return {
+    ownerPayoutCents:
+      booking.ownerPayoutCents,
+  };
+}
+
+async function ensureOwnerConnectReady(
+  booking: OwnerBooking
+) {
+  const stripeAccountId =
+    booking.listing.user.stripeAccountId;
+
+  if (!stripeAccountId) {
+    throw new Error(
+      "Właściciel nie ma skonfigurowanego konta wypłat"
+    );
+  }
+
+  const stripe = getStripe();
+
+  const account =
+    await stripe.accounts.retrieve(
+      stripeAccountId
+    );
+
+  if (
+    account.details_submitted !== true ||
+    account.payouts_enabled !== true ||
+    account.capabilities?.transfers !== "active"
+  ) {
+    throw new Error(
+      "Konto wypłat właściciela nie jest aktywne"
+    );
+  }
+
+  return stripeAccountId;
+}
+
+/* =========================
+   STRIPE OPERATIONS
+========================= */
+
+async function prepareSettlement(
+  booking: OwnerBooking, kind: SettlementDecision["kind"], refundCents: number,
+  reason: string | null = null, reasonCode: string | null = null,
+) {
+  const saved = booking.settlementDecision as SettlementDecision | null;
+  const destination = saved?.destination ?? await ensureOwnerConnectReady(booking);
+  const decision = await lockSettlementDecision(booking.id, {
+    kind, refundCents, retainedCents: getDepositData(booking).depositCents - refundCents,
+    reason, reasonCode, destination,
+    paymentIntent: saved?.paymentIntent ?? getDepositData(booking).paymentIntentId,
+    ownerCents: saved?.ownerCents ?? validateEconomicSnapshot(booking).ownerPayoutCents,
+  });
+  booking.settlementDecision = decision;
+}
+
+async function createOwnerRentalTransfer(booking: OwnerBooking) {
+  if (booking.ownerTransferId) return { id: booking.ownerTransferId, amount: booking.ownerTransferCents! };
+  const decision = booking.settlementDecision as SettlementDecision;
+  return settlementOperation(getStripe(), booking.id, "rent", {
+    amount: decision.ownerCents, currency: "pln", destination: decision.destination,
+    metadata: { bookingId: booking.id, bookingNumber: String(booking.bookingNumber), type: "rental_owner_payout" },
+  });
+}
+
+async function createDepositCompensationTransfer(booking: OwnerBooking, retainedCents: number) {
+  if (retainedCents <= 0) return null;
+  if (booking.depositTransferId) return { id: booking.depositTransferId, amount: booking.depositTransferredCents! };
+  const decision = booking.settlementDecision as SettlementDecision;
+  return settlementOperation(getStripe(), booking.id, "compensation", {
+    amount: decision.retainedCents, currency: "pln", destination: decision.destination,
+    metadata: { bookingId: booking.id, bookingNumber: String(booking.bookingNumber), type: "deposit_compensation" },
+  });
+}
+
+async function createDepositRefund(booking: OwnerBooking, refundCents: number, kind: "full" | "partial") {
+  if (booking.depositRefundId) return { id: booking.depositRefundId, amount: booking.depositRefundedCents! };
+  const decision = booking.settlementDecision as SettlementDecision;
+  if (refundCents !== decision.refundCents || kind !== decision.kind) throw new Error("Niezgodna decyzja zwrotu");
+  return settlementOperation(getStripe(), booking.id, "refund", {
+    amount: decision.refundCents, payment_intent: decision.paymentIntent,
+    metadata: { bookingId: booking.id, type: "deposit_refund" },
+  });
 }
 
 /* =========================
    FULL REFUND
 ========================= */
 
-export async function releaseDepositAction(formData: FormData) {
-  const session = await getServerSession(authConfig);
+export async function releaseDepositAction(
+  formData: FormData
+) {
+  const session =
+    await getServerSession(authConfig);
+
   const userId = session?.user?.id;
 
   if (!userId) {
     throw new Error("Brak dostępu");
   }
 
-  const bookingId = String(formData.get("bookingId") || "");
-
-  const booking = await getOwnerBooking(bookingId, userId);
-
-  const { depositCents, paymentIntentId } =
-    ensureDepositResolvable(booking);
-
-  const stripe = getStripe();
-
-  const refund = await stripe.refunds.create(
-    {
-      payment_intent: paymentIntentId,
-      amount: depositCents,
-    },
-    {
-      idempotencyKey: `deposit-full-refund-${booking.id}`,
-    }
+  const bookingId = String(
+    formData.get("bookingId") || ""
   );
 
-  await prisma.booking.update({
-    where: {
-      id: booking.id,
-    },
-    data: {
+  const booking =
+    await getOwnerBooking(
+      bookingId,
+      userId
+    );
+
+  ensureNewDepositDecision(booking);
+
+  const { depositCents } =
+    getDepositData(booking);
+
+
+  await prepareSettlement(booking, "full", depositCents);
+
+  const ownerTransfer =
+    await createOwnerRentalTransfer(booking);
+
+  const refund =
+    await createDepositRefund(
+      booking,
+      depositCents,
+      "full"
+    );
+
+  const completed = await finishSettlement(booking.id, {
       depositStatus: "REFUND_PENDING",
+
       depositRefundId: refund.id,
-      depositRefundedCents: depositCents,
+      depositRefundedCents:
+        depositCents,
       depositRetainedCents: 0,
+
       depositDecisionAt: new Date(),
       depositDecisionById: userId,
       depositRetentionReason: null,
       depositRetentionReasonCode: null,
-    },
-  });
 
-  const bookingUrl = getBookingUrl(booking.id);
+      ownerTransferId:
+        ownerTransfer.id,
+      ownerTransferCents:
+        ownerTransfer.amount,
+      ownerTransferredAt: new Date(),
+
+      depositTransferId: null,
+      depositTransferredCents: null,
+      depositTransferredAt: null,
+  });
+  if (!completed) return;
+
+  console.log(
+    "[SETTLEMENT] full refund completed",
+    booking.id
+  );
+
+  const bookingUrl =
+    getBookingUrl(booking.id);
 
   await sendDepositEmail({
     to: booking.renter.email,
+
     subject:
       `Zwrot kaucji #${booking.bookingNumber}: ` +
       `${booking.listing.title}`,
+
     html: `
       <p style="margin:0 0 24px;color:#18181b;">
-        Cześć ${escapeHtml(booking.renter.name || "")},
+        Cześć ${escapeHtml(
+          booking.renter.name || ""
+        )},
       </p>
 
       <p style="margin:0 0 18px;color:#18181b;">
         Właściciel zdecydował o zwrocie pełnej kaucji
-        dla rezerwacji <strong>#${booking.bookingNumber}</strong>.
+        dla rezerwacji
+        <strong>#${booking.bookingNumber}</strong>.
       </p>
 
       <div style="
@@ -256,22 +423,23 @@ export async function releaseDepositAction(formData: FormData) {
         background:#fafafa;
       ">
         <p style="margin:0 0 14px;font-size:17px;color:#18181b;">
-          <strong>${escapeHtml(booking.listing.title)}</strong>
-        </p>
-
-        <p style="margin:0 0 8px;color:#18181b;">
-          <strong>Numer rezerwacji:</strong>
-          #${booking.bookingNumber}
+          <strong>${escapeHtml(
+            booking.listing.title
+          )}</strong>
         </p>
 
         <p style="margin:0 0 8px;color:#18181b;">
           <strong>Pobrana kaucja:</strong>
-          ${moneyPLNFromCents(depositCents)}
+          ${moneyPLNFromCents(
+            depositCents
+          )}
         </p>
 
         <p style="margin:0;color:#166534;">
           <strong>Kwota zwrotu:</strong>
-          ${moneyPLNFromCents(depositCents)}
+          ${moneyPLNFromCents(
+            depositCents
+          )}
         </p>
       </div>
 
@@ -283,7 +451,9 @@ export async function releaseDepositAction(formData: FormData) {
         background:#f0fdf4;
         color:#166534;
       ">
-        <strong>Pełny zwrot kaucji został zlecony.</strong>
+        <strong>
+          Pełny zwrot kaucji został zlecony.
+        </strong>
 
         <p style="margin:7px 0 0;">
           Czas zaksięgowania środków zależy od banku
@@ -316,7 +486,9 @@ export async function releaseDepositAction(formData: FormData) {
     `,
   });
 
-  revalidatePath(`/bookings/${booking.id}`);
+  revalidatePath(
+    `/bookings/${booking.id}`
+  );
 }
 
 /* =========================
@@ -326,76 +498,146 @@ export async function releaseDepositAction(formData: FormData) {
 export async function partialReleaseDepositAction(
   formData: FormData
 ) {
-  const session = await getServerSession(authConfig);
+  const session =
+    await getServerSession(authConfig);
+
   const userId = session?.user?.id;
 
   if (!userId) {
     throw new Error("Brak dostępu");
   }
 
-  const bookingId = String(formData.get("bookingId") || "");
+  const bookingId = String(
+    formData.get("bookingId") || ""
+  );
+
   const refundZl = Number(
     formData.get("refundAmountZl") || "0"
   );
-  const reason = String(formData.get("reason") || "").trim();
-  const reasonCode = parseReasonCode(
-    formData.get("reasonCode")
-  );
 
-  const booking = await getOwnerBooking(bookingId, userId);
+  const reason = String(
+    formData.get("reason") || ""
+  ).trim();
 
-  const { depositCents, paymentIntentId } =
-    ensureDepositResolvable(booking);
-
-  const refundCents = Math.round(refundZl * 100);
-
-  if (refundCents <= 0 || refundCents >= depositCents) {
-    throw new Error("Nieprawidłowa kwota");
-  }
+  const reasonCode =
+    parseReasonCode(
+      formData.get("reasonCode")
+    );
 
   if (!reason) {
     throw new Error("Podaj powód");
   }
 
-  const retainedCents = depositCents - refundCents;
-  const stripe = getStripe();
+  const booking =
+    await getOwnerBooking(
+      bookingId,
+      userId
+    );
 
-  const refund = await stripe.refunds.create(
-    {
-      payment_intent: paymentIntentId,
-      amount: refundCents,
-    },
-    {
-      idempotencyKey: `deposit-partial-refund-${booking.id}`,
-    }
-  );
+  ensureNewDepositDecision(booking);
 
-  await prisma.booking.update({
-    where: {
-      id: booking.id,
-    },
-    data: {
+  const { depositCents } =
+    getDepositData(booking);
+
+  const refundCents =
+    Math.round(refundZl * 100);
+
+  if (
+    !Number.isSafeInteger(refundCents) ||
+    refundCents <= 0 ||
+    refundCents >= depositCents
+  ) {
+    throw new Error(
+      "Nieprawidłowa kwota"
+    );
+  }
+
+  const retainedCents =
+    depositCents - refundCents;
+
+  /*
+   * 1. payout alquiler owner
+   * 2. refund parcial renter
+   * 3. compensación owner
+   *
+   * La decisión y cada intento se persisten antes de llamar a Stripe.
+   */
+
+  await prepareSettlement(booking, "partial", refundCents, reason, reasonCode);
+
+  const ownerTransfer =
+    await createOwnerRentalTransfer(booking);
+
+  const refund =
+    await createDepositRefund(
+      booking,
+      refundCents,
+      "partial"
+    );
+
+  const depositTransfer =
+    await createDepositCompensationTransfer(
+      booking,
+      retainedCents
+    );
+
+  if (!depositTransfer) {
+    throw new Error(
+      "Brak transferu kompensaty z kaucji"
+    );
+  }
+
+  const completed = await finishSettlement(booking.id, {
       depositStatus: "REFUND_PENDING",
+
       depositRefundId: refund.id,
-      depositRefundedCents: refundCents,
-      depositRetainedCents: retainedCents,
-      depositRetentionReason: reason,
-      depositRetentionReasonCode: reasonCode,
+      depositRefundedCents:
+        refundCents,
+      depositRetainedCents:
+        retainedCents,
+
+      depositRetentionReason:
+        reason,
+      depositRetentionReasonCode:
+        reasonCode,
+
       depositDecisionAt: new Date(),
       depositDecisionById: userId,
-    },
-  });
 
-  const bookingUrl = getBookingUrl(booking.id);
+      ownerTransferId:
+        ownerTransfer.id,
+      ownerTransferCents:
+        ownerTransfer.amount,
+      ownerTransferredAt: new Date(),
+
+      depositTransferId:
+        depositTransfer.id,
+      depositTransferredCents:
+        depositTransfer.amount,
+      depositTransferredAt: new Date(),
+  });
+  if (!completed) return;
+
+  console.log(
+    "[SETTLEMENT] partial refund completed",
+    booking.id
+  );
+
+  const bookingUrl =
+    getBookingUrl(booking.id);
 
   await sendDepositEmail({
     to: booking.renter.email,
+
     subject:
       `Kaucja częściowo zwrócona #${booking.bookingNumber}: ` +
       `${booking.listing.title}`,
+
     html: `
       <p style="margin:0 0 24px;color:#18181b;">
-        Cześć ${escapeHtml(booking.renter.name || "")},
+        Cześć ${escapeHtml(
+          booking.renter.name || ""
+        )},
       </p>
 
       <p style="margin:0 0 18px;color:#18181b;">
@@ -412,27 +654,30 @@ export async function partialReleaseDepositAction(
         background:#fafafa;
       ">
         <p style="margin:0 0 14px;font-size:17px;color:#18181b;">
-          <strong>${escapeHtml(booking.listing.title)}</strong>
-        </p>
-
-        <p style="margin:0 0 8px;color:#18181b;">
-          <strong>Numer rezerwacji:</strong>
-          #${booking.bookingNumber}
+          <strong>${escapeHtml(
+            booking.listing.title
+          )}</strong>
         </p>
 
         <p style="margin:0 0 8px;color:#18181b;">
           <strong>Pobrana kaucja:</strong>
-          ${moneyPLNFromCents(depositCents)}
+          ${moneyPLNFromCents(
+            depositCents
+          )}
         </p>
 
         <p style="margin:0 0 8px;color:#166534;">
           <strong>Kwota zwrotu:</strong>
-          ${moneyPLNFromCents(refundCents)}
+          ${moneyPLNFromCents(
+            refundCents
+          )}
         </p>
 
         <p style="margin:0;color:#991b1b;">
           <strong>Kwota zatrzymana:</strong>
-          ${moneyPLNFromCents(retainedCents)}
+          ${moneyPLNFromCents(
+            retainedCents
+          )}
         </p>
       </div>
 
@@ -444,7 +689,9 @@ export async function partialReleaseDepositAction(
         background:#fffbeb;
         color:#854d0e;
       ">
-        <strong>Powód zatrzymania części kaucji:</strong>
+        <strong>
+          Powód zatrzymania części kaucji:
+        </strong>
 
         <p style="margin:7px 0 0;">
           ${escapeHtml(reason)}
@@ -498,7 +745,9 @@ export async function partialReleaseDepositAction(
     `,
   });
 
-  revalidatePath(`/bookings/${booking.id}`);
+  revalidatePath(
+    `/bookings/${booking.id}`
+  );
 }
 
 /* =========================
@@ -508,51 +757,118 @@ export async function partialReleaseDepositAction(
 export async function retainDepositAction(
   formData: FormData
 ) {
-  const session = await getServerSession(authConfig);
+  const session =
+    await getServerSession(authConfig);
+
   const userId = session?.user?.id;
 
   if (!userId) {
     throw new Error("Brak dostępu");
   }
 
-  const bookingId = String(formData.get("bookingId") || "");
-  const reason = String(formData.get("reason") || "").trim();
-  const reasonCode = parseReasonCode(
-    formData.get("reasonCode")
+  const bookingId = String(
+    formData.get("bookingId") || ""
   );
+
+  const reason = String(
+    formData.get("reason") || ""
+  ).trim();
+
+  const reasonCode =
+    parseReasonCode(
+      formData.get("reasonCode")
+    );
 
   if (!reason) {
     throw new Error("Podaj powód");
   }
 
-  const booking = await getOwnerBooking(bookingId, userId);
-  const { depositCents } = ensureDepositResolvable(booking);
+  const booking =
+    await getOwnerBooking(
+      bookingId,
+      userId
+    );
 
-  await prisma.booking.update({
-    where: {
-      id: booking.id,
-    },
-    data: {
+  ensureNewDepositDecision(booking);
+
+  const { depositCents } =
+    getDepositData(booking);
+
+  /*
+   * No existe refund.
+   *
+   * El owner recibe:
+   * - alquiler neto
+   * - kaucja completa como compensación
+   */
+
+  await prepareSettlement(booking, "retain", 0, reason, reasonCode);
+
+  const ownerTransfer =
+    await createOwnerRentalTransfer(booking);
+
+  const depositTransfer =
+    await createDepositCompensationTransfer(
+      booking,
+      depositCents
+    );
+
+  if (!depositTransfer) {
+    throw new Error(
+      "Brak transferu kompensaty z kaucji"
+    );
+  }
+
+  const completed = await finishSettlement(booking.id, {
       depositStatus: "RETAINED",
+
+      depositRefundId: null,
       depositRefundedCents: 0,
-      depositRetainedCents: depositCents,
-      depositRetentionReason: reason,
-      depositRetentionReasonCode: reasonCode,
+      depositRetainedCents:
+        depositCents,
+
+      depositRetentionReason:
+        reason,
+      depositRetentionReasonCode:
+        reasonCode,
+
       depositDecisionAt: new Date(),
       depositDecisionById: userId,
-    },
-  });
 
-  const bookingUrl = getBookingUrl(booking.id);
+      ownerTransferId:
+        ownerTransfer.id,
+      ownerTransferCents:
+        ownerTransfer.amount,
+      ownerTransferredAt: new Date(),
+
+      depositTransferId:
+        depositTransfer.id,
+      depositTransferredCents:
+        depositTransfer.amount,
+      depositTransferredAt: new Date(),
+  });
+  if (!completed) return;
+
+  console.log(
+    "[SETTLEMENT] full retain completed",
+    booking.id
+  );
+
+  const bookingUrl =
+    getBookingUrl(booking.id);
 
   await sendDepositEmail({
     to: booking.renter.email,
+
     subject:
       `Kaucja zatrzymana #${booking.bookingNumber}: ` +
       `${booking.listing.title}`,
+
     html: `
       <p style="margin:0 0 24px;color:#18181b;">
-        Cześć ${escapeHtml(booking.renter.name || "")},
+        Cześć ${escapeHtml(
+          booking.renter.name || ""
+        )},
       </p>
 
       <p style="margin:0 0 18px;color:#18181b;">
@@ -570,17 +886,16 @@ export async function retainDepositAction(
         background:#fafafa;
       ">
         <p style="margin:0 0 14px;font-size:17px;color:#18181b;">
-          <strong>${escapeHtml(booking.listing.title)}</strong>
-        </p>
-
-        <p style="margin:0 0 8px;color:#18181b;">
-          <strong>Numer rezerwacji:</strong>
-          #${booking.bookingNumber}
+          <strong>${escapeHtml(
+            booking.listing.title
+          )}</strong>
         </p>
 
         <p style="margin:0;color:#991b1b;">
           <strong>Zatrzymana kwota:</strong>
-          ${moneyPLNFromCents(depositCents)}
+          ${moneyPLNFromCents(
+            depositCents
+          )}
         </p>
       </div>
 
@@ -592,7 +907,9 @@ export async function retainDepositAction(
         background:#fffbeb;
         color:#854d0e;
       ">
-        <strong>Powód zatrzymania kaucji:</strong>
+        <strong>
+          Powód zatrzymania kaucji:
+        </strong>
 
         <p style="margin:7px 0 0;">
           ${escapeHtml(reason)}
@@ -641,5 +958,24 @@ export async function retainDepositAction(
     `,
   });
 
-  revalidatePath(`/bookings/${booking.id}`);
+  revalidatePath(
+    `/bookings/${booking.id}`
+  );
+}
+// Retry derives all financial inputs from the persisted decision, never the form.
+export async function retrySettlementAction(formData: FormData) {
+  const session = await getServerSession(authConfig);
+  if (!session?.user?.id) throw new Error("Brak dostępu");
+  const booking = await getOwnerBooking(String(formData.get("bookingId") || ""), session.user.id);
+  if (booking.settlementCompletedAt) return;
+  const saved = booking.settlementDecision as SettlementDecision | null;
+  if (!saved) throw new Error("Brak rozpoczętego rozliczenia");
+  const retry = new FormData();
+  retry.set("bookingId", booking.id);
+  retry.set("refundAmountZl", String(saved.refundCents / 100));
+  retry.set("reason", saved.reason ?? "");
+  retry.set("reasonCode", saved.reasonCode ?? "");
+  if (saved.kind === "full") await releaseDepositAction(retry);
+  else if (saved.kind === "partial") await partialReleaseDepositAction(retry);
+  else await retainDepositAction(retry);
 }
