@@ -27,6 +27,7 @@ export default async function ChatInboxPage() {
   const conversations = await prisma.conversation.findMany({
     where: {
       OR: [{ buyerId: userId }, { sellerId: userId }],
+      messages: { some: {} },
     },
     include: {
       listing: { select: { title: true } },
@@ -153,3 +154,4 @@ export default async function ChatInboxPage() {
     </div>
   );
 }
+
