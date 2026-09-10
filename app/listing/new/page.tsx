@@ -7,10 +7,24 @@ import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import PhotosField from "./PhotosField";
 import { sendMail } from "@/app/lib/mailer";
-import type { Gender, GarmentType, Color } from "@prisma/client";
+import type { Gender, GarmentType, Color, Estado, MetodoEnvio } from "@prisma/client";
 import { put } from "@vercel/blob";
 
 /* ===================== CONSTANTES ===================== */
+
+const CONDITION_OPTIONS = [
+  { value: "NUEVO", label: "Nowy" },
+  { value: "COMO_NUEVO", label: "Jak nowy" },
+  { value: "USADO", label: "Używany" },
+  { value: "MUY_USADO", label: "Bardzo zużyty" },
+] as const satisfies ReadonlyArray<{ value: Estado; label: string }>;
+
+const DELIVERY_OPTIONS = [
+  { value: "RECOGIDA_LOCAL", label: "Odbiór osobisty" },
+  { value: "ENVIO_CORREOS", label: "Wysyłka pocztą" },
+  { value: "MENSAJERIA", label: "Kurier" },
+  { value: "OTRO", label: "Inna — opisz w ogłoszeniu" },
+] as const satisfies ReadonlyArray<{ value: MetodoEnvio; label: string }>;
 
 const COLORS = [
   { value: "CZARNY", label: "czarny" },
@@ -200,6 +214,15 @@ export default async function NewListingPage({
     if (!garmentType) redirect(err("Nieprawidłowy typ ubrania"));
 
     if (!size) redirect(err("Rozmiar jest obowiązkowy"));
+    const estado = CONDITION_OPTIONS.find(
+      (option) => option.value === formData.get("estado")
+    )?.value;
+    const metodoEnvio = DELIVERY_OPTIONS.find(
+      (option) => option.value === formData.get("metodoEnvio")
+    )?.value;
+    if (!estado) redirect(err("Wybierz aktualny stan przedmiotu."));
+    if (!metodoEnvio) redirect(err("Wybierz preferowaną formę dostawy."));
+
 
 
     // Validate before creating the listing or sending its publication email.
@@ -240,6 +263,8 @@ export default async function NewListingPage({
         color,
         garmentType,
         materials: [material],
+        estado,
+        metodoEnvio,
         available: true,
         images: { create: uploadedImages },
         user: { connect: { id: userId } },
@@ -432,6 +457,30 @@ export default async function NewListingPage({
           </div>
         </div>
 
+        <div className="p-6 border-b">
+          <div className={sectionTitle}>Stan i dostawa</div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelBase} htmlFor="estado">Aktualny stan przedmiotu</label>
+              <select id="estado" name="estado" required defaultValue="" className={`${inputBase} mt-1`}>
+                <option value="" disabled>Wybierz stan</option>
+                {CONDITION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelBase} htmlFor="metodoEnvio">Preferowana forma dostawy</label>
+              <select id="metodoEnvio" name="metodoEnvio" required defaultValue="" className={`${inputBase} mt-1`}>
+                <option value="" disabled>Wybierz formę dostawy</option>
+                {DELIVERY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-gray-500">Szczegóły i koszty dostawy uzgodnij z najemcą przed akceptacją rezerwacji.</p>
+            </div>
+          </div>
+        </div>
         {/* ===== Szczegóły ===== */}
         <div className="p-6 border-b">
           <div className={sectionTitle}>Szczegóły produktu</div>
@@ -593,4 +642,5 @@ export default async function NewListingPage({
     </div>
   );
 }
+
 

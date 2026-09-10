@@ -209,6 +209,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 <div className="flex flex-wrap gap-2">
                   {listing.estado && pill(`Stan: ${estadoLabels[listing.estado]}`)}
                   {listing.metodoEnvio && pill(`Dostawa: ${envioLabels[listing.metodoEnvio]}`)}
+                  {listing.metodoEnvio && pill(`Preferowana dostawa: ${envioLabels[listing.metodoEnvio]}`)}
                   {pill(
                     listing.available ? "Aktywne" : "Nieaktywne",
                     listing.available
