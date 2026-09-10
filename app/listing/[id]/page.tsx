@@ -56,8 +56,6 @@ const estadoLabels: Record<Estado, string> = {
 
 const envioLabels: Record<MetodoEnvio, string> = {
   RECOGIDA_LOCAL: "Odbiór osobisty",
-  ENVIO_CORREOS: "Wysyłka pocztą",
-  MENSAJERIA: "Kurier",
   ENVIO_CORREOS: "Wysyłka",
   MENSAJERIA: "Wysyłka",
   OTRO: "Inne",
