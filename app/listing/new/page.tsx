@@ -21,9 +21,7 @@ const CONDITION_OPTIONS = [
 
 const DELIVERY_OPTIONS = [
   { value: "RECOGIDA_LOCAL", label: "Odbiór osobisty" },
-  { value: "ENVIO_CORREOS", label: "Wysyłka pocztą" },
-  { value: "MENSAJERIA", label: "Kurier" },
-  { value: "OTRO", label: "Inna — opisz w ogłoszeniu" },
+  { value: "ENVIO_CORREOS", label: "Wysyłka" },
 ] as const satisfies ReadonlyArray<{ value: MetodoEnvio; label: string }>;
 
 const COLORS = [
@@ -642,5 +640,6 @@ export default async function NewListingPage({
     </div>
   );
 }
+
 
 

@@ -58,6 +58,8 @@ const envioLabels: Record<MetodoEnvio, string> = {
   RECOGIDA_LOCAL: "Odbiór osobisty",
   ENVIO_CORREOS: "Wysyłka pocztą",
   MENSAJERIA: "Kurier",
+  ENVIO_CORREOS: "Wysyłka",
+  MENSAJERIA: "Wysyłka",
   OTRO: "Inne",
 };
 
@@ -380,4 +382,5 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       : undefined,
   };
 }
+
 
