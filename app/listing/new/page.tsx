@@ -240,39 +240,58 @@ export default async function NewListingPage({
           : "http://localhost:3000";
 
       try {
+
+        const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[char]!));
+        const moneyPLN = (value: number) =>
+          new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(value);
+        // Same rate and rounding as the supplied booking email; estimate for one day.
+        const platformFeeRate = 1500;
+        const dailyPriceCents = pricePerDay * 100;
+        const dailyFeeCents = Math.round((dailyPriceCents * platformFeeRate) / 10_000);
+        const dailyOwnerCents = dailyPriceCents - dailyFeeCents;
+
         await sendMail({
           to: owner.email,
           subject: `Ogłoszenie opublikowane: ${listing.title}`,
-       html: `
+          html: `
 <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
-
-  <p>Cześć ${owner.name ?? ""},</p>
-
+  <p>Cześć ${escapeHtml(owner.name || "")},</p>
   <p>Twoje ogłoszenie zostało <strong>opublikowane</strong> i jest już widoczne w serwisie.</p>
 
-  <!-- CARD -->
   <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
-    <p style="margin:0; font-size:16px; font-weight:600;">
-      ${listing.title}
+    <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">${escapeHtml(listing.title)}</p>
+    ${marca ? '<p style="margin:4px 0;"><strong>Marka:</strong> ' + escapeHtml(marca) + '</p>' : ''}
+    <p style="margin:4px 0;"><strong>Rozmiar:</strong> ${escapeHtml(size)}</p>
+    <p style="margin:4px 0;"><strong>Lokalizacja:</strong> ${escapeHtml(city)}</p>
+    <p style="margin:12px 0 4px 0;"><strong>Cena za dzień:</strong> ${moneyPLN(pricePerDay)}</p>
+    <p style="margin:4px 0;"><strong>Prowizja MojaSzafa (${platformFeeRate / 100}%) za dzień:</strong> −${moneyPLN(dailyFeeCents / 100)}</p>
+    <p style="margin:8px 0 4px 0; padding-top:8px; border-top:1px solid #e5e7eb;">
+      <strong>Szacowane wynagrodzenie za dzień:</strong>
+      <span style="font-weight:700; color:#047857; font-size:15px;">${moneyPLN(dailyOwnerCents / 100)}</span>
+    </p>
+    <p style="margin:8px 0 4px 0;"><strong>Kaucja (zwrotna):</strong> ${(fianza ?? 0) > 0 ? moneyPLN(fianza ?? 0) : "Brak kaucji"}</p>
+    <p style="margin:8px 0 4px 0; font-size:12px; color:#6b7280;">
+      Prowizja MojaSzafa jest naliczana wyłącznie od kosztu najmu. Kaucja nie jest objęta prowizją i nie stanowi wynagrodzenia.
+      Podane wynagrodzenie jest szacunkowe — ostateczna kwota zależy od długości rezerwacji.
     </p>
   </div>
 
+  <p style="margin-top:12px;">Status ogłoszenia: <strong>Opublikowane — dostępne do rezerwacji</strong></p>
+  <p>Każda prośba o rezerwację wymaga Twojej akceptacji. Powiadomimy Cię o niej e-mailem — możesz ją zaakceptować lub odrzucić.</p>
+  <p>Na stronie swojego ogłoszenia możesz je dezaktywować, aby przedmiot nie był dostępny do wynajęcia.</p>
   <p>
-    <a href="${baseUrl}/listing/${listing.id}"
-       style="display:inline-block; margin-top:10px; padding:10px 16px;
-              background:#111827; color:white; text-decoration:none;
-              border-radius:6px; font-weight:600;">
+    <a href="${escapeHtml(baseUrl + '/listing/' + listing.id)}"
+       style="display:inline-block; margin-top:10px; padding:10px 16px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">
       Zobacz ogłoszenie
     </a>
   </p>
-
   <div style="margin-top:18px; padding:14px; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px;">
     <strong>Wskazówka:</strong><br/>
-    Dodaj więcej zdjęć i szczegółów w opisie — to zwiększa liczbę rezerwacji.
+    Sprawdź zdjęcia, opis i dostępność swojego przedmiotu — kompletne ogłoszenie ułatwia podjęcie decyzji o rezerwacji.
   </div>
-
   ${emailSignature()}
-
 </div>
 `,
 });
