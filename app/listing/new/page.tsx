@@ -5,6 +5,7 @@ import { getSession } from "@/app/lib/auth";
 import { redirect } from "next/navigation";
 import crypto from "node:crypto";
 import LocationField from "./LocationField";
+import PhotosField from "./PhotosField";
 import { sendMail } from "@/app/lib/mailer";
 import type { Gender, GarmentType, Color } from "@prisma/client";
 import { put } from "@vercel/blob";
@@ -200,6 +201,26 @@ export default async function NewListingPage({
 
     if (!size) redirect(err("Rozmiar jest obowiązkowy"));
 
+
+    // Validate before creating the listing or sending its publication email.
+    const files = formData.getAll("photos")
+      .filter((value): value is File => value instanceof File && value.size > 0);
+    if (files.length < 3) {
+      redirect(err("Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie."));
+    }
+    if (files.some((file) => !file.type.startsWith("image/"))) {
+      redirect(err("Wybierz wyłącznie pliki ze zdjęciami."));
+    }
+
+    // Finish uploads first; a failed upload must not publish an incomplete listing.
+    const uploadedImages: { url: string; order: number }[] = [];
+    for (const file of files) {
+      const ext = (file.name.split(".").pop() || "jpg")
+        .toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const blob = await put(crypto.randomUUID() + "." + ext, file, { access: "public" });
+      uploadedImages.push({ url: blob.url, order: uploadedImages.length });
+    }
+
     /* ===== CREAR LISTING ===== */
 
     const listing = await prisma.listing.create({
@@ -220,6 +241,7 @@ export default async function NewListingPage({
         garmentType,
         materials: [material],
         available: true,
+        images: { create: uploadedImages },
         user: { connect: { id: userId } },
       },
       select: { id: true, title: true },
@@ -294,35 +316,6 @@ export default async function NewListingPage({
       } catch (e) {
         console.error("sendMail failed (ignored):", e);
       }
-    }
-
-    /* ===== FOTOS (Vercel Blob) ===== */
-
-    const files = formData
-      .getAll("photos")
-      .filter((x): x is File => x instanceof File);
-
-    let order = 0;
-
-    for (const file of files) {
-      if (file.size === 0) continue;
-
-      const ext =
-        (file.name.split(".").pop() || "jpg")
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "") || "jpg";
-
-      const filename = `${crypto.randomUUID()}.${ext}`;
-
-      const blob = await put(filename, file, { access: "public" });
-
-      await prisma.image.create({
-        data: {
-          url: blob.url,
-          listingId: listing.id,
-          order: order++,
-        },
-      });
     }
 
     redirect("/listing?ok=1");
@@ -581,24 +574,11 @@ export default async function NewListingPage({
         <div className="p-6">
           <div className={sectionTitle}>Zdjęcia</div>
           <div className={sectionHint}>
-            Dodaj kilka wyraźnych zdjęć (min. 1). Najlepiej w pionie.
+            Dodaj co najmniej 3 wyraźne zdjęcia. Najlepiej w pionie.
           </div>
 
           <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4">
-            <label className="flex-1">
-              <span className="sr-only">Dodaj zdjęcia</span>
-              <input
-                type="file"
-                name="photos"
-                multiple
-                required
-                className="block w-full text-sm text-gray-700
-                           file:mr-4 file:rounded-lg file:border-0
-                           file:bg-gray-100 file:px-4 file:py-2
-                           file:text-sm file:font-semibold file:text-gray-700
-                           hover:file:bg-gray-200"
-              />
-            </label>
+                          <PhotosField />
 
             <button
               className="w-full md:w-auto rounded-lg bg-indigo-600 px-6 py-2.5 text-white font-semibold
