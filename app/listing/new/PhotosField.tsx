@@ -15,6 +15,12 @@ export default function PhotosField() {
         multiple
         required
         aria-describedby="photos-hint"
+        onInvalid={(event) => {
+          const input = event.currentTarget;
+          if ((input.files?.length ?? 0) < 3) {
+            input.setCustomValidity("Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie.");
+          }
+        }}
         onChange={(event) => {
           const input = event.currentTarget;
           const files = Array.from(input.files ?? []);
