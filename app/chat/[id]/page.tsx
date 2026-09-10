@@ -1,4 +1,5 @@
 // app/chat/[id]/page.tsx
+import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
@@ -30,7 +31,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
   const convo = await prisma.conversation.findUnique({
     where: { id },
     include: {
-      listing: { select: { title: true } },
+      listing: { select: { id: true, title: true } },
       buyer: { select: { id: true, name: true, image: true } },
       seller: { select: { id: true, name: true, image: true } },
       messages: {
@@ -85,7 +86,13 @@ export default async function ChatDetailPage({ params }: PageProps) {
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-4">
       <h1 className="text-xl font-semibold">
-        Artykuł: <span className="font-bold">{convo.listing.title}</span>
+        Artykuł:{" "}
+        <Link
+          href={`/listing/${convo.listing.id}`}
+          className="font-bold text-indigo-700 underline underline-offset-4 hover:text-indigo-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 [overflow-wrap:anywhere]"
+        >
+          {convo.listing.title}
+        </Link>
       </h1>
       <p className="text-sm text-gray-600">Czat z {other?.name ?? "Użytkownik"}</p>
 
@@ -150,3 +157,4 @@ export default async function ChatDetailPage({ params }: PageProps) {
     </div>
   );
 }
+
