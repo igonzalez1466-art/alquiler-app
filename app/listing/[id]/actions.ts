@@ -195,7 +195,7 @@ export async function createBookingAction(
     );
   }
 
-  if (endDate <= startDate) {
+  if (endDate < startDate) {
     redirect(
       `/listing/${listingId}?error=fin-no-posterior`
     );
@@ -331,12 +331,12 @@ export async function createBookingAction(
             AND: [
               {
                 startDate: {
-                  lt: endDate,
+                  lte: endDate,
                 },
               },
               {
                 endDate: {
-                  gt: startDate,
+                  gte: startDate,
                 },
               },
             ],
