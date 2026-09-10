@@ -232,13 +232,9 @@ export default async function NewListingPage({
     });
 
     if (owner?.email) {
-      const baseUrl =
-        process.env.VERCEL_ENV === "production"
-          ? (process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || "")
-          : process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000";
-
+      // Stable app address for email links, matching the booking emails.
+      const baseUrl = (process.env.APP_URL || "http://localhost:3000")
+        .replace(/\/+$/, "");
       try {
 
         const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
@@ -617,3 +613,4 @@ export default async function NewListingPage({
     </div>
   );
 }
+
