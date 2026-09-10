@@ -8,7 +8,7 @@ function isStrongPassword(pw: string) {
     /[a-z]/.test(pw) &&
     /[A-Z]/.test(pw) &&
     /\d/.test(pw) &&
-    /[^A-Za-z0-9]/.test(pw)
+    /[\p{P}\p{S}]/u.test(pw)
   );
 }
 
@@ -33,11 +33,12 @@ export default function RegisterPage() {
     if (!isStrongPassword(body.password)) {
       setLoading(false);
       setError(
-        "Hasło musi mieć co najmniej 8 znaków oraz zawierać wielką literę, małą literę, cyfrę i znak specjalny."
+        "Hasło musi mieć co najmniej 8 znaków oraz zawierać wielką literę, małą literę, cyfrę i znak specjalny (np. !, @, #). Spacja nie jest znakiem specjalnym."
       );
       return;
     }
 
+    try {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -56,7 +57,11 @@ export default function RegisterPage() {
       "Konto zostało utworzone. Sprawdź swoją skrzynkę e-mail i zweryfikuj konto, aby móc się zalogować."
     );
 
-    // Opcjonalnie: e.currentTarget.reset();
+    } catch {
+      setError("Nie udało się połączyć z serwerem. Sprawdź połączenie i spróbuj ponownie.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -84,6 +89,8 @@ export default function RegisterPage() {
 
         <input
           name="password"
+          autoComplete="new-password"
+          aria-describedby="password-hint"
           type="password"
           placeholder="Hasło (min. 8, Aa1!)"
           className="border rounded px-3 py-2"
@@ -91,8 +98,8 @@ export default function RegisterPage() {
           minLength={8}
         />
 
-        <p className="text-xs text-gray-500">
-          Hasło musi zawierać min. 8 znaków, wielką i małą literę, cyfrę oraz znak specjalny.
+        <p id="password-hint" className="text-xs text-gray-500">
+          Hasło musi zawierać min. 8 znaków, wielką i małą literę, cyfrę oraz znak specjalny (np. !, @, #). Spacja nie jest znakiem specjalnym.
         </p>
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -109,3 +116,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

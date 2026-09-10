@@ -13,7 +13,7 @@ function isStrongPassword(pw: string) {
     /[a-z]/.test(pw) &&
     /[A-Z]/.test(pw) &&
     /\d/.test(pw) &&
-    /[^A-Za-z0-9]/.test(pw)
+    /[\p{P}\p{S}]/u.test(pw)
   );
 }
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Hasło musi mieć co najmniej 8 znaków oraz zawierać wielką literę, małą literę, cyfrę i znak specjalny.",
+            "Hasło musi mieć co najmniej 8 znaków oraz zawierać wielką literę, małą literę, cyfrę i znak specjalny (np. !, @, #). Spacja nie jest znakiem specjalnym.",
         },
         { status: 400 }
       );
@@ -141,3 +141,4 @@ export async function POST(req: Request) {
     );
   }
 }
+
