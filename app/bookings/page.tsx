@@ -89,6 +89,38 @@ const endOfDay = (d: Date) => {
   return e;
 };
 
+
+type ReviewEligibility = {
+  status: string;
+  paymentStatus: string;
+  paidAt: Date | null;
+  endDate: Date;
+  returnConfirmationStatus: string;
+  depositCents: number | null;
+  depositStatus: string;
+  settlementCompletedAt: Date | null;
+};
+
+// Shared by the form and server action: hiding the form alone is not sufficient.
+function isReadyForReview(booking: ReviewEligibility, now: Date) {
+  const returnConfirmed =
+    booking.returnConfirmationStatus === "CONFIRMED" ||
+    booking.returnConfirmationStatus === "AUTO_CONFIRMED";
+
+  // A missing historical snapshot must not be treated as a zero deposit.
+  const noDeposit = booking.depositCents === 0 && booking.depositStatus === "NONE";
+  const depositResolved =
+    booking.settlementCompletedAt != null &&
+    ["REFUNDED", "PARTIALLY_REFUNDED", "RETAINED"].includes(booking.depositStatus);
+
+  return booking.status === "CONFIRMED" &&
+    booking.paymentStatus === "PAID" &&
+    booking.paidAt != null &&
+    booking.endDate < now &&
+    returnConfirmed &&
+    (noDeposit || depositResolved);
+}
+
 /* ============ Server Action: crear review ============ */
 async function createReviewAction(formData: FormData) {
   "use server";
@@ -116,6 +148,10 @@ const booking = await prisma.booking.findUnique({
     status: true,
     paymentStatus: true,
     paidAt: true,
+    returnConfirmationStatus: true,
+    depositCents: true,
+    depositStatus: true,
+    settlementCompletedAt: true,
     endDate: true,
   },
 });
@@ -126,13 +162,8 @@ if (!booking) throw new Error("Nie znaleziono rezerwacji");
   booking.renterId === reviewerId || booking.ownerId === reviewerId;
 
  if (!isParticipant) throw new Error("Brak uprawnień");
-if (
-  booking.status !== "CONFIRMED" ||
-  booking.paymentStatus !== "PAID" ||
-  !booking.paidAt ||
-  booking.endDate > now
-) {
-  throw new Error("Można oceniać tylko opłacone i zakończone rezerwacje");
+if (!isReadyForReview(booking, now)) {
+  throw new Error("Ocena jest możliwa po zakończeniu opłaconej rezerwacji, potwierdzeniu zwrotu przedmiotu i rozliczeniu kaucji (jeśli była pobrana).");
 }
 
 let revieweeId: string;
@@ -242,6 +273,10 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   status: true,
   paymentStatus: true,
   paidAt: true,
+  returnConfirmationStatus: true,
+  depositCents: true,
+  depositStatus: true,
+  settlementCompletedAt: true,
   createdAt: true,
     listing: {
       select: {
@@ -418,10 +453,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
               <ul className="space-y-3">
                 {asRenter.map((b) => {
                  const iCanReview =
-  b.status === "CONFIRMED" &&
-  b.paymentStatus === "PAID" &&
-  b.paidAt != null &&
-  b.endDate < now &&
+  isReadyForReview(b, now) &&
   !b.reviews.some(
     (r) => r.reviewerId === userId && r.role === "OWNER"
   );
@@ -627,10 +659,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
               <ul className="space-y-3">
                 {asOwner.map((b) => {
                  const iCanReview =
-  b.status === "CONFIRMED" &&
-  b.paymentStatus === "PAID" &&
-  b.paidAt != null &&
-  b.endDate < now &&
+  isReadyForReview(b, now) &&
   !b.reviews.some(
     (r) => r.reviewerId === userId && r.role === "RENTER"
   );
