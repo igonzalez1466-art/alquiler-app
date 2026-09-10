@@ -190,13 +190,13 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
       {/* Layout: content + sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* LEFT: main content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 lg:col-span-2 space-y-6">
           {/* Header card */}
           <section className="border rounded-xl bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-3">
                 <div className="min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-bold truncate">
+                  <h1 className="text-2xl font-bold leading-tight whitespace-normal [overflow-wrap:anywhere]">
                     {listing.title}
                   </h1>
 
@@ -379,3 +379,4 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       : undefined,
   };
 }
+
