@@ -520,18 +520,17 @@ export default async function BookingPage({
                     {paymentDeadline} (czas polski).
                   </p>
 
-                  {paymentExpired ? (
+                           {paymentExpired ? (
                     <p className="mt-1">
-                      Termin płatności upłynął. Nie można rozpocząć
-                      nowej płatności. Rezerwacja oczekuje na
-                      sprawdzenie statusu płatności i anulowanie,
-                      jeśli nie została opłacona.
+                      {isOwner
+                        ? "Termin płatności najemcy upłynął. Po sprawdzeniu statusu płatności rezerwacja zostanie anulowana, jeśli nie została opłacona."
+                        : "Twój termin płatności upłynął. Nie możesz rozpocząć nowej płatności. Po sprawdzeniu statusu płatności rezerwacja zostanie anulowana, jeśli nie została opłacona."}
                     </p>
                   ) : (
                     <p className="mt-1">
-                      Masz 2 godziny od akceptacji właściciela.
-                      Nieopłacona rezerwacja podlega anulowaniu
-                      po upływie terminu.
+                      {isOwner
+                        ? "Najemca ma 2 godziny od Twojej akceptacji na opłacenie rezerwacji. Jeśli nie zapłaci w terminie, rezerwacja zostanie anulowana."
+                        : "Masz 2 godziny od akceptacji właściciela na opłacenie rezerwacji. Jeśli nie zapłacisz w terminie, rezerwacja zostanie anulowana."}
                     </p>
                   )}
                 </div>
