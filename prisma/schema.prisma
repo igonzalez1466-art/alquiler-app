@@ -178,6 +178,8 @@ model SettlementOperation {
 }
 
 model Booking {
+  reviewInvitationsEnabled Boolean @default(true)
+  reviewInvitations ReviewInvitation[]
   settlementDecision Json?
   settlementCompletedAt DateTime?
   settlementLegacyReview Boolean @default(false)
@@ -517,4 +519,17 @@ enum DamageClaimStatus {
   OPEN
   CLAIMED
   RESOLVED
+}
+
+model ReviewInvitation {
+  bookingId String
+  recipientId String
+  status String @default("PENDING")
+  attempts Int @default(0)
+  attemptedAt DateTime?
+  sentAt DateTime?
+  nextAttemptAt DateTime @default(now())
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  @@id([bookingId, recipientId])
+  @@index([status, nextAttemptAt])
 }

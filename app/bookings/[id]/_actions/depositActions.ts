@@ -1,5 +1,6 @@
 "use server";
 
+import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
 import Stripe from "stripe";
 import { lockSettlementDecision, settlementOperation, finishSettlement, type SettlementDecision } from "@/app/lib/settlement";
 import { prisma } from "@/app/lib/prisma";
@@ -385,6 +386,7 @@ export async function releaseDepositAction(
       depositTransferredCents: null,
       depositTransferredAt: null,
   });
+  await tryInviteBookingReview(booking.id);
   if (!completed) return;
 
   console.log(
@@ -616,6 +618,7 @@ export async function partialReleaseDepositAction(
         depositTransfer.amount,
       depositTransferredAt: new Date(),
   });
+  await tryInviteBookingReview(booking.id);
   if (!completed) return;
 
   console.log(
@@ -847,6 +850,7 @@ export async function retainDepositAction(
         depositTransfer.amount,
       depositTransferredAt: new Date(),
   });
+  await tryInviteBookingReview(booking.id);
   if (!completed) return;
 
   console.log(

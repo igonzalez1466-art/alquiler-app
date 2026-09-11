@@ -1,3 +1,4 @@
+import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
@@ -837,6 +838,8 @@ export async function POST(req: Request) {
             depositLastError: null,
           },
         });
+
+        await tryInviteBookingReview(booking.id);
 
         console.log(
           "↩️ Deposit refund updated:",

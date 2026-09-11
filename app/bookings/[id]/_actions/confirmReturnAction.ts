@@ -1,5 +1,6 @@
 "use server";
 
+import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -71,6 +72,8 @@ export async function confirmReturnAction(formData: FormData) {
       returnConfirmedAt: new Date(),
     },
   });
+
+  await tryInviteBookingReview(bookingId);
 
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath(`/bookings`);

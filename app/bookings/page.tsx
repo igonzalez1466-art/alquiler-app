@@ -66,6 +66,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 type SP = {
+  review?: string;
   mStatus?: "all" | BookingStatus;
   mFrom?: string;
   mTo?: string;
@@ -214,7 +215,7 @@ export default async function BookingsPage({
         <p className="text-red-600 mb-2">
           Musisz się zalogować, aby zobaczyć swoje rezerwacje.
         </p>
-        <Link href="/login" className="text-blue-600 underline">
+        <Link href={`/login?callbackUrl=${encodeURIComponent(p.review ? `/bookings?review=${encodeURIComponent(p.review)}#review-${encodeURIComponent(p.review)}` : "/bookings")}`} className="text-blue-600 underline">
           Zaloguj się
         </Link>
       </div>
@@ -228,6 +229,7 @@ export default async function BookingsPage({
   const mSort = p.mSort ?? "start_desc";
 
   const madeWhere: Prisma.BookingWhereInput = { renterId: userId };
+  if (p.review) madeWhere.id = p.review;
   if (mStatus !== "all") madeWhere.status = mStatus;
   if (mFrom || mTo) {
     madeWhere.startDate = { gte: mFrom, lte: mTo };
@@ -247,6 +249,7 @@ if (mSort === "num_asc") madeOrderBy = { bookingNumber: "asc" };
   const oSort = p.oSort ?? "start_desc";
 
   const ownerWhere: Prisma.BookingWhereInput = { ownerId: userId };
+  if (p.review) ownerWhere.id = p.review;
   if (oStatus !== "all") ownerWhere.status = oStatus;
   if (oFrom || oTo) {
     ownerWhere.startDate = { gte: oFrom, lte: oTo };
@@ -459,7 +462,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   );
 
                   return (
-                    <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
+                    <li key={b.id} id={`review-${b.id}`} className="p-4 border rounded bg-white shadow-sm scroll-mt-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div>
                         <div className="flex items-center gap-2">
@@ -667,7 +670,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                   const rs = b.renter?.id ? renterStats.get(b.renter.id) : undefined;
 
                   return (
-                    <li key={b.id} className="p-4 border rounded bg-white shadow-sm">
+                    <li key={b.id} id={`review-${b.id}`} className="p-4 border rounded bg-white shadow-sm scroll-mt-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="space-y-1">
                          <div className="flex items-center gap-2">
