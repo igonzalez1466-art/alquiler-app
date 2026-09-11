@@ -8,19 +8,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 
-/* ============================================================
-   CONFIGURACIÓN ECONÓMICA
-============================================================ */
-
-// Basis points:
-// 1500 = 15.00%
+// 1500 basis points = 15 %
 const PLATFORM_FEE_RATE = 1500;
 
 /* ============================================================
    HELPERS
 ============================================================ */
 
-// Días de alquiler, incluyendo día inicial y final
 function diffDaysInclusive(a: Date, b: Date) {
   const start = new Date(
     Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
@@ -37,32 +31,27 @@ function diffDaysInclusive(a: Date, b: Date) {
   );
 }
 
-// Pluralización polaca
 function pluralPLDay(n: number) {
   return n === 1 ? "dzień" : "dni";
 }
 
-// Base URL estable para emails
 function getEmailBaseUrl(): string {
   const raw =
     process.env.APP_URL || "http://localhost:3000";
 
-  return raw.endsWith("/")
-    ? raw.slice(0, -1)
-    : raw;
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
 }
 
-// Firma fija
 function emailSignature() {
   return `
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
 
-    <p style="margin:0; font-size:13px; color:#555;">
+    <p style="margin:0;font-size:13px;color:#555;">
       Pozdrawiamy,<br/>
       <strong>Zespół MojaSzafa</strong>
     </p>
 
-    <p style="margin-top:6px; font-size:11px; color:#888;">
+    <p style="margin-top:6px;font-size:11px;color:#888;">
       Ta wiadomość została wysłana automatycznie —
       prosimy na nią nie odpowiadać.
     </p>
@@ -98,28 +87,24 @@ export async function startChatAction(formData: FormData) {
     redirect("/");
   }
 
-  const existing =
-    await prisma.conversation.findUnique({
-      where: {
-        listingId_buyerId: {
-          listingId,
-          buyerId: currentUserId,
-        },
+  const existing = await prisma.conversation.findUnique({
+    where: {
+      listingId_buyerId: {
+        listingId,
+        buyerId: currentUserId,
       },
-
-      select: {
-        id: true,
-      },
-    });
+    },
+    select: {
+      id: true,
+    },
+  });
 
   if (existing) {
-    // Si estaba cerrada, la reabrimos
     await prisma.conversation.updateMany({
       where: {
         id: existing.id,
         status: "CLOSED",
       },
-
       data: {
         status: "OPEN",
         closedAt: null,
@@ -130,25 +115,23 @@ export async function startChatAction(formData: FormData) {
     redirect(`/chat/${existing.id}`);
   }
 
-  const created =
-    await prisma.conversation.create({
-      data: {
-        listingId,
-        buyerId: currentUserId,
-        sellerId: ownerId,
-        status: "OPEN",
-      },
-
-      select: {
-        id: true,
-      },
-    });
+  const created = await prisma.conversation.create({
+    data: {
+      listingId,
+      buyerId: currentUserId,
+      sellerId: ownerId,
+      status: "OPEN",
+    },
+    select: {
+      id: true,
+    },
+  });
 
   redirect(`/chat/${created.id}`);
 }
 
 /* ============================================================
-   CREATE BOOKING + EMAILS
+   CREATE BOOKING
 ============================================================ */
 
 export async function createBookingAction(
@@ -163,10 +146,6 @@ export async function createBookingAction(
   if (!renterId) {
     redirect("/login");
   }
-
-  /* ==========================================================
-     FORM DATA
-  ========================================================== */
 
   const listingId =
     formData.get("listingId")?.toString();
@@ -195,38 +174,32 @@ export async function createBookingAction(
     );
   }
 
+  // Permite una reserva con inicio y fin el mismo día.
   if (endDate < startDate) {
     redirect(
       `/listing/${listingId}?error=fin-no-posterior`
     );
   }
 
-  /* ==========================================================
-     LISTING
-  ========================================================== */
-
-  const listing =
-    await prisma.listing.findUnique({
-      where: {
-        id: listingId,
-      },
-
-      select: {
-        id: true,
-        title: true,
-        pricePerDay: true,
-        fianza: true,
-        userId: true,
-        available: true,
-
-        user: {
-          select: {
-            email: true,
-            name: true,
-          },
+  const listing = await prisma.listing.findUnique({
+    where: {
+      id: listingId,
+    },
+    select: {
+      id: true,
+      title: true,
+      pricePerDay: true,
+      fianza: true,
+      userId: true,
+      available: true,
+      user: {
+        select: {
+          email: true,
+          name: true,
         },
       },
-    });
+    },
+  });
 
   if (!listing) {
     redirect(
@@ -248,19 +221,9 @@ export async function createBookingAction(
 
   /* ==========================================================
      SNAPSHOT ECONÓMICO
-
-     Se calcula ANTES de crear Booking.
-
-     A partir de este momento, los cambios posteriores
-     en Listing.pricePerDay o Listing.fianza no deben
-     modificar la economía de esta reserva.
   ========================================================== */
 
-  const days =
-    diffDaysInclusive(
-      startDate,
-      endDate
-    );
+  const days = diffDaysInclusive(startDate, endDate);
 
   if (days <= 0) {
     redirect(
@@ -286,534 +249,335 @@ export async function createBookingAction(
     );
   }
 
-  // Precio diario congelado
-  const pricePerDayCents =
-    listing.pricePerDay * 100;
+  const pricePerDayCents = listing.pricePerDay * 100;
+  const rentAmountCents = days * pricePerDayCents;
+  const depositCents = (listing.fianza ?? 0) * 100;
 
-  // Alquiler completo
-  const rentAmountCents =
-    days * pricePerDayCents;
+  const platformFeeCents = Math.round(
+    (rentAmountCents * PLATFORM_FEE_RATE) / 10_000
+  );
 
-  // Fianza: NO está sujeta a comisión
-  const depositCents =
-    (listing.fianza ?? 0) * 100;
-
-  // Comisión MojaSzafa: 15% del alquiler
-  const platformFeeCents =
-    Math.round(
-      (rentAmountCents * PLATFORM_FEE_RATE) /
-        10_000
-    );
-
-  // Importe del alquiler correspondiente al owner
   const ownerPayoutCents =
     rentAmountCents - platformFeeCents;
 
   /* ==========================================================
-     CREATE BOOKING
+     CREACIÓN Y COMPROBACIÓN DE FECHAS
   ========================================================== */
 
-  const booking =
-    await prisma.$transaction(async (tx) => {
-      const overlap =
-        await tx.booking.findFirst({
-          where: {
-            listingId,
-
-            status: {
-              in: [
-                "PENDING",
-                "CONFIRMED",
-                "PAID",
-              ],
+  const booking = await prisma.$transaction(async (tx) => {
+    const overlap = await tx.booking.findFirst({
+      where: {
+        listingId,
+        status: {
+          in: [
+            "PENDING",
+            "AWAITING_PAYMENT",
+            "CONFIRMED",
+            "PAID",
+          ],
+        },
+        AND: [
+          {
+            startDate: {
+              lte: endDate,
             },
-
-            AND: [
-              {
-                startDate: {
-                  lte: endDate,
-                },
-              },
-              {
-                endDate: {
-                  gte: startDate,
-                },
-              },
-            ],
           },
-
-          select: {
-            id: true,
+          {
+            endDate: {
+              gte: startDate,
+            },
           },
-        });
+        ],
+      },
+      select: {
+        id: true,
+      },
+    });
 
-      if (overlap) {
-        redirect(
-          `/listing/${listingId}?error=fechas-no-disponibles`
-        );
-      }
+    if (overlap) {
+      redirect(
+        `/listing/${listingId}?error=fechas-no-disponibles`
+      );
+    }
 
-      const newBooking =
-        await tx.booking.create({
-          data: {
-            listingId,
-            renterId,
+    const newBooking = await tx.booking.create({
+      data: {
+        listingId,
+        renterId,
+        ownerId: listing.userId,
+        startDate,
+        endDate,
+        status: "PENDING",
+        pricePerDayCents,
+        rentAmountCents,
+        platformFeeRate: PLATFORM_FEE_RATE,
+        platformFeeCents,
+        ownerPayoutCents,
+        depositCents,
+      },
+      select: {
+        id: true,
+        bookingNumber: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        pricePerDayCents: true,
+        rentAmountCents: true,
+        platformFeeRate: true,
+        platformFeeCents: true,
+        ownerPayoutCents: true,
+        depositCents: true,
+      },
+    });
 
-            // Snapshot del owner
-            ownerId: listing.userId,
-
-            startDate,
-            endDate,
-
-            status: "PENDING",
-
-            // Snapshot económico
-            pricePerDayCents,
-            rentAmountCents,
-            platformFeeRate: PLATFORM_FEE_RATE,
-            platformFeeCents,
-            ownerPayoutCents,
-            depositCents,
-          },
-
-          select: {
-            id: true,
-            bookingNumber: true,
-            startDate: true,
-            endDate: true,
-            status: true,
-
-            // Snapshot económico
-            pricePerDayCents: true,
-            rentAmountCents: true,
-            platformFeeRate: true,
-            platformFeeCents: true,
-            ownerPayoutCents: true,
-            depositCents: true,
-          },
-        });
-
-      // Reabrir o crear conversación
-      await tx.conversation.upsert({
-        where: {
-          listingId_buyerId: {
-            listingId,
-            buyerId: renterId,
-          },
-        },
-
-        update: {
-          status: "OPEN",
-          closedAt: null,
-          closedReason: null,
-        },
-
-        create: {
+    await tx.conversation.upsert({
+      where: {
+        listingId_buyerId: {
           listingId,
           buyerId: renterId,
-          sellerId: listing.userId,
-          status: "OPEN",
         },
-      });
-
-      return newBooking;
-    });
-
-  /* ==========================================================
-     RENTER
-  ========================================================== */
-
-  const renter =
-    await prisma.user.findUnique({
-      where: {
-        id: renterId,
       },
-
-      select: {
-        email: true,
-        name: true,
+      update: {
+        status: "OPEN",
+        closedAt: null,
+        closedReason: null,
+      },
+      create: {
+        listingId,
+        buyerId: renterId,
+        sellerId: listing.userId,
+        status: "OPEN",
       },
     });
 
-  /* ==========================================================
-     IMPORTES PARA EMAIL
+    return newBooking;
+  });
 
-     Usamos el mismo snapshot económico.
-     No volvemos a calcular desde Listing.
-  ========================================================== */
-
-  const alquiler =
-    rentAmountCents / 100;
-
-  const fianza =
-    depositCents / 100;
-
-  // Total que pagará el renter
-  const total =
-    (rentAmountCents + depositCents) / 100;
-
-  // 1500 basis points -> 15
-  const platformFeePercent =
-    PLATFORM_FEE_RATE / 100;
-
-  const platformFee =
-    platformFeeCents / 100;
-
-  const ownerEarnings =
-    ownerPayoutCents / 100;
+  const renter = await prisma.user.findUnique({
+    where: {
+      id: renterId,
+    },
+    select: {
+      email: true,
+      name: true,
+    },
+  });
 
   /* ==========================================================
-     FORMATTERS
+     IMPORTES Y FORMATO PARA EMAIL
   ========================================================== */
 
-  const d = (x: Date) =>
-    x.toLocaleDateString(
-      "pl-PL",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }
-    );
+  const alquiler = rentAmountCents / 100;
+  const fianza = depositCents / 100;
+  const total = (rentAmountCents + depositCents) / 100;
+  const platformFeePercent = PLATFORM_FEE_RATE / 100;
+  const platformFee = platformFeeCents / 100;
+  const ownerEarnings = ownerPayoutCents / 100;
 
-  const moneyPLN = (v: number) =>
-    `${new Intl.NumberFormat(
-      "pl-PL"
-    ).format(v)} zł`;
+  const d = (value: Date) =>
+    value.toLocaleDateString("pl-PL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
-  const baseUrl =
-    getEmailBaseUrl();
+  const moneyPLN = (value: number) =>
+    `${new Intl.NumberFormat("pl-PL").format(value)} zł`;
 
-  const ref =
-    `#${booking.bookingNumber}`;
-
-  const ownerTo =
-    listing.user?.email?.trim() || "";
-
-  const renterTo =
-    renter?.email?.trim() || "";
-
-  // URL directa al detalle de ESTA reserva
-  const bookingUrl =
-    `${baseUrl}/bookings/${booking.id}`;
+  const baseUrl = getEmailBaseUrl();
+  const ref = `#${booking.bookingNumber}`;
+  const ownerTo = listing.user?.email?.trim() || "";
+  const renterTo = renter?.email?.trim() || "";
+  const bookingUrl = `${baseUrl}/bookings/${booking.id}`;
 
   /* ==========================================================
      EMAILS
   ========================================================== */
 
   await Promise.allSettled([
-
-    /* ========================================================
-       OWNER EMAIL
-    ======================================================== */
-
     ownerTo
       ? sendMail({
           to: ownerTo,
-
           subject:
             `Nowa prośba o rezerwację ${ref}: ${listing.title}`,
-
           html: `
-<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
+              <p>Cześć ${listing.user?.name ?? ""},</p>
 
-  <p>
-    Cześć ${listing.user?.name ?? ""},
-  </p>
+              <p>
+                Otrzymałeś nową prośbę o rezerwację.
+              </p>
 
-  <p>
-    Otrzymałeś nową prośbę o rezerwację.
-  </p>
+              <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
+                <p style="margin:0 0 8px;font-size:16px;font-weight:600;">
+                  ${listing.title}
+                </p>
 
-  <div
-    style="
-      margin:16px 0;
-      padding:16px;
-      border:1px solid #e5e7eb;
-      border-radius:8px;
-      background:#fafafa;
-    "
-  >
+                <p style="margin:4px 0;">
+                  <strong>Numer rezerwacji:</strong>
+                  ${ref}
+                </p>
 
-    <p
-      style="
-        margin:0 0 8px 0;
-        font-size:16px;
-        font-weight:600;
-      "
-    >
-      ${listing.title}
-    </p>
+                <p style="margin:4px 0;">
+                  <strong>Daty:</strong>
+                  ${d(startDate)} → ${d(endDate)}
+                  (${days} ${pluralPLDay(days)})
+                </p>
 
-    <p style="margin:4px 0;">
-      <strong>Numer rezerwacji:</strong>
-      ${ref}
-    </p>
+                <p style="margin:4px 0;">
+                  <strong>Koszt najmu:</strong>
+                  ${moneyPLN(alquiler)}
+                </p>
 
-    <p style="margin:4px 0;">
-      <strong>Daty:</strong>
-      ${d(startDate)} → ${d(endDate)}
-      (${days} ${pluralPLDay(days)})
-    </p>
+                <p style="margin:4px 0;">
+                  <strong>
+                    Prowizja MojaSzafa (${platformFeePercent}%):
+                  </strong>
+                  −${moneyPLN(platformFee)}
+                </p>
 
-    <!-- ALQUILER -->
+                <p style="margin:8px 0 4px;padding-top:8px;border-top:1px solid #e5e7eb;">
+                  <strong>Twoje wynagrodzenie:</strong>
 
-    <p style="margin:4px 0;">
-      <strong>Koszt najmu:</strong>
-      ${moneyPLN(alquiler)}
-    </p>
+                  <span style="font-weight:700;color:#047857;font-size:15px;">
+                    ${moneyPLN(ownerEarnings)}
+                  </span>
+                </p>
 
-    <!-- COMISIÓN - SOLO OWNER -->
+                ${
+                  fianza > 0
+                    ? `
+                      <p style="margin:8px 0 4px;">
+                        <strong>Kaucja (zwrotna):</strong>
+                        ${moneyPLN(fianza)}
+                      </p>
+                    `
+                    : ""
+                }
 
-    <p style="margin:4px 0;">
-      <strong>
-        Prowizja MojaSzafa (${platformFeePercent}%):
-      </strong>
+                <p style="margin:8px 0 4px;font-size:12px;color:#6b7280;">
+                  Prowizja MojaSzafa jest naliczana wyłącznie
+                  od kosztu najmu. Kaucja nie jest objęta prowizją.
+                </p>
 
-      −${moneyPLN(platformFee)}
-    </p>
+                <p style="margin:10px 0 4px;">
+                  <strong>Klient:</strong>
+                  ${renter?.name ?? "Użytkownik"}
+                </p>
+              </div>
 
-    <!-- NETO OWNER -->
+              <p>
+                Status rezerwacji:
+                <strong>Oczekuje na Twoją decyzję</strong>
+              </p>
 
-    <p
-      style="
-        margin:8px 0 4px 0;
-        padding-top:8px;
-        border-top:1px solid #e5e7eb;
-      "
-    >
-      <strong>
-        Twoje wynagrodzenie:
-      </strong>
+              <p>
+                Zaloguj się do panelu i zdecyduj,
+                czy chcesz zaakceptować lub odrzucić tę rezerwację.
+              </p>
 
-      <span
-        style="
-          font-weight:700;
-          color:#047857;
-          font-size:15px;
-        "
-      >
-        ${moneyPLN(ownerEarnings)}
-      </span>
-    </p>
+              <p>
+                <a
+                  href="${bookingUrl}"
+                  style="display:inline-block;margin-top:10px;padding:10px 16px;background:#111827;color:white;text-decoration:none;border-radius:6px;font-weight:500;"
+                >
+                  Zobacz rezerwację
+                </a>
+              </p>
 
-    ${
-      fianza > 0
-        ? `
-          <p style="margin:8px 0 4px 0;">
-            <strong>Kaucja (zwrotna):</strong>
-            ${moneyPLN(fianza)}
-          </p>
-        `
-        : ""
-    }
+              <div style="margin-top:18px;padding:14px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:8px;">
+                <strong>Ważne:</strong><br/>
 
-    <p
-      style="
-        margin:8px 0 4px 0;
-        font-size:12px;
-        color:#6b7280;
-      "
-    >
-      Prowizja MojaSzafa jest naliczana wyłącznie
-      od kosztu najmu. Kaucja nie jest objęta prowizją.
-    </p>
+                Płatność nie została jeszcze dokonana.<br/>
 
-    <p style="margin:10px 0 4px 0;">
-      <strong>Klient:</strong>
-      ${renter?.name ?? "Użytkownik"}
-    </p>
+                Klient będzie mógł zapłacić dopiero po
+                Twojej akceptacji rezerwacji.<br/><br/>
 
-  </div>
+                Nie przekazuj przedmiotu przed potwierdzeniem
+                płatności w aplikacji.
+              </div>
 
-  <p style="margin-top:12px;">
-    Status rezerwacji:
-    <strong>Oczekuje na Twoją decyzję</strong>
-  </p>
-
-  <p>
-    Zaloguj się do panelu i zdecyduj,
-    czy chcesz zaakceptować lub odrzucić tę rezerwację.
-  </p>
-
-  <p>
-    <a
-      href="${bookingUrl}"
-      style="
-        display:inline-block;
-        margin-top:10px;
-        padding:10px 16px;
-        background:#111827;
-        color:white;
-        text-decoration:none;
-        border-radius:6px;
-        font-weight:500;
-      "
-    >
-      Zobacz rezerwację
-    </a>
-  </p>
-
-  <div
-    style="
-      margin-top:18px;
-      padding:14px;
-      background:#e0f2fe;
-      border:1px solid #7dd3fc;
-      border-radius:8px;
-    "
-  >
-    <strong>Ważne:</strong><br/>
-
-    Płatność nie została jeszcze dokonana.<br/>
-
-    Klient będzie mógł zapłacić dopiero po
-    Twojej akceptacji rezerwacji.<br/><br/>
-
-    Nie przekazuj przedmiotu przed potwierdzeniem
-    płatności w aplikacji.
-  </div>
-
-  ${emailSignature()}
-
-</div>
-`,
+              ${emailSignature()}
+            </div>
+          `,
         })
       : Promise.resolve(),
-
-    /* ========================================================
-       RENTER EMAIL
-
-       El renter NO ve información sobre la comisión.
-    ======================================================== */
 
     renterTo
       ? sendMail({
           to: renterTo,
-
-          subject:
-            `Nowa rezerwacja: ${listing.title}`,
-
+          subject: `Nowa rezerwacja: ${listing.title}`,
           html: `
-<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
+              <p>Cześć ${renter?.name ?? ""},</p>
 
-  <p>
-    Cześć ${renter?.name ?? ""},
-  </p>
+              <p>
+                Dziękujemy za Twoje zgłoszenie rezerwacji.
+              </p>
 
-  <p>
-    Dziękujemy za Twoje zgłoszenie rezerwacji.
-  </p>
+              <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
+                <p style="margin:0 0 8px;font-size:16px;font-weight:600;">
+                  ${listing.title}
+                </p>
 
-  <div
-    style="
-      margin:16px 0;
-      padding:16px;
-      border:1px solid #e5e7eb;
-      border-radius:8px;
-      background:#fafafa;
-    "
-  >
+                <p style="margin:4px 0;">
+                  <strong>Numer rezerwacji:</strong>
+                  ${ref}
+                </p>
 
-    <p
-      style="
-        margin:0 0 8px 0;
-        font-size:16px;
-        font-weight:600;
-      "
-    >
-      ${listing.title}
-    </p>
+                <p style="margin:4px 0;">
+                  <strong>Daty:</strong>
+                  ${d(startDate)} → ${d(endDate)}
+                  (${days} ${pluralPLDay(days)})
+                </p>
 
-    <p style="margin:4px 0;">
-      <strong>Numer rezerwacji:</strong>
-      ${ref}
-    </p>
+                <p style="margin:4px 0;">
+                  <strong>
+                    Kwota do zapłaty (po akceptacji):
+                  </strong>
+                  ${moneyPLN(total)}
+                </p>
+              </div>
 
-    <p style="margin:4px 0;">
-      <strong>Daty:</strong>
-      ${d(startDate)} → ${d(endDate)}
-      (${days} ${pluralPLDay(days)})
-    </p>
+              <p>
+                Status rezerwacji:
+                <strong>
+                  Oczekuje na zatwierdzenie przez właściciela
+                </strong>
+              </p>
 
-    <p style="margin:4px 0;">
-      <strong>
-        Kwota do zapłaty (po akceptacji):
-      </strong>
+              <p>
+                Otrzymasz powiadomienie e-mail,
+                gdy właściciel podejmie decyzję.
+              </p>
 
-      ${moneyPLN(total)}
-    </p>
+              <p>
+                <a
+                  href="${bookingUrl}"
+                  style="display:inline-block;margin-top:10px;padding:10px 16px;background:#111827;color:white;text-decoration:none;border-radius:6px;font-weight:500;"
+                >
+                  Zobacz rezerwację
+                </a>
+              </p>
 
-  </div>
+              <div style="margin-top:18px;padding:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;">
+                <strong>Uwaga:</strong><br/>
 
-  <p>
-    Status rezerwacji:
-    <strong>
-      Oczekuje na zatwierdzenie przez właściciela
-    </strong>
-  </p>
+                Na tym etapie nie dokonuj żadnej płatności.<br/>
 
-  <p>
-    Otrzymasz powiadomienie e-mail,
-    gdy właściciel podejmie decyzję.
-  </p>
+                Płatność będzie możliwa dopiero po akceptacji
+                rezerwacji przez właściciela.
+              </div>
 
-  <p>
-    <a
-      href="${bookingUrl}"
-      style="
-        display:inline-block;
-        margin-top:10px;
-        padding:10px 16px;
-        background:#111827;
-        color:white;
-        text-decoration:none;
-        border-radius:6px;
-        font-weight:500;
-      "
-    >
-      Zobacz rezerwację
-    </a>
-  </p>
-
-  <div
-    style="
-      margin-top:18px;
-      padding:14px;
-      background:#fef3c7;
-      border:1px solid #fcd34d;
-      border-radius:8px;
-    "
-  >
-    <strong>Uwaga:</strong><br/>
-
-    Na tym etapie nie dokonuj żadnej płatności.<br/>
-
-    Płatność będzie możliwa dopiero po akceptacji
-    rezerwacji przez właściciela.
-  </div>
-
-  ${emailSignature()}
-
-</div>
-`,
+              ${emailSignature()}
+            </div>
+          `,
         })
       : Promise.resolve(),
   ]);
 
-  /* ==========================================================
-     REVALIDATE + REDIRECT
-  ========================================================== */
+  revalidatePath(`/listing/${listingId}`);
+  revalidatePath("/bookings");
 
-  revalidatePath(
-    `/listing/${listingId}`
-  );
-
-  revalidatePath(
-    `/bookings`
-  );
-
-  redirect(
-    "/bookings?ok=1"
-  );
+  redirect("/bookings?ok=1");
 }

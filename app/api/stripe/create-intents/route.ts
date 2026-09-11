@@ -1,4 +1,3 @@
-// app/api/stripe/create-intents/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
@@ -7,139 +6,190 @@ import { authConfig } from "@/auth.config";
 
 export const runtime = "nodejs";
 
-type Body = {
-  bookingId: string;
-};
-
-export async function POST(req: Request) {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) return new NextResponse("Missing STRIPE_SECRET_KEY", { status: 500 });
-
+export async function POST(request: Request) {
   const session = await getServerSession(authConfig);
-  const userId = session?.user?.id;
-  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  let body: Body;
-  try {
-    body = (await req.json()) as Body;
-  } catch {
-    return new NextResponse("Invalid JSON body", { status: 400 });
+  if (!session?.user?.id) {
+    return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const bookingId = body.bookingId?.trim();
-  if (!bookingId) return new NextResponse("Missing bookingId", { status: 400 });
+  const userId = session.user.id;
+  const body = await request.json().catch(() => null);
 
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: {
-      listing: { include: { user: true } },
-    },
-  });
+  const id =
+    typeof body?.bookingId === "string"
+      ? body.bookingId.trim()
+      : "";
 
-  if (!booking) return new NextResponse("Booking not found", { status: 404 });
-  if (booking.renterId !== userId) return new NextResponse("Forbidden", { status: 403 });
+  if (!id) {
+    return new NextResponse("Missing bookingId", { status: 400 });
+  }
 
-  // Solo permitimos crear intents cuando el dueño ya aprobó
-  const now = new Date();
+  const key = process.env.STRIPE_SECRET_KEY;
 
-if (
-  booking.status !== "AWAITING_PAYMENT" ||
-  booking.paymentStatus !== "PENDING"
-) {
-  return new NextResponse(
-    "Booking must be awaiting payment with pending payment status",
-    { status: 400 }
-  );
-}
-
-if (booking.paymentDueAt && booking.paymentDueAt < now) {
-  return new NextResponse("Booking payment window has expired", { status: 400 });
-}
-
-  // Importes (en céntimos)
-  const rentAmount = booking.amountCents ?? 0;
-  const depositAmount = booking.depositCents ?? 0;
-  const totalAmount = rentAmount + depositAmount;
-
-  const currency = "pln";
-
-  if (rentAmount <= 0) return new NextResponse("Invalid amountCents for rent", { status: 400 });
-  if (depositAmount < 0) return new NextResponse("Invalid depositCents for deposit", { status: 400 });
-  if (totalAmount <= 0) return new NextResponse("Invalid total amount", { status: 400 });
-
-  const stripe = new Stripe(secretKey, {
-    apiVersion: "2025-09-30.clover",
-  });
-
-  // ==========================================================
-  // IDEMPOTENCIA: si ya existe PaymentIntent reutilizable
-  // ==========================================================
-  if (booking.paymentRef) {
-    try {
-      const existingPI = await stripe.paymentIntents.retrieve(booking.paymentRef);
-
-      if (
-        existingPI.client_secret &&
-        existingPI.status !== "succeeded" &&
-        existingPI.status !== "canceled"
-      ) {
-        return NextResponse.json({
-          clientSecret: existingPI.client_secret,
-          paymentIntentId: existingPI.id,
-
-          currency,
-          rentAmountCents: rentAmount,
-          depositAmountCents: depositAmount,
-          totalAmountCents: totalAmount,
-        });
-      }
-    } catch (err) {
-      console.error("Failed retrieving existing PI", err);
-    }
-
-    // si el PI viejo ya no sirve -> limpiamos
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        paymentRef: null,
-        depositPaymentIntentId: null,
-      },
+  if (!key) {
+    return new NextResponse("Payment configuration unavailable", {
+      status: 503,
     });
   }
 
-  // ==========================================================
-  // PAYMENT INTENT ÚNICO (rent + deposit)
-  // ==========================================================
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: totalAmount,
-    currency,
-    automatic_payment_methods: { enabled: true },
-    metadata: {
-      bookingId: booking.id,
-      kind: "booking_payment",
-      listingId: booking.listingId,
-      renterId: booking.renterId,
-      rentAmountCents: String(rentAmount),
-      depositAmountCents: String(depositAmount),
-    },
+  const stripe = new Stripe(key, {
+    apiVersion: "2025-09-30.clover",
+    timeout: 8000,
+    maxNetworkRetries: 0,
   });
 
-  // Guardamos ID
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      paymentRef: paymentIntent.id,
-      depositPaymentIntentId: null,
-    },
-  });
+  try {
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Usa el mismo bloqueo que la cancelación por vencimiento.
+        await tx.$queryRaw`
+          SELECT id
+          FROM "Booking"
+          WHERE id = ${id}
+          FOR UPDATE
+        `;
 
-  return NextResponse.json({
-    clientSecret: paymentIntent.client_secret,
-    paymentIntentId: paymentIntent.id,
+        const booking = await tx.booking.findUnique({
+          where: { id },
+        });
 
-    currency,
-    rentAmountCents: rentAmount,
-    depositAmountCents: depositAmount,
-    totalAmountCents: totalAmount,
-  });
+        if (!booking || booking.renterId !== userId) {
+          return {
+            error: "Booking not found",
+            status: 404,
+          };
+        }
+
+        if (
+          booking.status !== "AWAITING_PAYMENT" ||
+          booking.paymentStatus !== "PENDING" ||
+          booking.paidAt
+        ) {
+          return {
+            error: "Ta rezerwacja nie oczekuje na płatność.",
+            status: 409,
+          };
+        }
+
+        if (
+          !booking.paymentDueAt ||
+          booking.paymentDueAt <= new Date()
+        ) {
+          return {
+            error:
+              "Termin płatności upłynął. Nie można rozpocząć płatności.",
+            status: 410,
+          };
+        }
+
+        const rent =
+          booking.rentAmountCents ?? booking.amountCents ?? 0;
+
+        const deposit = booking.depositCents ?? 0;
+
+        if (rent <= 0 || deposit < 0) {
+          return {
+            error: "Invalid amounts",
+            status: 400,
+          };
+        }
+
+        // Reutiliza el intento existente. La clave de idempotencia
+        // evita crear otro si hay que repetir la misma petición.
+        const paymentIntent = booking.paymentRef
+          ? await stripe.paymentIntents.retrieve(booking.paymentRef)
+          : await stripe.paymentIntents.create(
+              {
+                amount: rent + deposit,
+                currency: "pln",
+                automatic_payment_methods: {
+                  enabled: true,
+                },
+                metadata: {
+                  bookingId: booking.id,
+                  kind: "booking_payment",
+                  listingId: booking.listingId,
+                  renterId: booking.renterId,
+                  rentAmountCents: String(rent),
+                  depositAmountCents: String(deposit),
+                },
+              },
+              {
+                idempotencyKey: `booking-payment-${booking.id}`,
+              }
+            );
+
+        if (!booking.paymentRef) {
+          await tx.booking.update({
+            where: { id },
+            data: {
+              paymentRef: paymentIntent.id,
+              depositPaymentIntentId: null,
+            },
+          });
+        }
+
+        if (
+          paymentIntent.amount !== rent + deposit ||
+          paymentIntent.currency !== "pln" ||
+          paymentIntent.metadata.bookingId !== id
+        ) {
+          return {
+            error: "Payment does not match booking",
+            status: 409,
+          };
+        }
+
+        if (
+          [
+            "succeeded",
+            "canceled",
+            "processing",
+            "requires_capture",
+          ].includes(paymentIntent.status)
+        ) {
+          return {
+            error:
+              "Płatność jest zakończona, anulowana lub w trakcie przetwarzania. Odśwież rezerwację.",
+            status: 409,
+          };
+        }
+
+        // Comprueba nuevamente el plazo después de consultar Stripe.
+        if (booking.paymentDueAt <= new Date()) {
+          return {
+            error: "Termin płatności upłynął.",
+            status: 410,
+          };
+        }
+
+        return {
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+          currency: "pln",
+          rentAmountCents: rent,
+          depositAmountCents: deposit,
+          totalAmountCents: rent + deposit,
+        };
+      },
+      {
+        timeout: 25000,
+        maxWait: 5000,
+      }
+    );
+
+    if ("error" in result) {
+      return new NextResponse(result.error, {
+        status: result.status,
+      });
+    }
+
+    return NextResponse.json(result);
+  } catch {
+    return new NextResponse(
+      "Nie można teraz przygotować płatności. Spróbuj ponownie.",
+      { status: 503 }
+    );
+  }
 }

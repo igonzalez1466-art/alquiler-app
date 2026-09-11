@@ -1,4 +1,3 @@
-// app/bookings/actions.ts
 "use server";
 
 import { prisma } from "@/app/lib/prisma";
@@ -7,20 +6,10 @@ import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
+import { PAYMENT_WINDOW_MS } from "@/app/lib/paymentExpiry";
 
-/* ============================================
-   CONFIGURACIÓN ECONÓMICA
-=============================================== */
-
-// Basis points:
-// 1500 = 15.00%
-// 1000 = 10.00%
-// 2000 = 20.00%
+// 1500 basis points = 15 %
 const PLATFORM_FEE_RATE = 1500;
-
-/* ============================================
-   UTILIDADES
-=============================================== */
 
 function fmt(d: Date | string) {
   const dt = new Date(d);
@@ -37,20 +26,37 @@ function diffDaysInclusive(startDate: Date, endDate: Date) {
   const end = new Date(endDate);
   end.setHours(0, 0, 0, 0);
 
+  return Math.floor(
+    (end.getTime() - start.getTime()) / 86400000
+  ) + 1;
+}
+
+function baseUrl() {
   return (
-    Math.floor(
-      (end.getTime() - start.getTime()) / 86400000
-    ) + 1
-  );
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => {
+    const replacements: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+
+    return replacements[char];
+  });
 }
 
 function emailSignature() {
   return `
-    <hr style="
-      border:none;
-      border-top:1px solid #eee;
-      margin:18px 0;
-    " />
+    <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
 
     <p style="margin:0;font-size:13px;color:#555;">
       Pozdrawiamy,<br/>
@@ -66,7 +72,7 @@ function emailSignature() {
 
 /* ============================================
    CREAR RESERVA
-=============================================== */
+============================================ */
 
 export async function createBookingAction(input: {
   listingId: string;
@@ -110,9 +116,10 @@ export async function createBookingAction(input: {
     throw new Error("Fechas inválidas.");
   }
 
-  if (end <= start) {
+  // Permite que inicio y fin sean el mismo día.
+  if (end < start) {
     throw new Error(
-      "La fecha de fin debe ser posterior a la fecha de inicio."
+      "La fecha de fin no puede ser anterior a la fecha de inicio."
     );
   }
 
@@ -120,7 +127,12 @@ export async function createBookingAction(input: {
     where: {
       listingId: input.listingId,
       status: {
-        in: ["PENDING", "CONFIRMED", "PAID"],
+        in: [
+          "PENDING",
+          "AWAITING_PAYMENT",
+          "CONFIRMED",
+          "PAID",
+        ],
       },
       startDate: {
         lte: end,
@@ -135,18 +147,8 @@ export async function createBookingAction(input: {
     throw new Error("Estas fechas ya están reservadas.");
   }
 
-  /* ============================================
-     SNAPSHOT ECONÓMICO
-
-     Se congela aquí, en el momento en que el
-     usuario crea la solicitud de reserva.
-
-     Cambios posteriores en Listing.pricePerDay
-     o Listing.fianza NO modificarán esta reserva.
-  =============================================== */
-
+  // Los importes quedan guardados en la reserva.
   const days = diffDaysInclusive(start, end);
-
   const pricePerDay = listing.pricePerDay;
   const deposit = listing.fianza ?? 0;
 
@@ -157,18 +159,12 @@ export async function createBookingAction(input: {
   }
 
   if (deposit < 0) {
-    throw new Error(
-      "El anuncio no tiene una fianza válida."
-    );
+    throw new Error("El anuncio no tiene una fianza válida.");
   }
 
-  const pricePerDayCents = pricePerDay * 100;
-
-  const rentAmountCents =
-    days * pricePerDayCents;
-
-  const depositCents =
-    deposit * 100;
+  const pricePerDayCents = Math.round(pricePerDay * 100);
+  const rentAmountCents = days * pricePerDayCents;
+  const depositCents = Math.round(deposit * 100);
 
   const platformFeeCents = Math.round(
     (rentAmountCents * PLATFORM_FEE_RATE) / 10_000
@@ -182,13 +178,9 @@ export async function createBookingAction(input: {
       listingId: input.listingId,
       renterId,
       ownerId: listing.userId,
-
       startDate: start,
       endDate: end,
-
       status: "PENDING",
-
-      // Snapshot económico
       pricePerDayCents,
       rentAmountCents,
       platformFeeRate: PLATFORM_FEE_RATE,
@@ -206,8 +198,6 @@ export async function createBookingAction(input: {
     },
   });
 
-  const ref = `#${booking.bookingNumber}`;
-
   await prisma.conversation.updateMany({
     where: {
       listingId: booking.listingId,
@@ -221,37 +211,32 @@ export async function createBookingAction(input: {
     },
   });
 
+  const ref = `#${booking.bookingNumber}`;
+  const title = listing.title ?? "twój przedmiot";
+  const safeTitle = escapeHtml(title);
   const startFormatted = fmt(start);
   const endFormatted = fmt(end);
-  const title = listing.title ?? "twój przedmiot";
-
-  /* EMAIL AL PROPIETARIO */
 
   if (booking.listing.user?.email) {
     await sendMail({
       to: booking.listing.user.email,
       subject: `Nowa prośba o rezerwację ${ref}: ${title}`,
       html: `
-        <p>
-          Cześć ${booking.listing.user.name ?? ""},
-        </p>
+        <p>Cześć ${escapeHtml(
+          booking.listing.user.name ?? ""
+        )},</p>
+
+        <p><strong>Numer rezerwacji:</strong> ${ref}</p>
 
         <p>
-          <strong>Numer rezerwacji:</strong>
-          ${ref}
-        </p>
-
-        <p>
-          ${booking.renter?.name ?? "Użytkownik"}
+          ${escapeHtml(booking.renter?.name ?? "Użytkownik")}
           chce dokonać rezerwacji
-          <strong>${title}</strong>.
+          <strong>${safeTitle}</strong>.
         </p>
 
         <p>
           Daty:
-          <strong>
-            ${startFormatted} → ${endFormatted}
-          </strong>
+          <strong>${startFormatted} → ${endFormatted}</strong>
         </p>
 
         <p>
@@ -264,25 +249,18 @@ export async function createBookingAction(input: {
     });
   }
 
-  /* EMAIL AL INQUILINO */
-
   if (booking.renter?.email) {
     await sendMail({
       to: booking.renter.email,
       subject: `Wniosek ${ref} wysłany na ${title}`,
       html: `
-        <p>
-          Cześć ${booking.renter.name ?? ""},
-        </p>
+        <p>Cześć ${escapeHtml(booking.renter.name ?? "")},</p>
 
-        <p>
-          <strong>Numer rezerwacji:</strong>
-          ${ref}
-        </p>
+        <p><strong>Numer rezerwacji:</strong> ${ref}</p>
 
         <p>
           Twoje zgłoszenie dotyczące
-          <strong>${title}</strong>
+          <strong>${safeTitle}</strong>
           (${startFormatted} → ${endFormatted})
           zostało wysłane do właściciela.
         </p>
@@ -306,8 +284,8 @@ export async function createBookingAction(input: {
 }
 
 /* ============================================
-   APROBAR RESERVA
-=============================================== */
+   ACEPTAR RESERVA
+============================================ */
 
 export async function approveBookingAction(
   bookingId: string
@@ -348,45 +326,26 @@ export async function approveBookingAction(
     throw new Error("Esta reserva ya fue procesada");
   }
 
-  const ref = `#${booking.bookingNumber}`;
-
-  /* ============================================
-     ECONOMÍA DE LA RESERVA
-
-     Reservas nuevas:
-     usamos SIEMPRE el snapshot guardado.
-
-     Reservas históricas:
-     si los nuevos campos son NULL, calculamos
-     temporalmente desde Listing.
-  =============================================== */
-
   const days = diffDaysInclusive(
     booking.startDate,
     booking.endDate
   );
 
-  const fallbackPricePerDayCents =
-    booking.listing.pricePerDay * 100;
-
-  const fallbackDepositCents =
-    (booking.listing.fianza ?? 0) * 100;
-
+  // Conserva los importes guardados. El fallback mantiene
+  // compatibilidad con solicitudes antiguas sin snapshot.
   const pricePerDayCents =
     booking.pricePerDayCents ??
-    fallbackPricePerDayCents;
+    Math.round(booking.listing.pricePerDay * 100);
 
   const rentAmountCents =
-    booking.rentAmountCents ??
-    days * pricePerDayCents;
+    booking.rentAmountCents ?? days * pricePerDayCents;
 
   const depositCents =
     booking.depositCents ??
-    fallbackDepositCents;
+    Math.round((booking.listing.fianza ?? 0) * 100);
 
   const platformFeeRate =
-    booking.platformFeeRate ??
-    PLATFORM_FEE_RATE;
+    booking.platformFeeRate ?? PLATFORM_FEE_RATE;
 
   const platformFeeCents =
     booking.platformFeeCents ??
@@ -398,53 +357,34 @@ export async function approveBookingAction(
     booking.ownerPayoutCents ??
     rentAmountCents - platformFeeCents;
 
-  if (pricePerDayCents <= 0) {
+  if (pricePerDayCents <= 0 || rentAmountCents <= 0) {
     throw new Error(
-      "La reserva no tiene un precio por día válido."
+      "La reserva no tiene un importe de alquiler válido."
     );
   }
 
   if (depositCents < 0) {
-    throw new Error(
-      "La reserva no tiene una fianza válida."
-    );
+    throw new Error("La reserva no tiene una fianza válida.");
   }
 
-  const totalCents =
-    rentAmountCents + depositCents;
+  // El plazo empieza ahora, al aceptar la solicitud.
+  const paymentDueAt = new Date(
+    Date.now() + PAYMENT_WINDOW_MS
+  );
 
-  const moneyPLNFromCents = (value: number) =>
-    `${new Intl.NumberFormat("pl-PL").format(
-      value / 100
-    )} zł`;
-
-  /*
-   * Para reservas históricas también persistimos
-   * el snapshot calculado en el momento de aprobar.
-   *
-   * Para reservas nuevas estos valores ya existirán
-   * y simplemente se conservarán.
-   */
-
-  await prisma.booking.update({
+  // La condición PENDING evita aceptar dos veces
+  // o reiniciar el plazo mediante peticiones simultáneas.
+  const approved = await prisma.booking.updateMany({
     where: {
       id: bookingId,
+      status: "PENDING",
     },
     data: {
       status: "AWAITING_PAYMENT",
       paymentStatus: "PENDING",
-
-      paymentDueAt: new Date(
-        Date.now() + 24 * 60 * 60 * 1000
-      ),
-
+      paymentDueAt,
       cancelledAt: null,
-
-      // Campo legacy que sigue utilizando
-      // actualmente parte del flujo de pago.
       amountCents: rentAmountCents,
-
-      // Snapshot económico
       pricePerDayCents,
       rentAmountCents,
       platformFeeRate,
@@ -453,6 +393,12 @@ export async function approveBookingAction(
       depositCents,
     },
   });
+
+  if (approved.count !== 1) {
+    throw new Error(
+      "Ta rezerwacja została już przetworzona."
+    );
+  }
 
   await prisma.conversation.updateMany({
     where: {
@@ -467,103 +413,90 @@ export async function approveBookingAction(
     },
   });
 
-  const title =
-    booking.listing.title ?? "twój przedmiot";
-
+  const ref = `#${booking.bookingNumber}`;
+  const title = booking.listing.title ?? "twój przedmiot";
+  const safeTitle = escapeHtml(title);
   const startFormatted = fmt(booking.startDate);
   const endFormatted = fmt(booking.endDate);
+  const totalCents = rentAmountCents + depositCents;
 
-  /* EMAIL AL INQUILINO */
+  const totalFormatted =
+    `${new Intl.NumberFormat("pl-PL").format(
+      totalCents / 100
+    )} zł`;
+
+  const deadlineFormatted = new Intl.DateTimeFormat(
+    "pl-PL",
+    {
+      timeZone: "Europe/Warsaw",
+      dateStyle: "short",
+      timeStyle: "short",
+    }
+  ).format(paymentDueAt);
+
+  const bookingUrl =
+    `${baseUrl()}/bookings/${booking.id}`;
 
   if (booking.renter?.email) {
     await sendMail({
       to: booking.renter.email,
       subject: `Rezerwacja potwierdzona ${ref}: ${title}`,
       html: `
-        <div style="
-          font-family:Arial,Helvetica,sans-serif;
-          font-size:14px;
-          color:#111;
-          line-height:1.5;
-        ">
-          <p>
-            Cześć ${booking.renter.name ?? ""},
-          </p>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
+          <p>Cześć ${escapeHtml(
+            booking.renter.name ?? ""
+          )},</p>
 
           <p>
             Twoja rezerwacja została
             <strong>zatwierdzona przez właściciela</strong>.
           </p>
 
-          <div style="
-            margin:16px 0;
-            padding:16px;
-            border:1px solid #e5e7eb;
-            border-radius:8px;
-            background:#fafafa;
-          ">
-            <p style="
-              margin:0 0 8px;
-              font-size:16px;
-              font-weight:600;
-            ">
-              ${booking.listing.title}
+          <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
+            <p style="margin:0 0 8px;font-size:16px;font-weight:600;">
+              ${safeTitle}
             </p>
 
-            <p style="margin:4px 0;">
-              <strong>Numer rezerwacji:</strong>
-              #${booking.bookingNumber}
-            </p>
+            <p><strong>Numer rezerwacji:</strong> ${ref}</p>
 
-            <p style="margin:4px 0;">
+            <p>
               <strong>Daty:</strong>
               ${startFormatted} → ${endFormatted}
             </p>
 
-            <p style="margin:4px 0;">
+            <p>
               <strong>Kwota do zapłaty:</strong>
-              ${moneyPLNFromCents(totalCents)}
+              ${totalFormatted}
             </p>
           </div>
 
-          <p style="margin-top:12px;">
+          <p>
             Aby sfinalizować rezerwację,
             dokonaj płatności w aplikacji.
           </p>
 
           <p>
             <a
-              href="${process.env.APP_URL}/bookings/${booking.id}/pay"
-              style="
-                display:inline-block;
-                margin-top:12px;
-                padding:12px 18px;
-                background:#16a34a;
-                color:white;
-                text-decoration:none;
-                border-radius:6px;
-                font-weight:600;
-              "
+              href="${escapeHtml(bookingUrl + "/pay")}"
+              style="display:inline-block;margin-top:12px;padding:12px 18px;background:#16a34a;color:white;text-decoration:none;border-radius:6px;font-weight:600;"
             >
               Opłać rezerwację
             </a>
           </p>
 
-          <div style="
-            margin-top:18px;
-            padding:14px;
-            background:#fef3c7;
-            border:1px solid #fcd34d;
-            border-radius:8px;
-          ">
+          <div style="margin-top:18px;padding:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;">
             <strong>Ważne:</strong><br/>
 
-            Rezerwacja będzie ważna dopiero po
-            zaksięgowaniu płatności.<br/><br/>
+            Na opłacenie rezerwacji masz
+            <strong>2 godziny od zatwierdzenia</strong>.
+            <br/><br/>
 
-            ⏳ Jeśli płatność nie zostanie dokonana
-            w ciągu <strong>24 godzin od zatwierdzenia</strong>,
-            rezerwacja zostanie automatycznie anulowana.
+            <strong>Termin płatności:</strong>
+            ${deadlineFormatted} (czas polski).
+            <br/><br/>
+
+            Jeśli płatność nie zostanie dokonana w terminie,
+            rezerwacja zostanie anulowana.
             <br/><br/>
 
             Po potwierdzeniu płatności otrzymasz
@@ -576,54 +509,36 @@ export async function approveBookingAction(
     });
   }
 
-  /* EMAIL AL PROPIETARIO */
-
   if (booking.listing.user?.email) {
     await sendMail({
       to: booking.listing.user.email,
       subject: `Potwierdziłeś rezerwację ${ref}: ${title}`,
       html: `
-        <div style="
-          font-family:Arial,Helvetica,sans-serif;
-          font-size:14px;
-          color:#111;
-          line-height:1.5;
-        ">
-          <p>
-            Cześć ${booking.listing.user.name ?? ""},
-          </p>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
+          <p>Cześć ${escapeHtml(
+            booking.listing.user.name ?? ""
+          )},</p>
 
           <p>
             Pomyślnie
             <strong>zatwierdziłeś rezerwację</strong>.
           </p>
 
-          <div style="
-            margin:16px 0;
-            padding:16px;
-            border:1px solid #e5e7eb;
-            border-radius:8px;
-            background:#fafafa;
-          ">
-            <p style="
-              margin:0 0 8px;
-              font-size:16px;
-              font-weight:600;
-            ">
-              ${booking.listing.title}
+          <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
+            <p style="margin:0 0 8px;font-size:16px;font-weight:600;">
+              ${safeTitle}
             </p>
 
-            <p style="margin:4px 0;">
-              <strong>Numer rezerwacji:</strong>
-              #${booking.bookingNumber}
-            </p>
+            <p><strong>Numer rezerwacji:</strong> ${ref}</p>
 
-            <p style="margin:4px 0;">
+            <p>
               <strong>Klient:</strong>
-              ${booking.renter?.name ?? "Użytkownik"}
+              ${escapeHtml(
+                booking.renter?.name ?? "Użytkownik"
+              )}
             </p>
 
-            <p style="margin:4px 0;">
+            <p>
               <strong>Daty:</strong>
               ${startFormatted} → ${endFormatted}
             </p>
@@ -635,18 +550,17 @@ export async function approveBookingAction(
           </p>
 
           <p>
+            Termin płatności:
+            <strong>${deadlineFormatted}</strong>
+            (czas polski).
+          </p>
+
+          <p>
             Otrzymasz osobne powiadomienie e-mail,
             gdy płatność zostanie potwierdzona.
           </p>
 
-          <div style="
-            margin-top:18px;
-            padding:14px;
-            background:#fee2e2;
-            border:1px solid #fca5a5;
-            border-radius:8px;
-            color:#991b1b;
-          ">
+          <div style="margin-top:18px;padding:14px;background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;color:#991b1b;">
             <strong>Ważne:</strong><br/>
             Nie przekazuj przedmiotu do momentu
             potwierdzenia płatności w aplikacji.
@@ -654,17 +568,8 @@ export async function approveBookingAction(
 
           <p>
             <a
-              href="${process.env.APP_URL}/bookings/${booking.id}"
-              style="
-                display:inline-block;
-                margin-top:14px;
-                padding:10px 16px;
-                background:#111827;
-                color:white;
-                text-decoration:none;
-                border-radius:6px;
-                font-weight:500;
-              "
+              href="${escapeHtml(bookingUrl)}"
+              style="display:inline-block;margin-top:14px;padding:10px 16px;background:#111827;color:white;text-decoration:none;border-radius:6px;"
             >
               Zobacz szczegóły rezerwacji
             </a>
@@ -677,6 +582,8 @@ export async function approveBookingAction(
   }
 
   revalidatePath("/bookings");
+  revalidatePath(`/bookings/${bookingId}`);
+  revalidatePath(`/listing/${booking.listingId}`);
 
   return {
     ok: true,
@@ -685,7 +592,7 @@ export async function approveBookingAction(
 
 /* ============================================
    RECHAZAR RESERVA Y CERRAR CHAT
-=============================================== */
+============================================ */
 
 export async function rejectBookingAction(
   bookingId: string
@@ -728,16 +635,23 @@ export async function rejectBookingAction(
     );
   }
 
-  const ref = `#${booking.bookingNumber}`;
-
-  await prisma.booking.update({
+  // Evita rechazar una reserva que acaba de ser aceptada.
+  const rejected = await prisma.booking.updateMany({
     where: {
       id: bookingId,
+      status: "PENDING",
     },
     data: {
       status: "CANCELLED",
+      cancelledAt: new Date(),
     },
   });
+
+  if (rejected.count !== 1) {
+    throw new Error(
+      "Ta rezerwacja została już przetworzona."
+    );
+  }
 
   const stillActive = await prisma.booking.findFirst({
     where: {
@@ -757,19 +671,20 @@ export async function rejectBookingAction(
     },
   });
 
-  const conversation =
-    await prisma.conversation.findUnique({
-      where: {
-        listingId_buyerId: {
-          listingId: booking.listingId,
-          buyerId: booking.renterId,
-        },
+  const conversation = await prisma.conversation.findUnique({
+    where: {
+      listingId_buyerId: {
+        listingId: booking.listingId,
+        buyerId: booking.renterId,
       },
-      select: {
-        id: true,
-        status: true,
-      },
-    });
+    },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  let closedChat = false;
 
   if (conversation && !stillActive) {
     await prisma.conversation.update({
@@ -783,87 +698,51 @@ export async function rejectBookingAction(
       },
     });
 
+    closedChat = true;
     revalidatePath(`/chat/${conversation.id}`);
   }
 
-  const title =
-    booking.listing.title ?? "twój przedmiot";
-
+  const ref = `#${booking.bookingNumber}`;
+  const title = booking.listing.title ?? "twój przedmiot";
+  const safeTitle = escapeHtml(title);
   const startFormatted = fmt(booking.startDate);
   const endFormatted = fmt(booking.endDate);
 
-  /* EMAIL AL INQUILINO */
+  const listingUrl =
+    `${baseUrl()}/listing/${booking.listingId}`;
 
   if (booking.renter?.email) {
     await sendMail({
       to: booking.renter.email,
       subject: `Rezerwacja odrzucona ${ref}: ${title}`,
       html: `
-        <div style="
-          font-family:Arial,Helvetica,sans-serif;
-          font-size:14px;
-          color:#111;
-          line-height:1.5;
-        ">
-          <p>
-            Cześć ${booking.renter.name ?? ""},
-          </p>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
+          <p>Cześć ${escapeHtml(
+            booking.renter.name ?? ""
+          )},</p>
 
           <p>
             Niestety właściciel odrzucił Twoją rezerwację.
           </p>
 
-          <div style="
-            margin:16px 0;
-            padding:16px;
-            border:1px solid #e5e7eb;
-            border-radius:8px;
-            background:#fafafa;
-          ">
-            <p style="
-              margin:0 0 8px;
-              font-size:16px;
-              font-weight:600;
-            ">
-              ${booking.listing.title}
-            </p>
+          <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
+            <p><strong>${safeTitle}</strong></p>
+            <p><strong>Numer rezerwacji:</strong> ${ref}</p>
 
-            <p style="margin:4px 0;">
-              <strong>Numer rezerwacji:</strong>
-              #${booking.bookingNumber}
-            </p>
-
-            <p style="margin:4px 0;">
+            <p>
               <strong>Daty:</strong>
               ${startFormatted} → ${endFormatted}
             </p>
           </div>
 
-          <div style="
-            margin-top:14px;
-            padding:14px;
-            background:#f3f4f6;
-            border-radius:8px;
-          ">
+          <p>
             Możesz spróbować wybrać inne daty
             lub znaleźć podobny przedmiot dostępny
             w tym terminie.
-          </div>
+          </p>
 
           <p>
-            <a
-              href="${process.env.APP_URL}/listing/${booking.listing.id}"
-              style="
-                display:inline-block;
-                margin-top:14px;
-                padding:10px 16px;
-                background:#111827;
-                color:white;
-                text-decoration:none;
-                border-radius:6px;
-                font-weight:500;
-              "
-            >
+            <a href="${escapeHtml(listingUrl)}">
               Zobacz ogłoszenie
             </a>
           </p>
@@ -874,87 +753,46 @@ export async function rejectBookingAction(
     });
   }
 
-  /* EMAIL AL PROPIETARIO */
-
   if (booking.listing.user?.email) {
     await sendMail({
       to: booking.listing.user.email,
       subject: `Odrzuciłeś rezerwację ${ref}: ${title}`,
       html: `
-        <div style="
-          font-family:Arial,Helvetica,sans-serif;
-          font-size:14px;
-          color:#111;
-          line-height:1.5;
-        ">
-          <p>
-            Cześć ${booking.listing.user.name ?? ""},
-          </p>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
+          <p>Cześć ${escapeHtml(
+            booking.listing.user.name ?? ""
+          )},</p>
 
           <p>
             Pomyślnie
             <strong>odrzuciłeś rezerwację</strong>.
           </p>
 
-          <div style="
-            margin:16px 0;
-            padding:16px;
-            border:1px solid #e5e7eb;
-            border-radius:8px;
-            background:#fafafa;
-          ">
-            <p style="
-              margin:0 0 8px;
-              font-size:16px;
-              font-weight:600;
-            ">
-              ${booking.listing.title}
-            </p>
+          <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
+            <p><strong>${safeTitle}</strong></p>
+            <p><strong>Numer rezerwacji:</strong> ${ref}</p>
 
-            <p style="margin:4px 0;">
-              <strong>Numer rezerwacji:</strong>
-              #${booking.bookingNumber}
-            </p>
-
-            <p style="margin:4px 0;">
+            <p>
               <strong>Klient:</strong>
-              ${booking.renter?.name ?? "Użytkownik"}
+              ${escapeHtml(
+                booking.renter?.name ?? "Użytkownik"
+              )}
             </p>
 
-            <p style="margin:4px 0;">
+            <p>
               <strong>Daty:</strong>
               ${startFormatted} → ${endFormatted}
             </p>
           </div>
 
-          <div style="
-            margin-top:14px;
-            padding:14px;
-            border:1px solid #fca5a5;
-            border-radius:8px;
-            background:#fee2e2;
-            color:#991b1b;
-          ">
+          <p>
             <strong>Rezerwacja została anulowana.</strong>
-            <br/>
             Te terminy mogą być ponownie dostępne
             dla innych klientów.
-          </div>
+          </p>
 
           <p>
-            <a
-              href="${process.env.APP_URL}/listing/${booking.listing.id}"
-              style="
-                display:inline-block;
-                margin-top:14px;
-                padding:10px 16px;
-                background:#111827;
-                color:white;
-                text-decoration:none;
-                border-radius:6px;
-                font-weight:500;
-              "
-            >
+            <a href="${escapeHtml(listingUrl)}">
               Zobacz ogłoszenie
             </a>
           </p>
@@ -967,32 +805,10 @@ export async function rejectBookingAction(
 
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath(`/listing/${booking.listingId}`);
 
   return {
     ok: true,
-    closedChat: Boolean(conversation),
+    closedChat,
   };
 }
-
-/* ============================================
-   STRIPE CHECKOUT (DESACTIVADO)
-=============================================== */
-
-/*
-export async function createCheckoutSessionAction(
-  bookingId: string
-) {
-  const session = await getServerSession(authConfig);
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    throw new Error("No autorizado");
-  }
-
-  // Aquí iría el código de Stripe.
-
-  return {
-    bookingId,
-  };
-}
-*/
