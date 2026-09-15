@@ -475,7 +475,12 @@ export async function createBookingAction(
                 Zaloguj się do panelu i zdecyduj,
                 czy chcesz zaakceptować lub odrzucić tę rezerwację.
               </p>
-
+              <p>
+                <strong>Masz 12 godzin od utworzenia prośby
+                na jej akceptację.</strong>
+                Jeśli nie zaakceptujesz jej w terminie,
+                rezerwacja zostanie anulowana.
+              </p>
               <p>
                 <a
                   href="${bookingUrl}"
@@ -550,7 +555,13 @@ export async function createBookingAction(
                 Otrzymasz powiadomienie e-mail,
                 gdy właściciel podejmie decyzję.
               </p>
-
+                            <p>
+                Właściciel ma
+                <strong>12 godzin od utworzenia prośby
+                na jej akceptację.</strong>
+                Jeśli nie zaakceptuje jej w terminie,
+                rezerwacja zostanie anulowana.
+              </p>
               <p>
                 <a
                   href="${bookingUrl}"

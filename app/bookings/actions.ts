@@ -7,6 +7,10 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 import { PAYMENT_WINDOW_MS } from "@/app/lib/paymentExpiry";
+import {
+  APPROVAL_WINDOW_MS,
+  getApprovalDeadline,
+} from "@/app/lib/approvalExpiry";
 
 // 1500 basis points = 15 %
 const PLATFORM_FEE_RATE = 1500;
@@ -243,7 +247,12 @@ export async function createBookingAction(input: {
           Możesz zaakceptować lub odrzucić rezerwację
           w swoim panelu.
         </p>
-
+        <p>
+          <strong>Masz 12 godzin od utworzenia prośby
+          na jej akceptację.</strong>
+          Jeśli nie zaakceptujesz jej w terminie,
+          rezerwacja zostanie anulowana.
+        </p>
         ${emailSignature()}
       `,
     });
@@ -268,7 +277,13 @@ export async function createBookingAction(input: {
         <p>
           Poinformujemy Cię, gdy właściciel je zatwierdzi.
         </p>
-
+        <p>
+          Właściciel ma
+          <strong>12 godzin od utworzenia prośby
+          na jej akceptację.</strong>
+          Jeśli nie zaakceptuje jej w terminie,
+          rezerwacja zostanie anulowana.
+        </p>
         ${emailSignature()}
       `,
     });
@@ -325,6 +340,11 @@ export async function approveBookingAction(
   if (booking.status !== "PENDING") {
     throw new Error("Esta reserva ya fue procesada");
   }
+    if (getApprovalDeadline(booking.createdAt) <= new Date()) {
+    throw new Error(
+      "Termin akceptacji minął. Prośbę o rezerwację można zaakceptować w ciągu 12 godzin od jej utworzenia."
+    );
+  }
 
   const days = diffDaysInclusive(
     booking.startDate,
@@ -374,10 +394,13 @@ export async function approveBookingAction(
 
   // La condición PENDING evita aceptar dos veces
   // o reiniciar el plazo mediante peticiones simultáneas.
-  const approved = await prisma.booking.updateMany({
+    const approved = await prisma.booking.updateMany({
     where: {
       id: bookingId,
       status: "PENDING",
+      createdAt: {
+        gt: new Date(Date.now() - APPROVAL_WINDOW_MS),
+      },
     },
     data: {
       status: "AWAITING_PAYMENT",

@@ -12,6 +12,7 @@ import DepositActions from "./_components/DepositActions";
 
 import { confirmDeliveryAction } from "./_actions/confirmDeliveryAction";
 import { confirmReturnAction } from "./_actions/confirmReturnAction";
+import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 
 /* ============================================================
    HELPERS
@@ -256,7 +257,21 @@ export default async function BookingPage({
 
   const isCancelled =
     booking.status === "CANCELLED";
+  const awaitingApproval = booking.status === "PENDING";
 
+  const approvalDeadline = getApprovalDeadline(
+    booking.createdAt
+  );
+
+  const approvalExpired =
+    awaitingApproval && approvalDeadline <= new Date();
+
+  const approvalDeadlineFormatted =
+    new Intl.DateTimeFormat("pl-PL", {
+      timeZone: "Europe/Warsaw",
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(approvalDeadline);
   /* ==========================================================
      PLAZO DE PAGO
   ========================================================== */
@@ -472,6 +487,31 @@ export default async function BookingPage({
           </div>
         </div>
       </section>
+
+      {awaitingApproval && (
+        <section
+          className={
+            approvalExpired
+              ? "p-4 border border-rose-200 rounded bg-rose-50 text-sm text-rose-900"
+              : "p-4 border border-amber-200 rounded bg-amber-50 text-sm text-amber-900"
+          }
+        >
+          <p>
+            <strong>Termin akceptacji:</strong>{" "}
+            {approvalDeadlineFormatted} (czas polski).
+          </p>
+
+          <p className="mt-1">
+            {approvalExpired
+              ? isOwner
+                ? "Termin akceptacji upłynął. Nie możesz już zaakceptować tej prośby. Rezerwacja oczekuje na anulowanie."
+                : "Właściciel nie zaakceptował prośby w terminie. Rezerwacja oczekuje na anulowanie."
+              : isOwner
+                ? "Masz 12 godzin od utworzenia prośby na jej akceptację. Jeśli nie zaakceptujesz jej w terminie, rezerwacja zostanie anulowana."
+                : "Właściciel ma 12 godzin od utworzenia prośby na jej akceptację. Jeśli nie zaakceptuje jej w terminie, rezerwacja zostanie anulowana."}
+          </p>
+        </section>
+      )}
 
       {/* RESERVA CANCELADA */}
 
@@ -935,7 +975,7 @@ export default async function BookingPage({
 
       {/* ACCIONES DEL PROPIETARIO */}
 
-      {isOwner && booking.status === "PENDING" && (
+           {isOwner && awaitingApproval && !approvalExpired && (
         <section className="p-4 border rounded bg-white">
           <h2 className="text-lg font-semibold mb-2">
             Akcje
