@@ -8,15 +8,6 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 
-type ShippingStatus =
-  | "NOT_REQUIRED"
-  | "PENDING"
-  | "READY"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "LOST"
-  | "CANCELLED";
-
 function fmt(d: Date | string) {
   const dt = new Date(d);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
@@ -49,19 +40,9 @@ export async function updateShippingAction(formData: FormData) {
 
   if (!bookingId) throw new Error("Brak bookingId");
 
-  const allowed: ShippingStatus[] = [
-    "NOT_REQUIRED",
-    "PENDING",
-    "READY",
-    "SHIPPED",
-    "DELIVERED",
-    "LOST",
-    "CANCELLED",
-  ];
-
-  const shippingStatus = rawStatus as ShippingStatus;
-  if (!allowed.includes(shippingStatus)) {
-    throw new Error("Nieprawidłowy status wysyłki");
+  const shippingStatus = rawStatus;
+  if (shippingStatus !== "SHIPPED") {
+    throw new Error("Można jedynie potwierdzić wysłanie przedmiotu");
   }
 
   const booking = await prisma.booking.findUnique({
@@ -120,7 +101,8 @@ export async function updateShippingAction(formData: FormData) {
   // bloqueo total si ya se cerró la entrega
   if (
     booking.deliveryConfirmationStatus === "CONFIRMED" ||
-    booking.deliveryConfirmationStatus === "AUTO_CONFIRMED"
+    booking.deliveryConfirmationStatus === "AUTO_CONFIRMED" ||
+    booking.deliveryConfirmationStatus === "DISPUTED"
   ) {
     throw new Error("Nie można edytować — odbiór został już potwierdzony");
   }
@@ -132,7 +114,7 @@ export async function updateShippingAction(formData: FormData) {
 
   const now = new Date();
 
-  const data: Prisma.BookingUpdateInput = {
+  const data: Prisma.BookingUpdateManyMutationInput = {
     shippingStatus,
     carrier: carrier || null,
     trackingNumber: trackingNumber || null,
@@ -141,24 +123,32 @@ export async function updateShippingAction(formData: FormData) {
       ? { shippedAt: now }
       : {}),
 
-    ...(shippingStatus === "DELIVERED" && !booking.deliveredAt
-      ? { deliveredAt: now }
-      : {}),
   };
 
   const shouldRequestDeliveryConfirmation =
-    shippingStatus === "DELIVERED" &&
+    shippingStatus === "SHIPPED" &&
     booking.deliveryConfirmationStatus === "NOT_REQUESTED";
 
   if (shouldRequestDeliveryConfirmation) {
     data.deliveryConfirmationStatus = "AWAITING_CONFIRMATION";
-    data.deliveryConfirmBy = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    /* Sending is not evidence of receipt: do not start an automatic confirmation clock. */
+    data.deliveryConfirmBy = null;
   }
 
-  await prisma.booking.update({
-    where: { id: bookingId },
+  const updated = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      ownerId: userId,
+      status: { not: "CANCELLED" },
+      paymentStatus: "PAID",
+      shippingStatus: booking.shippingStatus,
+      deliveryConfirmationStatus: booking.deliveryConfirmationStatus,
+    },
     data,
   });
+  if (updated.count !== 1) {
+    throw new Error("Stan rezerwacji uległ zmianie. Odśwież stronę.");
+  }
 
   if (shouldRequestDeliveryConfirmation) {
     const renterEmail = booking.renter?.email;
@@ -171,13 +161,13 @@ export async function updateShippingAction(formData: FormData) {
 
       await sendMail({
         to: renterEmail,
-        subject: `Potwierdź odbiór ${ref}: ${title}`,
+        subject: `Przedmiot wysłany ${ref}: ${title}`,
         html: `
 <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
   <p>Cześć ${booking.renter?.name ?? ""},</p>
 
-  <p>Właściciel oznaczył dostawę jako <strong>dostarczoną</strong>.</p>
+  <p>Właściciel oznaczył przedmiot jako <strong>wysłany</strong>.</p>
 
   <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
     <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
@@ -214,7 +204,7 @@ export async function updateShippingAction(formData: FormData) {
   </div>
 
   <p>
-    Zaloguj się do panelu i potwierdź odbiór przedmiotu.
+    Gdy otrzymasz przedmiot, zaloguj się do panelu i potwierdź odbiór przedmiotu.
   </p>
 
   <p>
@@ -229,7 +219,7 @@ export async function updateShippingAction(formData: FormData) {
   <div style="margin-top:18px; padding:14px; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px; color:#1e3a8a;">
     <strong>Ważne:</strong><br/>
     Potwierdź odbiór dopiero wtedy, gdy rzeczywiście otrzymasz przedmiot.<br/>
-    Jeśli wystąpił problem z dostawą, skontaktuj się z właścicielem przez czat.
+    Jeśli wystąpił problem z dostawą, wybierz „Zgłoś problem” w rezerwacji.
   </div>
 
   ${emailSignature()}

@@ -10,8 +10,8 @@ import ShippingForm from "./_components/ShippingForm";
 import ReturnForm from "./_components/ReturnForm";
 import DepositActions from "./_components/DepositActions";
 
-import { confirmDeliveryAction } from "./_actions/confirmDeliveryAction";
-import { confirmReturnAction } from "./_actions/confirmReturnAction";
+import ReceiptActions from "./_components/ReceiptActions";
+import { canReceive } from "@/app/lib/logistics";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 
 /* ============================================================
@@ -107,7 +107,7 @@ const deliveryConfirmLabel: Record<string, string> = {
   NOT_REQUESTED: "Nie wymaga potwierdzenia",
   AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie odbioru",
   CONFIRMED: "Odbiór potwierdzony",
-  DISPUTED: "Spór",
+  DISPUTED: "Zgłoszono problem",
   AUTO_CONFIRMED: "Automatycznie potwierdzono",
 };
 
@@ -115,7 +115,7 @@ const returnConfirmLabel: Record<string, string> = {
   NOT_REQUESTED: "Nie wymaga potwierdzenia",
   AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie zwrotu",
   CONFIRMED: "Zwrot potwierdzony",
-  DISPUTED: "Spór",
+  DISPUTED: "Zgłoszono problem",
   AUTO_CONFIRMED: "Automatycznie potwierdzono",
 };
 
@@ -307,7 +307,8 @@ export default async function BookingPage({
     booking.paymentStatus === "PAID";
 
   const canOwnerEditShipping =
-    isOwner && logisticsEnabled;
+    isOwner && logisticsEnabled && booking.shippingStatus !== "DELIVERED" &&
+    booking.deliveryConfirmationStatus !== "DISPUTED";
 
   const deliveryLocked =
     booking.deliveryConfirmationStatus === "CONFIRMED" ||
@@ -317,15 +318,8 @@ export default async function BookingPage({
     booking.returnConfirmationStatus === "CONFIRMED" ||
     booking.returnConfirmationStatus === "AUTO_CONFIRMED";
 
-  const renterCanConfirmDelivery =
-    isRenter &&
-    booking.deliveryConfirmationStatus ===
-      "AWAITING_CONFIRMATION";
-
-  const ownerCanConfirmReturn =
-    isOwner &&
-    booking.returnConfirmationStatus ===
-      "AWAITING_CONFIRMATION";
+  const renterCanConfirmDelivery = isRenter && canReceive(booking, "DELIVERY");
+  const ownerCanConfirmReturn = isOwner && canReceive(booking, "RETURN");
 
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
@@ -334,7 +328,8 @@ export default async function BookingPage({
   const canRenterEditReturn =
     isRenter &&
     logisticsEnabled &&
-    deliveryCompleted;
+    deliveryCompleted && !returnLocked && booking.returnStatus !== "DELIVERED" &&
+    booking.returnConfirmationStatus !== "DISPUTED";
 
   /* ==========================================================
      IMPORTES
@@ -747,24 +742,17 @@ export default async function BookingPage({
                     {fmt(booking.deliveryConfirmedAt)}
                   </div>
 
-                  <div>
-                    Potwierdź do:{" "}
-                    {fmt(booking.deliveryConfirmBy)}
-                  </div>
+
                 </div>
 
-                {renterCanConfirmDelivery && (
-                  <form action={confirmDeliveryAction}>
-                    <input
-                      type="hidden"
-                      name="bookingId"
-                      value={id}
-                    />
+                {booking.deliveryConfirmationStatus === "DISPUTED" && (
+                  <p role="status" className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                    Problem został zgłoszony. Potwierdzenie odbioru jest wstrzymane. Opisz szczegóły na czacie i skontaktuj się z obsługą serwisu, aby wyjaśnić sprawę.
+                  </p>
+                )}
 
-                    <button className="w-full sm:w-auto bg-emerald-600 text-white rounded px-4 py-2">
-                      Potwierdzam odbiór
-                    </button>
-                  </form>
+                {renterCanConfirmDelivery && (
+                  <ReceiptActions bookingId={id} stage="DELIVERY" />
                 )}
 
                 {canOwnerEditShipping && !deliveryLocked && (
@@ -853,23 +841,17 @@ export default async function BookingPage({
                     {fmt(booking.returnConfirmedAt)}
                   </div>
 
-                  <div>
-                    Potwierdź do: {fmt(booking.returnConfirmBy)}
-                  </div>
+
                 </div>
 
-                {ownerCanConfirmReturn && (
-                  <form action={confirmReturnAction}>
-                    <input
-                      type="hidden"
-                      name="bookingId"
-                      value={id}
-                    />
+                {booking.returnConfirmationStatus === "DISPUTED" && (
+                  <p role="status" className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                    Problem został zgłoszony. Potwierdzenie odbioru jest wstrzymane. Opisz szczegóły na czacie i skontaktuj się z obsługą serwisu, aby wyjaśnić sprawę.
+                  </p>
+                )}
 
-                    <button className="w-full sm:w-auto bg-emerald-600 text-white rounded px-4 py-2">
-                      Potwierdzam zwrot
-                    </button>
-                  </form>
+                {ownerCanConfirmReturn && (
+                  <ReceiptActions bookingId={id} stage="RETURN" />
                 )}
 
                 {canRenterEditReturn && (
@@ -885,7 +867,7 @@ export default async function BookingPage({
                   />
                 )}
 
-                {!canRenterEditReturn && !returnLocked && (
+                {!deliveryCompleted && !returnLocked && (
                   <p className="text-xs text-gray-500">
                     Formularz zwrotu będzie dostępny dopiero po
                     potwierdzeniu dostawy.

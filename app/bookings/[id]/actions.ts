@@ -4,76 +4,11 @@ import { prisma, initSqlitePragmas } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth"; // ✅ AÑADIR
 import { authConfig } from "@/auth.config";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ShippingStatus } from "@prisma/client";
-
-/* ===============================
-   UPDATE SHIPPING
-================================ */
-
-const ALLOWED_SHIPPING: ReadonlySet<ShippingStatus> = new Set([
-  "NOT_REQUIRED",
-  "PENDING",
-  "READY",
-  "SHIPPED",
-  "DELIVERED",
-  "LOST",
-  "CANCELLED",
-]);
+import { updateShippingAction as updateShipping } from "./_actions/updateShippingAction";
 
 export async function updateShippingAction(formData: FormData) {
-  const session = (await getServerSession(authConfig)) as Session | null; // ✅ CAMBIO
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Brak autoryzacji");
-
-  const bookingId = String(formData.get("bookingId") || "");
-  if (!bookingId) throw new Error("Brak bookingId");
-
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    select: { id: true, status: true, listing: { select: { userId: true } } },
-  });
-  if (!booking) throw new Error("Nie znaleziono rezerwacji");
-  if (booking.listing.userId !== userId) throw new Error("Brak uprawnień");
-
-  if (booking.status !== "CONFIRMED" && booking.status !== "PAID") {
-    throw new Error("Wysyłkę można edytować dopiero po potwierdzeniu rezerwacji");
-  }
-
-  const shippingStatusRaw = String(formData.get("shippingStatus") || "").trim();
-
-  const shippingStatus: ShippingStatus | undefined = ALLOWED_SHIPPING.has(
-    shippingStatusRaw as ShippingStatus
-  )
-    ? (shippingStatusRaw as ShippingStatus)
-    : undefined;
-
-  const carrier = String(formData.get("carrier") || "").trim() || null;
-  const trackingNumber = String(formData.get("trackingNumber") || "").trim() || null;
-
-  const shippedAtStr = String(formData.get("shippedAt") || "").trim();
-  const deliveredAtStr = String(formData.get("deliveredAt") || "").trim();
-
-  const shippedAt = shippedAtStr ? new Date(shippedAtStr) : null;
-  const deliveredAt = deliveredAtStr ? new Date(deliveredAtStr) : null;
-
-  if (shippedAt && isNaN(shippedAt.getTime())) throw new Error("Nieprawidłowa data wysyłki");
-  if (deliveredAt && isNaN(deliveredAt.getTime()))
-    throw new Error("Nieprawidłowa data dostarczenia");
-
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      ...(shippingStatus ? { shippingStatus } : {}),
-      carrier,
-      trackingNumber,
-      shippedAt,
-      deliveredAt,
-    },
-  });
-
-  revalidatePath(`/bookings/${bookingId}`);
+  await updateShipping(formData);
 }
 
 /* ===============================

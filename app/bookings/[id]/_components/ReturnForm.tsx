@@ -15,14 +15,7 @@ type Props = {
 
 export default function ReturnForm({ bookingId, locked, initial }: Props) {
   const [loading, setLoading] = useState(false);
-
-  // normalización por si existe algún valor legacy en BD
-  const defaultStatus =
-    initial.returnStatus === "RETURN_PENDING"
-      ? "PENDING"
-      : initial.returnStatus === "RETURNED"
-      ? "DELIVERED"
-      : initial.returnStatus;
+  const [error, setError] = useState("");
 
   const disabled = locked || loading;
 
@@ -30,8 +23,11 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
     <form
       action={async (formData) => {
         setLoading(true);
+        setError("");
         try {
           await updateReturnAction(formData);
+        } catch (error) {
+          setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie.");
         } finally {
           setLoading(false);
         }
@@ -40,29 +36,8 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
     >
       <input type="hidden" name="bookingId" value={bookingId} />
 
-      <div>
-        <label className="block text-sm text-gray-600">Status zwrotu</label>
-
-        <select
-          name="returnStatus"
-          defaultValue={defaultStatus}
-          className="border rounded p-2 w-full"
-          disabled={disabled}
-        >
-          <option value="PENDING">Zwrot: oczekuje</option>
-          <option value="READY">Zwrot: przygotowany</option>
-          <option value="SHIPPED">Zwrot: wysłany</option>
-          <option value="DELIVERED">Zwrot: dostarczony</option>
-          <option value="LOST">Zaginął / uszkodzony</option>
-          <option value="CANCELLED">Anulowano</option>
-        </select>
-
-        {locked && (
-          <p className="text-xs text-gray-500 mt-1">
-            Zwrot zakończony — edycja zablokowana.
-          </p>
-        )}
-      </div>
+      <input type="hidden" name="returnStatus" value="SHIPPED" />
+      <p className="text-sm text-gray-600">Po wysłaniu lub przekazaniu przedmiotu potwierdź wysłanie. Przy odbiorze osobistym pozostaw przewoźnika i numer śledzenia puste.</p>
 
       <div>
         <label className="block text-sm text-gray-600">
@@ -94,8 +69,9 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
         disabled={disabled}
         className="bg-indigo-600 text-white rounded px-4 py-2 disabled:opacity-60"
       >
-        {loading ? "Zapisywanie..." : "Zapisz zwrot"}
+        {loading ? "Zapisywanie..." : (initial.returnStatus === "SHIPPED" ? "Zapisz dane przesyłki" : "Wysłano")}
       </button>
+      {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
   );
 }

@@ -16,6 +16,7 @@ type Props = {
 
 export default function ShippingForm({ bookingId, initial }: Props) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // 🚫 Bloqueo total si ya está entregado
   const isDelivered = initial.shippingStatus === "DELIVERED";
@@ -25,8 +26,11 @@ export default function ShippingForm({ bookingId, initial }: Props) {
       action={async (formData) => {
         if (isDelivered) return; // doble seguridad
         setLoading(true);
+        setError("");
         try {
           await updateShippingAction(formData);
+        } catch (error) {
+          setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie.");
         } finally {
           setLoading(false);
         }
@@ -35,23 +39,8 @@ export default function ShippingForm({ bookingId, initial }: Props) {
     >
       <input type="hidden" name="bookingId" value={bookingId} />
 
-      {/* ===== Status ===== */}
-      <div>
-        <label className="block text-sm text-gray-600">Status wysyłki</label>
-        <select
-          name="shippingStatus"
-          defaultValue={initial.shippingStatus}
-          disabled={isDelivered}
-          className="border rounded p-2 w-full disabled:bg-gray-100 disabled:text-gray-500"
-        >
-          <option value="NOT_REQUIRED">Nie wymaga wysyłki</option>
-          <option value="PENDING">Oczekuje na przygotowanie</option>
-          <option value="READY">Gotowe do wysyłki</option>
-          <option value="SHIPPED">Wysłano</option>
-          <option value="DELIVERED">Dostarczono</option>
-          <option value="CANCELLED">Anulowano</option>
-        </select>
-      </div>
+      <input type="hidden" name="shippingStatus" value="SHIPPED" />
+      <p className="text-sm text-gray-600">Po wysłaniu lub przekazaniu przedmiotu potwierdź wysłanie. Przy odbiorze osobistym pozostaw przewoźnika i numer śledzenia puste.</p>
 
       {/* ===== Carrier ===== */}
       <div>
@@ -83,7 +72,7 @@ export default function ShippingForm({ bookingId, initial }: Props) {
           disabled={loading || isDelivered}
           className="w-full sm:w-auto bg-indigo-600 text-white rounded px-4 py-2 disabled:opacity-60 whitespace-nowrap"
         >
-          {loading ? "Zapisywanie..." : "Zapisz szczegóły dostawy"}
+          {loading ? "Zapisywanie..." : (initial.shippingStatus === "SHIPPED" ? "Zapisz dane przesyłki" : "Wysłano")}
         </button>
 
         {isDelivered && (
@@ -93,6 +82,7 @@ export default function ShippingForm({ bookingId, initial }: Props) {
           </p>
         )}
       </div>
+      {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
   );
 }

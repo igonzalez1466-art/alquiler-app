@@ -8,14 +8,6 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 
-type ReturnStatus =
-  | "PENDING"
-  | "READY"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "LOST"
-  | "CANCELLED";
-
 function fmt(d: Date | string) {
   const dt = new Date(d);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
@@ -48,25 +40,9 @@ export async function updateReturnAction(formData: FormData) {
 
   if (!bookingId) throw new Error("Brak bookingId");
 
-  const normalizedReturnStatus =
-    rawReturnStatus === "RETURN_PENDING"
-      ? "PENDING"
-      : rawReturnStatus === "RETURNED"
-      ? "DELIVERED"
-      : rawReturnStatus;
-
-  const returnStatus = normalizedReturnStatus as ReturnStatus;
-  const allowed: ReturnStatus[] = [
-    "PENDING",
-    "READY",
-    "SHIPPED",
-    "DELIVERED",
-    "LOST",
-    "CANCELLED",
-  ];
-
-  if (!allowed.includes(returnStatus)) {
-    throw new Error("Nieprawidłowy status zwrotu");
+  const returnStatus = rawReturnStatus;
+  if (returnStatus !== "SHIPPED") {
+    throw new Error("Można jedynie potwierdzić wysłanie przedmiotu");
   }
 
   const booking = await prisma.booking.findUnique({
@@ -133,14 +109,19 @@ export async function updateReturnAction(formData: FormData) {
 
   if (
     booking.returnConfirmationStatus === "CONFIRMED" ||
-    booking.returnConfirmationStatus === "AUTO_CONFIRMED"
+    booking.returnConfirmationStatus === "AUTO_CONFIRMED" ||
+    booking.returnConfirmationStatus === "DISPUTED"
   ) {
     throw new Error("Nie można edytować — zwrot został zakończony");
   }
 
+  if (booking.returnStatus === "DELIVERED") {
+    throw new Error("Zwrot oczekuje na potwierdzenie odbioru");
+  }
+
   const now = new Date();
 
-  const data: Prisma.BookingUpdateInput = {
+  const data: Prisma.BookingUpdateManyMutationInput = {
     returnStatus,
     returnCarrier: returnCarrier || null,
     returnTrackingNumber: returnTrackingNumber || null,
@@ -149,24 +130,34 @@ export async function updateReturnAction(formData: FormData) {
       ? { returnShippedAt: now }
       : {}),
 
-    ...(returnStatus === "DELIVERED" && !booking.returnDeliveredAt
-      ? { returnDeliveredAt: now }
-      : {}),
   };
 
   const shouldRequestReturnConfirmation =
-    returnStatus === "DELIVERED" &&
+    returnStatus === "SHIPPED" &&
     booking.returnConfirmationStatus === "NOT_REQUESTED";
 
   if (shouldRequestReturnConfirmation) {
     data.returnConfirmationStatus = "AWAITING_CONFIRMATION";
-    data.returnConfirmBy = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    /* Sending is not evidence of receipt: do not start an automatic confirmation clock. */
+    data.returnConfirmBy = null;
   }
 
-  await prisma.booking.update({
-    where: { id: bookingId },
+  const updated = await prisma.booking.updateMany({
+    where: {
+      id: bookingId,
+      renterId: userId,
+      status: { not: "CANCELLED" },
+      paymentStatus: "PAID",
+      returnStatus: booking.returnStatus,
+      returnConfirmationStatus: booking.returnConfirmationStatus,
+      shippingStatus: "DELIVERED",
+      deliveryConfirmationStatus: { in: ["CONFIRMED", "AUTO_CONFIRMED"] },
+    },
     data,
   });
+  if (updated.count !== 1) {
+    throw new Error("Stan rezerwacji uległ zmianie. Odśwież stronę.");
+  }
 
   if (shouldRequestReturnConfirmation) {
     const ownerEmail = booking.owner?.email;
@@ -179,13 +170,13 @@ export async function updateReturnAction(formData: FormData) {
 
       await sendMail({
         to: ownerEmail,
-        subject: `Potwierdź zwrot ${ref}: ${title}`,
+        subject: `Zwrot wysłany ${ref}: ${title}`,
         html: `
 <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
   <p>Cześć ${booking.owner?.name ?? ""},</p>
 
-  <p>Najemca oznaczył zwrot jako <strong>dostarczony</strong>.</p>
+  <p>Najemca oznaczył zwrot jako <strong>wysłany</strong>.</p>
 
   <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
     <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
@@ -226,7 +217,7 @@ export async function updateReturnAction(formData: FormData) {
   </div>
 
   <p>
-    Zaloguj się do panelu i potwierdź odbiór zwracanego przedmiotu.
+    Gdy otrzymasz przedmiot, zaloguj się do panelu i potwierdź odbiór zwracanego przedmiotu.
   </p>
 
   <p>
