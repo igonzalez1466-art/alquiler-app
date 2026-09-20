@@ -293,6 +293,7 @@ model Booking {
   deliveryConfirmedAt        DateTime?
   deliveryConfirmedBy        DeliveryConfirmedBy?
   deliveryConfirmBy          DateTime?
+  deliveryIssue              Json?
 
   // ==========================================================
   // Devolución
@@ -312,6 +313,7 @@ model Booking {
   returnConfirmedAt        DateTime?
   returnConfirmedBy        ReturnConfirmedBy?
   returnConfirmBy          DateTime?
+  returnIssue              Json?
 
   // ==========================================================
   // Daños

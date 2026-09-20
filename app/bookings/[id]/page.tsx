@@ -10,6 +10,7 @@ import ShippingForm from "./_components/ShippingForm";
 import ReturnForm from "./_components/ReturnForm";
 import DepositActions from "./_components/DepositActions";
 
+import LogisticsIssuePanel from "./_components/LogisticsIssuePanel";
 import ReceiptActions from "./_components/ReceiptActions";
 import { canReceive } from "@/app/lib/logistics";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
@@ -214,6 +215,7 @@ export default async function BookingPage({
       deliveryConfirmationStatus: true,
       deliveryConfirmedAt: true,
       deliveryConfirmBy: true,
+      deliveryIssue: true,
 
       // Devolución
       returnStatus: true,
@@ -225,6 +227,7 @@ export default async function BookingPage({
       returnConfirmationStatus: true,
       returnConfirmedAt: true,
       returnConfirmBy: true,
+      returnIssue: true,
 
       listing: {
         select: {
@@ -745,10 +748,16 @@ export default async function BookingPage({
 
                 </div>
 
-                {booking.deliveryConfirmationStatus === "DISPUTED" && (
-                  <p role="status" className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-                    Problem został zgłoszony. Potwierdzenie odbioru jest wstrzymane. Opisz szczegóły na czacie i skontaktuj się z obsługą serwisu, aby wyjaśnić sprawę.
-                  </p>
+                {(isOwner || isRenter) && userId && (
+                  <LogisticsIssuePanel
+                    bookingId={id}
+                    stage="DELIVERY"
+                    stored={booking.deliveryIssue}
+                    disputed={booking.deliveryConfirmationStatus === "DISPUTED"}
+                    recipientId={booking.renterId}
+                    userId={userId}
+                    canResolve={canReceive({ ...booking, deliveryConfirmationStatus: "AWAITING_CONFIRMATION" }, "DELIVERY")}
+                  />
                 )}
 
                 {renterCanConfirmDelivery && (
@@ -844,10 +853,16 @@ export default async function BookingPage({
 
                 </div>
 
-                {booking.returnConfirmationStatus === "DISPUTED" && (
-                  <p role="status" className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-                    Problem został zgłoszony. Potwierdzenie odbioru jest wstrzymane. Opisz szczegóły na czacie i skontaktuj się z obsługą serwisu, aby wyjaśnić sprawę.
-                  </p>
+                {(isOwner || isRenter) && userId && (
+                  <LogisticsIssuePanel
+                    bookingId={id}
+                    stage="RETURN"
+                    stored={booking.returnIssue}
+                    disputed={booking.returnConfirmationStatus === "DISPUTED"}
+                    recipientId={booking.ownerId}
+                    userId={userId}
+                    canResolve={canReceive({ ...booking, returnConfirmationStatus: "AWAITING_CONFIRMATION" }, "RETURN")}
+                  />
                 )}
 
                 {ownerCanConfirmReturn && (
