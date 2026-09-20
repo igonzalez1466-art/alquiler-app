@@ -22,6 +22,7 @@ import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 const fmt = (d?: Date | null) =>
   d
     ? d.toLocaleString("pl-PL", {
+        timeZone: "Europe/Warsaw",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
