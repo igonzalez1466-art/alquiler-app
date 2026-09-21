@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import InpostTracking from "./_components/InpostTracking";
+import { isInpost, normalizeInpostNumber } from "@/app/lib/inpostTracking";
 import { prisma } from "@/app/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -259,6 +262,8 @@ export default async function BookingPage({
   const isRenter =
     !!userId && booking.renterId === userId;
 
+  const deliveryTracking = isInpost(booking.carrier) ? normalizeInpostNumber(booking.trackingNumber) : null;
+  const returnTracking = isInpost(booking.returnCarrier) ? normalizeInpostNumber(booking.returnTrackingNumber) : null;
   const isCancelled =
     booking.status === "CANCELLED";
   const awaitingApproval = booking.status === "PENDING";
@@ -761,6 +766,12 @@ export default async function BookingPage({
                   />
                 )}
 
+                {(isOwner || isRenter) && isInpost(booking.carrier) && booking.trackingNumber && (
+                  deliveryTracking ? <Suspense key={deliveryTracking} fallback={<p className="text-sm text-gray-500">Pobieranie statusu InPost…</p>}>
+                    <InpostTracking number={deliveryTracking} />
+                  </Suspense> : <p className="text-sm text-amber-800">Numer przesyłki InPost powinien zawierać 24 cyfry. Sprawdź zapisany numer.</p>
+                )}
+
                 {renterCanConfirmDelivery && (
                   <ReceiptActions bookingId={id} stage="DELIVERY" />
                 )}
@@ -864,6 +875,12 @@ export default async function BookingPage({
                     userId={userId}
                     canResolve={canReceive({ ...booking, returnConfirmationStatus: "AWAITING_CONFIRMATION" }, "RETURN")}
                   />
+                )}
+
+                {(isOwner || isRenter) && isInpost(booking.returnCarrier) && booking.returnTrackingNumber && (
+                  returnTracking ? <Suspense key={returnTracking} fallback={<p className="text-sm text-gray-500">Pobieranie statusu InPost…</p>}>
+                    <InpostTracking number={returnTracking} />
+                  </Suspense> : <p className="text-sm text-amber-800">Numer przesyłki InPost powinien zawierać 24 cyfry. Sprawdź zapisany numer.</p>
                 )}
 
                 {ownerCanConfirmReturn && (
