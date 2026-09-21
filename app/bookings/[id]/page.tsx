@@ -877,6 +877,8 @@ export default async function BookingPage({
                   <LogisticsIssuePanel
                     bookingId={id}
                     stage="RETURN"
+                    receiptConfirmed={booking.returnConfirmedAt !== null}
+                    hasDepositClaim={readDepositClaim(booking.depositClaim) !== null}
                     stored={booking.returnIssue}
                     disputed={booking.returnConfirmationStatus === "DISPUTED"}
                     recipientId={booking.ownerId}
