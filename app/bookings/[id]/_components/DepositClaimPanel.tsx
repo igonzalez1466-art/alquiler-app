@@ -10,7 +10,7 @@ const money = (cents: number) => new Intl.NumberFormat("pl-PL", { style: "curren
 const date = (value: string) => new Date(value).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
 type Props = {
   bookingId: string; depositCents: number; claim: DepositClaim | null; hasClaim: boolean;
-  isOwner: boolean; isRenter: boolean; isSupport?: boolean; canPropose?: boolean;
+  isOwner: boolean; isRenter: boolean; receiptKnown?: boolean; isSupport?: boolean; canPropose?: boolean;
   canRefund?: boolean; returnCompleted?: boolean; initialReason?: string;
   initialReasonCode?: keyof typeof claimReasons; completed: boolean; settling: boolean;
 };
@@ -78,7 +78,8 @@ export default function DepositClaimPanel(p: Props) {
       </form>}
     </div> : <>
       {p.completed ? <p>Kaucja została rozliczona.</p> : p.settling ? <p>Rozliczenie zostało rozpoczęte.</p> : <>
-        {!p.returnCompleted && <p>Rozliczenie kaucji będzie dostępne po odbiorze zwrotu. W przypadku uszkodzeń właściciel może zaproponować potrącenie bez zamykania zgłoszonego problemu jako rozwiązanego.</p>}
+        {p.receiptKnown && !p.returnCompleted && <p>Przedmiot został odebrany z zastrzeżeniami. Kaucja pozostaje zablokowana do rozwiązania sprawy.</p>}
+        {!p.receiptKnown && !p.returnCompleted && <p>Rozliczenie kaucji będzie dostępne po odbiorze zwrotu. W przypadku uszkodzeń właściciel może zaproponować potrącenie bez zamykania zgłoszonego problemu jako rozwiązanego.</p>}
         {p.isOwner && p.canRefund && <form onSubmit={submit(releaseDepositAction)} className="space-y-2">
           <p>Zwrot pełnej kaucji: {money(p.depositCents)}</p>
           <button disabled={pending} className={button}>Zwróć całą kaucję</button>
@@ -91,7 +92,7 @@ export default function DepositClaimPanel(p: Props) {
           <p>Wpisz {money(p.depositCents)}, aby zaproponować zatrzymanie całej kaucji.</p>
           <label className="block">Powód<select name="reasonCode" defaultValue={p.initialReasonCode ?? "OTHER"} disabled={pending} className={input}>{Object.entries(claimReasons).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label className="block">Opis i uzasadnienie kwoty<textarea name="reason" defaultValue={p.initialReason ?? ""} required maxLength={2000} rows={3} disabled={pending} className={input} /></label>
-          <label className="flex items-start gap-2"><input type="checkbox" name="received" value="yes" required disabled={pending} /><span>Potwierdzam faktyczny odbiór zwracanego przedmiotu. Zgłoszony problem nadal wymaga rozliczenia.</span></label>
+          {!p.receiptKnown && <label className="flex items-start gap-2"><input type="checkbox" name="received" value="yes" required disabled={pending} /><span>Potwierdzam faktyczny odbiór zwracanego przedmiotu. Zgłoszony problem nadal wymaga rozliczenia.</span></label>}
           <div className="flex gap-2"><button disabled={pending} className={button}>Wyślij propozycję najemcy</button><button type="button" disabled={pending} onClick={() => setProposing(false)} className={button}>Anuluj</button></div>
         </form>)}
       </>}

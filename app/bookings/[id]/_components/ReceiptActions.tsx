@@ -9,6 +9,7 @@ import { issueReasons } from "@/app/lib/logisticsIssue";
 export default function ReceiptActions({ bookingId, stage }: { bookingId: string; stage: "DELIVERY" | "RETURN" }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
   async function submit(action: (data: FormData) => Promise<void>, data = new FormData()) {
     if (pending) return;
@@ -32,13 +33,18 @@ export default function ReceiptActions({ bookingId, stage }: { bookingId: string
       void submit(reportLogisticsProblemAction, new FormData(event.currentTarget));
     }} className="rounded border border-rose-200 p-3 space-y-3">
       <h3 className="font-medium">Zgłoś problem</h3>
-      <p className="text-sm text-gray-600">Wysłanie zgłoszenia wstrzyma potwierdzenie odbioru do czasu rozwiązania problemu.</p>
+      <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
       <label className="block text-sm">Powód
-        <select name="reason" required defaultValue="" disabled={pending} className="mt-1 border rounded p-2 w-full">
+        <select name="reason" required value={reason} onChange={event => setReason(event.target.value)} disabled={pending} className="mt-1 border rounded p-2 w-full">
           <option value="" disabled>Wybierz powód</option>
           {Object.entries(issueReasons).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
+      {reason === "OTHER" && <label className="block text-sm">Czy przedmiot został odebrany?
+        <select name="received" required defaultValue="" disabled={pending} className="mt-1 border rounded p-2 w-full">
+          <option value="" disabled>Wybierz odpowiedź</option><option value="yes">Tak</option><option value="no">Nie</option>
+        </select>
+      </label>}
       <label className="block text-sm">Opis problemu
         <textarea name="description" required maxLength={2000} rows={3} disabled={pending} className="mt-1 border rounded p-2 w-full" />
       </label>

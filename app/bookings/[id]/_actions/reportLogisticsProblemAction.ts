@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { receiptWhere } from "@/app/lib/logistics";
-import { validateIssueInput, type IssueDetails } from "@/app/lib/logisticsIssue";
+import { validateIssueInput, issueConfirmsReceipt, type IssueDetails } from "@/app/lib/logisticsIssue";
 
 export async function reportLogisticsProblemAction(formData: FormData) {
   const session = await getServerSession(authConfig);
@@ -14,10 +14,14 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   const bookingId = String(formData.get("bookingId") || "");
   const stage = String(formData.get("stage") || "");
   if (!bookingId || (stage !== "DELIVERY" && stage !== "RETURN")) throw new Error("Nieprawidłowe zgłoszenie");
+  const input = validateIssueInput(formData);
+  if (input.reason === "OTHER" && !["yes", "no"].includes(String(formData.get("received")))) throw new Error("Wskaż, czy przedmiot został odebrany.");
+  const now = new Date();
   const issue: IssueDetails = {
-    ...validateIssueInput(formData),
+    ...input,
+    received: input.reason === "DAMAGED" || input.reason === "MISSING_ITEMS" || (input.reason === "OTHER" && formData.get("received") === "yes"),
     reportedById: userId,
-    reportedAt: new Date().toISOString(),
+    reportedAt: now.toISOString(),
     resolvedById: null,
     resolvedAt: null,
   };
@@ -25,8 +29,10 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   const updated = await prisma.booking.updateMany({
     where: receiptWhere(bookingId, userId, stage),
     data: stage === "DELIVERY" ? {
+      ...(issueConfirmsReceipt(issue) ? { shippingStatus: "DELIVERED", deliveredAt: now } : {}),
       deliveryConfirmationStatus: "DISPUTED", deliveryConfirmBy: null, deliveryIssue: issue,
     } : {
+      ...(issueConfirmsReceipt(issue) ? { returnStatus: "DELIVERED", returnDeliveredAt: now } : {}),
       returnConfirmationStatus: "DISPUTED", returnConfirmBy: null, returnIssue: issue,
     },
   });

@@ -16,7 +16,7 @@ import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
 import { readDepositClaim } from "@/app/lib/depositClaim";
-import { readIssue } from "@/app/lib/logisticsIssue";
+import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 
 import LogisticsIssuePanel from "./_components/LogisticsIssuePanel";
 import ReceiptActions from "./_components/ReceiptActions";
@@ -975,6 +975,7 @@ export default async function BookingPage({
                     isOwner={isOwner}
                     isRenter={isRenter}
                     returnCompleted={returnCompleted}
+                    receiptKnown={hasReturnReceipt(booking)}
                     canPropose={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
                     initialReason={readIssue(booking.returnIssue)?.description ?? ""}
                     initialReasonCode={readIssue(booking.returnIssue)?.reason === "MISSING_ITEMS" ? "MISSING_ITEM" : readIssue(booking.returnIssue)?.reason === "DAMAGED" ? "DAMAGE" : "OTHER"}

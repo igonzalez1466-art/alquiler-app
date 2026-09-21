@@ -8,7 +8,7 @@ import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { claimReasons, readDepositClaim, parseClaimAmount, claimSettlement, type DepositClaim } from "@/app/lib/depositClaim";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
-import { readIssue } from "@/app/lib/logisticsIssue";
+import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 import { releaseDepositAction, partialReleaseDepositAction, retainDepositAction, retrySettlementAction } from "./depositActions";
 
 async function actor() {
@@ -39,7 +39,6 @@ export async function proposeDepositClaimAction(data: FormData) {
   if (!Object.hasOwn(claimReasons, reasonCode) || !reason || reason.length > 2000 || retainedCents <= 0) {
     throw new Error("Podaj kwotę, powód i opis (do 2000 znaków).");
   }
-  if (data.get("received") !== "yes") throw new Error("Potwierdź faktyczny odbiór zwracanego przedmiotu.");
   await prisma.$transaction(async tx => {
     const b = await lock(tx, id);
     if (b.ownerId !== userId || b.ownerId === b.renterId) throw new Error("Brak uprawnień");
@@ -50,6 +49,7 @@ export async function proposeDepositClaimAction(data: FormData) {
       (b.depositRefundedCents ?? 0) > 0 || (b.depositRetainedCents ?? 0) > 0 ||
       !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
       !["SHIPPED", "DELIVERED"].includes(b.returnStatus)) throw new Error("Nie można teraz utworzyć roszczenia.");
+    if (!hasReturnReceipt(b) && data.get("received") !== "yes") throw new Error("Potwierdź faktyczny odbiór zwracanego przedmiotu.");
     const deadline = getDepositDecisionDeadline(b.returnConfirmedAt);
     if (deadline && deadline <= new Date()) throw new Error("Termin zgłoszenia roszczenia upłynął.");
     if (await tx.settlementOperation.findFirst({ where: { bookingId: id }, select: { id: true } })) {

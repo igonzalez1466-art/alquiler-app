@@ -10,6 +10,7 @@ export const issueReasons = {
 export type IssueReason = keyof typeof issueReasons;
 export type IssueDetails = {
   reason: IssueReason | "LEGACY";
+  received?: boolean;
   description: string;
   reportedById: string;
   reportedAt: string | null;
@@ -25,6 +26,7 @@ export function readIssue(value: Prisma.JsonValue | null): IssueDetails | null {
     !(value.reportedAt === null || typeof value.reportedAt === "string") ||
     !(value.resolvedById === null || typeof value.resolvedById === "string") ||
     !(value.resolvedAt === null || typeof value.resolvedAt === "string")) return null;
+  if (value.received !== undefined && typeof value.received !== "boolean") return null;
   return value as IssueDetails;
 }
 
@@ -40,4 +42,15 @@ export function validateIssueInput(formData: FormData) {
 
 export function issueReasonLabel(reason: IssueDetails["reason"]) {
   return reason === "LEGACY" ? "Wcześniejsze zgłoszenie bez szczegółów" : issueReasons[reason];
+}
+
+// A carrier's delivered status alone does not prove personal receipt.
+export function issueConfirmsReceipt(issue: IssueDetails | null): boolean {
+  return !!issue && (issue.reason === "DAMAGED" || issue.reason === "MISSING_ITEMS" ||
+    (issue.reason === "OTHER" && issue.received === true));
+}
+export function hasReturnReceipt(b: { returnConfirmationStatus: string; returnIssue: Prisma.JsonValue | null; ownerId: string }): boolean {
+  const issue = readIssue(b.returnIssue);
+  return ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.returnConfirmationStatus) ||
+    (issue?.reportedById === b.ownerId && issueConfirmsReceipt(issue));
 }
