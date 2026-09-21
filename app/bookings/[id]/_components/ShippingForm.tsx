@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ShippingMethodFields from "./ShippingMethodFields";
 import { updateShippingAction } from "../_actions/updateShippingAction";
 
 type Props = {
@@ -40,31 +41,13 @@ export default function ShippingForm({ bookingId, initial }: Props) {
       <input type="hidden" name="bookingId" value={bookingId} />
 
       <input type="hidden" name="shippingStatus" value="SHIPPED" />
-      <p className="text-sm text-gray-600">Po wysłaniu lub przekazaniu przedmiotu potwierdź wysłanie. Przy odbiorze osobistym pozostaw przewoźnika i numer śledzenia puste.</p>
-
-      {/* ===== Carrier ===== */}
-      <div>
-        <label className="block text-sm text-gray-600">Przewoźnik</label>
-        <input
-          name="carrier"
-          defaultValue={initial.carrier ?? ""}
-          disabled={isDelivered}
-          className="border rounded p-2 w-full disabled:bg-gray-100 disabled:text-gray-500"
-          placeholder="np. InPost, DHL"
-        />
-      </div>
-
-      {/* ===== Tracking ===== */}
-      <div>
-        <label className="block text-sm text-gray-600">Numer śledzenia</label>
-        <input
-          name="trackingNumber"
-          defaultValue={initial.trackingNumber ?? ""}
-          disabled={isDelivered}
-          className="border rounded p-2 w-full disabled:bg-gray-100 disabled:text-gray-500"
-          placeholder="np. 123456789"
-        />
-      </div>
+      <ShippingMethodFields
+        key={JSON.stringify([initial.carrier, initial.trackingNumber])}
+        initialCarrier={initial.carrier}
+        initialTracking={initial.trackingNumber}
+        trackingName="trackingNumber"
+        disabled={loading || isDelivered}
+      />
 
       {/* ===== Button / Info ===== */}
       <div className="space-y-1">

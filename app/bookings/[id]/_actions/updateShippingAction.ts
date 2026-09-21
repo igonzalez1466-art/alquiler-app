@@ -7,6 +7,7 @@ import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
+import { readShippingMethod } from "@/app/lib/shippingMethod";
 
 function fmt(d: Date | string) {
   const dt = new Date(d);
@@ -35,8 +36,7 @@ export async function updateShippingAction(formData: FormData) {
 
   const bookingId = String(formData.get("bookingId") || "");
   const rawStatus = String(formData.get("shippingStatus") || "");
-  const carrier = String(formData.get("carrier") || "").trim();
-  const trackingNumber = String(formData.get("trackingNumber") || "").trim();
+  const { carrier, trackingNumber } = readShippingMethod(formData, "trackingNumber");
 
   if (!bookingId) throw new Error("Brak bookingId");
 
