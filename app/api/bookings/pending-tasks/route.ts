@@ -13,8 +13,9 @@ export async function GET() {
       select: { id: true, bookingNumber: true, ownerId: true, renterId: true, status: true, paymentStatus: true, paymentDueAt: true, createdAt: true, startDate: true, endDate: true, cancelledAt: true,
         shippingStatus: true, deliveryConfirmationStatus: true, returnStatus: true, returnConfirmationStatus: true, returnConfirmedAt: true,
         depositStatus: true, depositCents: true, depositClaim: true, settlementDecision: true, settlementCompletedAt: true, deliveryIssue: true, returnIssue: true, settlementLegacyReview: true, depositDecisionAt: true, listing: { select: { title: true } } } });
-    const tasks = pendingTasks(bookings, userId);
-    return NextResponse.json({ tasks, total: tasks.length }, { headers });
+    const checkedAt = new Date();
+    const tasks = pendingTasks(bookings, userId, checkedAt);
+    return NextResponse.json({ tasks, total: tasks.length, checkedAt: checkedAt.toISOString() }, { headers });
   } catch {
     return NextResponse.json({ error: "Nie udało się pobrać zadań." }, { status: 503, headers });
   }
