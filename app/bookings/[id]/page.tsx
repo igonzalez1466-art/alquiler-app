@@ -12,6 +12,7 @@ import { openChatFromBookingAction } from "./actions";
 
 import ShippingForm from "./_components/ShippingForm";
 import ReturnForm from "./_components/ReturnForm";
+import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
 import { readDepositClaim } from "@/app/lib/depositClaim";
@@ -208,6 +209,11 @@ export default async function BookingPage({
       depositClaim: true,
       settlementDecision: true,
       settlementCompletedAt: true,
+      ownerTransferId: true,
+      ownerTransferCents: true,
+      depositTransferId: true,
+      depositTransferredCents: true,
+      depositRefundId: true,
       depositPaidAt: true,
       depositRefundedAt: true,
       depositRefundedCents: true,
@@ -984,6 +990,20 @@ export default async function BookingPage({
             </>
           )}
         </>
+      )}
+
+      {(isOwner || isRenter) && booking.settlementCompletedAt && (
+        <FinalSettlementSummary
+          rentCents={booking.rentAmountCents}
+          feeCents={booking.platformFeeCents}
+          ownerTransferCents={booking.ownerTransferId ? booking.ownerTransferCents : null}
+          retainedCents={booking.depositRetainedCents}
+          compensationCents={booking.depositTransferId ? booking.depositTransferredCents : booking.depositRetainedCents === 0 ? 0 : null}
+          refundCents={booking.depositRefundedCents}
+          refundRecorded={!!booking.depositRefundId}
+          depositStatus={booking.depositStatus}
+          completedAt={booking.settlementCompletedAt}
+        />
       )}
 
       {/* ACCIONES DEL PROPIETARIO */}
