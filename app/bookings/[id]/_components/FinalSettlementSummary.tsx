@@ -25,8 +25,7 @@ export default function FinalSettlementSummary(p: Props) {
       <div className="flex justify-between gap-4"><dt>Koszt najmu</dt><dd>{money(p.rentCents)}</dd></div>
       <div className="flex justify-between gap-4"><dt>Prowizja MojaSzafa</dt><dd>{p.feeCents === null ? "—" : `−${money(p.feeCents)}`}</dd></div>
       <div className="flex justify-between gap-4"><dt>Najem — przekazano właścicielowi</dt><dd>{money(p.ownerTransferCents)}</dd></div>
-      <div className="flex justify-between gap-4"><dt>Zatrzymana kaucja</dt><dd>{money(p.retainedCents)}</dd></div>
-      <div className="flex justify-between gap-4"><dt>Kaucja — przekazano właścicielowi</dt><dd>{money(p.compensationCents)}</dd></div>
+      <div className="flex justify-between gap-4"><dt>Kaucja przekazana właścicielowi</dt><dd>{money(p.compensationCents)}</dd></div>
       <div className="flex justify-between gap-4 rounded bg-emerald-50 p-3 font-semibold"><dt>Łącznie przekazano właścicielowi</dt><dd>{money(ownerTotal)}</dd></div>
       <div className="flex justify-between gap-4 rounded bg-indigo-50 p-3 font-semibold"><dt>Zwrot kaucji najemcy</dt><dd>{money(p.refundCents)}</dd></div>
     </dl>
