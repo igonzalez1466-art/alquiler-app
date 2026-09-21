@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -21,6 +22,7 @@ export async function resolveLogisticsProblemAction(formData: FormData) {
 
   const where = {
     ...receiptWhere(bookingId, userId, stage),
+    ...(stage === "RETURN" ? { depositClaim: { equals: Prisma.DbNull } } : {}),
     ...(stage === "DELIVERY" ? { deliveryConfirmationStatus: "DISPUTED" as const } :
       { returnConfirmationStatus: "DISPUTED" as const }),
   };

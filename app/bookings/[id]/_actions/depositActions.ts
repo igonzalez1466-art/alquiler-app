@@ -2,12 +2,16 @@
 
 import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
 import Stripe from "stripe";
+import { readDepositClaim } from "@/app/lib/depositClaim";
 import { lockSettlementDecision, settlementOperation, finishSettlement, type SettlementDecision } from "@/app/lib/settlement";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
+import {
+  releaseDepositAutomatically,
+} from "@/app/lib/automaticDepositRelease";
 
 const RETENTION_REASON_CODES = [
   "DAMAGE",
@@ -148,7 +152,12 @@ async function getOwnerBooking(
   }
 
   if (booking.ownerId !== userId) {
-    throw new Error("Brak uprawnień");
+    const claim = readDepositClaim(booking.depositClaim);
+    if (!claim || claim.status !== "APPROVED") throw new Error("Brak uprawnień");
+    if (booking.renterId !== userId) {
+      const staff = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (staff?.role !== "ADMIN") throw new Error("Brak uprawnień");
+    }
   }
 
   if (booking.paymentStatus !== "PAID") {
@@ -967,19 +976,83 @@ export async function retainDepositAction(
   );
 }
 // Retry derives all financial inputs from the persisted decision, never the form.
-export async function retrySettlementAction(formData: FormData) {
+export async function retrySettlementAction(
+  formData: FormData
+) {
   const session = await getServerSession(authConfig);
-  if (!session?.user?.id) throw new Error("Brak dostępu");
-  const booking = await getOwnerBooking(String(formData.get("bookingId") || ""), session.user.id);
-  if (booking.settlementCompletedAt) return;
-  const saved = booking.settlementDecision as SettlementDecision | null;
-  if (!saved) throw new Error("Brak rozpoczętego rozliczenia");
+
+  if (!session?.user?.id) {
+    throw new Error("Brak dostępu");
+  }
+
+  const bookingId = String(
+    formData.get("bookingId") || ""
+  );
+
+  if (!bookingId) {
+    throw new Error("Brak bookingId");
+  }
+
+  // Mantiene la comprobación de que quien pulsa
+  // el botón es el propietario de esta reserva.
+  const booking = await getOwnerBooking(
+    bookingId,
+    session.user.id
+  );
+
+  if (booking.settlementCompletedAt) {
+    return;
+  }
+
+  const saved =
+    booking.settlementDecision as SettlementDecision | null;
+
+  if (!saved) {
+    throw new Error("Brak rozpoczętego rozliczenia");
+  }
+
+  // Reintenta la decisión automática ya guardada.
+  // No la convierte en una decisión del propietario.
+  if (saved.source === "automatic") {
+    const result = await releaseDepositAutomatically(
+      booking.id
+    );
+
+    if (
+      result.outcome !== "completed" &&
+      result.outcome !== "already_completed"
+    ) {
+      throw new Error(
+        "Nie można teraz wznowić automatycznego rozliczenia. Wymagana weryfikacja."
+      );
+    }
+
+    revalidatePath(`/bookings/${booking.id}`);
+    revalidatePath("/bookings");
+    return;
+  }
+
+  // Las decisiones manuales conservan sus importes
+  // y motivos originales en todos los reintentos.
   const retry = new FormData();
+
   retry.set("bookingId", booking.id);
-  retry.set("refundAmountZl", String(saved.refundCents / 100));
+  retry.set(
+    "refundAmountZl",
+    String(saved.refundCents / 100)
+  );
   retry.set("reason", saved.reason ?? "");
   retry.set("reasonCode", saved.reasonCode ?? "");
-  if (saved.kind === "full") await releaseDepositAction(retry);
-  else if (saved.kind === "partial") await partialReleaseDepositAction(retry);
-  else await retainDepositAction(retry);
+
+  if (saved.kind === "full") {
+    await releaseDepositAction(retry);
+  } else if (saved.kind === "partial") {
+    await partialReleaseDepositAction(retry);
+  } else if (saved.kind === "retain") {
+    await retainDepositAction(retry);
+  } else {
+    throw new Error(
+      "Nieprawidłowa zapisana decyzja rozliczenia."
+    );
+  }
 }

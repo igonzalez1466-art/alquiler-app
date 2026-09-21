@@ -13,6 +13,9 @@ import { openChatFromBookingAction } from "./actions";
 import ShippingForm from "./_components/ShippingForm";
 import ReturnForm from "./_components/ReturnForm";
 import DepositActions from "./_components/DepositActions";
+import DepositClaimPanel from "./_components/DepositClaimPanel";
+import { readDepositClaim } from "@/app/lib/depositClaim";
+import { readIssue } from "@/app/lib/logisticsIssue";
 
 import LogisticsIssuePanel from "./_components/LogisticsIssuePanel";
 import ReceiptActions from "./_components/ReceiptActions";
@@ -202,6 +205,7 @@ export default async function BookingPage({
 
       // Fianza
       depositStatus: true,
+      depositClaim: true,
       settlementDecision: true,
       settlementCompletedAt: true,
       depositPaidAt: true,
@@ -871,7 +875,7 @@ export default async function BookingPage({
                     disputed={booking.returnConfirmationStatus === "DISPUTED"}
                     recipientId={booking.ownerId}
                     userId={userId}
-                    canResolve={canReceive({ ...booking, returnConfirmationStatus: "AWAITING_CONFIRMATION" }, "RETURN")}
+                    canResolve={booking.depositClaim === null && canReceive({ ...booking, returnConfirmationStatus: "AWAITING_CONFIRMATION" }, "RETURN")}
                   />
                 )}
 
@@ -956,29 +960,25 @@ export default async function BookingPage({
                   </div>
                 )}
 
-                {!booking.depositCents ||
-                booking.depositCents <= 0 ? (
-                  <p className="text-xs text-gray-500">
-                    Ta rezerwacja nie zawiera kaucji.
-                  </p>
-                ) : !returnCompleted ? (
-                  <p className="text-xs text-gray-500">
-                    Zarządzanie kaucją będzie dostępne po
-                    potwierdzeniu zwrotu.
-                  </p>
-                ) : canOwnerManageDeposit ? (
-                  <DepositActions
-                    settlementPending={settlementPending}
-                    bookingId={booking.id}
-                    depositZl={Math.round(
-                      (booking.depositCents ?? 0) / 100
-                    )}
+                {(isOwner || isRenter) && (
+                  <DepositClaimPanel
+                    bookingId={id}
+                    depositCents={booking.depositCents ?? 0}
+                    claim={readDepositClaim(booking.depositClaim)}
+                    hasClaim={booking.depositClaim !== null}
+                    isOwner={isOwner}
+                    isRenter={isRenter}
+                    returnCompleted={returnCompleted}
+                    canPropose={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
+                    initialReason={readIssue(booking.returnIssue)?.description ?? ""}
+                    initialReasonCode={readIssue(booking.returnIssue)?.reason === "MISSING_ITEMS" ? "MISSING_ITEM" : readIssue(booking.returnIssue)?.reason === "DAMAGED" ? "DAMAGE" : "OTHER"}
+                    completed={!!booking.settlementCompletedAt}
+                    settling={settlementPending}
+                    canRefund={canOwnerManageDeposit && !booking.settlementDecision}
                   />
-                ) : (
-                  <p className="text-xs text-gray-500">
-                    Kaucja została już rozliczona lub jest w
-                    trakcie rozliczania.
-                  </p>
+                )}
+                {canOwnerManageDeposit && settlementPending && booking.depositClaim === null && (
+                  <DepositActions settlementPending bookingId={id} depositZl={(booking.depositCents ?? 0) / 100} />
                 )}
               </section>
             </>

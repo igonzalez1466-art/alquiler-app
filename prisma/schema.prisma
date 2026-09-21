@@ -180,6 +180,7 @@ model SettlementOperation {
 model Booking {
   reviewInvitationsEnabled Boolean @default(true)
   reviewInvitations ReviewInvitation[]
+  depositClaim Json?
   settlementDecision Json?
   settlementCompletedAt DateTime?
   settlementLegacyReview Boolean @default(false)
