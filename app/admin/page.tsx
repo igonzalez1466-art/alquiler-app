@@ -1,3 +1,5 @@
+import DisputeOverview from "./_components/DisputeOverview";
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "./_lib/requireAdmin";
@@ -199,6 +201,8 @@ export default async function AdminDashboard({
           sub={`Media: ${avgRating.toFixed(2)} | Negativas (≤2): ${badReviewsCount}`}
         />
       </div>
+
+      <DisputeOverview />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <BarChart title="Reservas por día" points={bookingsSeries} />

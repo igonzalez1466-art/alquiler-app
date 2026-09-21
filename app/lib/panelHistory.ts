@@ -17,7 +17,8 @@ const openIssue: Prisma.BookingWhereInput = { OR: [
   { depositClaim: { path: ["status"], equals: "APPROVED" }, settlementCompletedAt: null },
 ] };
 export function disputeWhere(p: HistoryParams): Prisma.BookingWhereInput {
-  return { AND: [p.kind === "delivery" ? deliveryIssue : p.kind === "return" ? returnIssue : p.kind === "deposit" ? depositIssue : { OR: [deliveryIssue, returnIssue, depositIssue] }, bookingFilter(p.booking), ...(p.state === "open" ? [openIssue] : p.state === "closed" ? [{ NOT: openIssue }] : [])] };
+  const stageOpen: Prisma.BookingWhereInput = p.kind === "delivery" ? { deliveryConfirmationStatus: "DISPUTED" } : p.kind === "return" ? { returnConfirmationStatus: "DISPUTED" } : openIssue;
+  return { AND: [p.kind === "delivery" ? deliveryIssue : p.kind === "return" ? returnIssue : p.kind === "deposit" ? depositIssue : { OR: [deliveryIssue, returnIssue, depositIssue] }, bookingFilter(p.booking), ...(p.state === "open" ? [stageOpen] : p.state === "closed" ? [{ NOT: stageOpen }] : [])] };
 }
 export function transactionWhere(userId: string, p: HistoryParams): Prisma.BookingWhereInput {
   return { AND: [p.role === "owner" ? { ownerId: userId } : p.role === "renter" ? { renterId: userId } : { OR: [{ ownerId: userId }, { renterId: userId }] }, bookingFilter(p.booking),
