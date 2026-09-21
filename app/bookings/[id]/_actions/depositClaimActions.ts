@@ -1,5 +1,6 @@
 "use server";
 
+import { notifyDepositClaimProposed } from "@/app/lib/depositClaimEmail";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
@@ -39,7 +40,7 @@ export async function proposeDepositClaimAction(data: FormData) {
   if (!Object.hasOwn(claimReasons, reasonCode) || !reason || reason.length > 2000 || retainedCents <= 0) {
     throw new Error("Podaj kwotę, powód i opis (do 2000 znaków).");
   }
-  await prisma.$transaction(async tx => {
+  const notification = await prisma.$transaction(async tx => {
     const b = await lock(tx, id);
     if (b.ownerId !== userId || b.ownerId === b.renterId) throw new Error("Brak uprawnień");
     if (b.status === "CANCELLED" || b.cancelledAt || b.paymentStatus !== "PAID" ||
@@ -67,7 +68,9 @@ export async function proposeDepositClaimAction(data: FormData) {
       returnStatus: "DELIVERED", returnDeliveredAt: b.returnDeliveredAt ?? now,
       returnConfirmationStatus: "DISPUTED", returnConfirmBy: null,
     } });
+    return { booking: { id: b.id, bookingNumber: b.bookingNumber, renterId: b.renterId, depositCents: b.depositCents }, claim };
   });
+  await notifyDepositClaimProposed(notification.booking, notification.claim);
   refresh(id);
 }
 
