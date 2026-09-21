@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import PendingTasksBell from "./PendingTasksBell";
 import ChatBell from "@/app/components/ChatBell";
 
 /* Links base (para todos) */
@@ -43,6 +44,8 @@ export default function NavbarResponsive({
             MojaSzafa
           </span>
         </Link>
+
+        {isLoggedIn && userId && <div className="ml-auto mr-3"><PendingTasksBell key={userId} userId={userId} /></div>}
 
         {/* Hamburguesa */}
         <button
