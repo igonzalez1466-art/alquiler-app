@@ -1,5 +1,6 @@
 "use server";
 
+import { notifyLogisticsIssue } from "@/app/lib/logisticsIssueEmail";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -37,6 +38,7 @@ export async function reportLogisticsProblemAction(formData: FormData) {
     },
   });
   if (updated.count !== 1) throw new Error("Nie można zgłosić problemu. Odśwież stronę.");
+  await notifyLogisticsIssue(bookingId, stage, issue);
   revalidatePath("/bookings/" + bookingId);
   revalidatePath("/bookings");
 }
