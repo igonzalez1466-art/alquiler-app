@@ -10,6 +10,7 @@ export default async function AdminLayout({
 
   const links = [
     { href: "/admin", label: "Dashboard" },
+    { href: "/admin/finance", label: "Finanse Stripe" },
     { href: "/admin/users", label: "Usuarios" },
     { href: "/admin/listings", label: "Anuncios" },
     { href: "/admin/bookings", label: "Reservas" },
