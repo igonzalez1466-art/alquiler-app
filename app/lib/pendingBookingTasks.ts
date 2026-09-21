@@ -15,7 +15,7 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
     const deadline = getApprovalDeadline(b.createdAt);
     return owner && deadline > now ? task("approve", "Odpowiedz na prośbę o wynajem", "Zaakceptuj lub odrzuć rezerwację.", 0, deadline) : null;
   }
-  if (b.status === "AWAITING_PAYMENT" && b.paymentStatus === "PENDING") return renter && !isPaymentDeadlineExpired(b, now) ? task("pay", "Opłać rezerwację", "Właściciel zaakceptował prośbę. Dokończ płatność.", 0, b.paymentDueAt) : null;
+  if (b.status === "AWAITING_PAYMENT" && b.paymentStatus === "PENDING") return renter && b.paymentDueAt !== null && !isPaymentDeadlineExpired(b, now) ? task("pay", "Opłać rezerwację", "Właściciel zaakceptował prośbę. Dokończ płatność.", 0, b.paymentDueAt) : null;
   if (b.paymentStatus !== "PAID") return null;
   const claim = readDepositClaim(b.depositClaim);
   if (b.depositClaim !== null) {
