@@ -41,6 +41,7 @@ function Stat({
 
 function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
   const max = maxCount(points);
+  const total = points.reduce((sum, point) => sum + point.count, 0);
 
   return (
     <div className="rounded-lg border p-4 bg-white">
@@ -49,13 +50,15 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
         <p className="text-xs text-gray-500">Últimos {points.length} días</p>
       </div>
 
-      <div className="flex items-end gap-1 h-28">
+      <p className="mb-2 text-xs text-gray-600">Total del periodo: {total}</p>
+      {total === 0 ? <div className="flex h-28 items-center justify-center text-sm text-gray-500">Sin registros en este periodo</div> : <div className="flex items-end gap-px h-28" role="img" aria-label={`${title}: ${total} registros en ${points.length} días`}>
         {points.map((p) => (
-          <div key={p.day} className="group relative flex-1">
+          <div key={p.day} className="group relative flex h-full min-w-0 flex-1 items-end">
             <div
               className="w-full rounded-sm bg-indigo-500/80"
               style={{
-                height: `${Math.round((p.count / max) * 100)}%`,
+                height: `${(p.count / max) * 100}%`,
+                minHeight: p.count > 0 ? 2 : 0,
               }}
               title={`${p.day}: ${p.count}`}
             />
@@ -64,7 +67,7 @@ function BarChart({ title, points }: { title: string; points: DayPoint[] }) {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <div className="mt-2 flex justify-between text-[11px] text-gray-500">
         <span>{points[0]?.day}</span>
