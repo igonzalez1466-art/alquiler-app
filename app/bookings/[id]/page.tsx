@@ -994,9 +994,10 @@ export default async function BookingPage({
 
       {(isOwner || isRenter) && booking.settlementCompletedAt && (
         <FinalSettlementSummary
+          isOwner={isOwner}
           rentCents={booking.rentAmountCents}
-          feeCents={booking.platformFeeCents}
-          ownerTransferCents={booking.ownerTransferId ? booking.ownerTransferCents : null}
+          feeCents={isOwner ? booking.platformFeeCents : null}
+          ownerTransferCents={isOwner && booking.ownerTransferId ? booking.ownerTransferCents : null}
           retainedCents={booking.depositRetainedCents}
           compensationCents={booking.depositTransferId ? booking.depositTransferredCents : booking.depositRetainedCents === 0 ? 0 : null}
           refundCents={booking.depositRefundedCents}
