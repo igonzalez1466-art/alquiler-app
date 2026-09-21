@@ -107,6 +107,7 @@ export default async function AccountPage() {
               📅 Moje rezerwacje
             </Link>
           </li>
+          <li><Link href="/account/transactions">💳 Historia transakcji</Link></li>
         </ul>
       </div>
 

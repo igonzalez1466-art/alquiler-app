@@ -13,7 +13,7 @@ export default async function AdminLayout({
     { href: "/admin/users", label: "Usuarios" },
     { href: "/admin/listings", label: "Anuncios" },
     { href: "/admin/bookings", label: "Reservas" },
-    { href: "/admin/deposit-claims", label: "Roszczenia kaucji" },
+    { href: "/admin/deposit-claims", label: "Spory i zgłoszenia" },
     { href: "/admin/reviews", label: "Reviews" },
   ];
 

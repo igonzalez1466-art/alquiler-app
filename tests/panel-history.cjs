@@ -1,0 +1,16 @@
+const fs=require('fs'),path=require('path'),ts=require('typescript'),vm=require('vm'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..'),staged=root;const f='app/lib/panelHistory.ts';const exportsObj={};const AnyNull=Symbol('AnyNull');vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(staged,f),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exportsObj,require:()=>({Prisma:{AnyNull}}),Intl,Date});
+const {financialRows,disputeWhere,transactionWhere,pageNumber,bookingFilter}=exportsObj;
+function match(b,q){return Object.entries(q).every(([k,v])=>k==='AND'?v.every(x=>match(b,x)):k==='OR'?v.some(x=>match(b,x)):k==='NOT'?!match(b,v):v&&typeof v==='object'?('path'in v?(b[k]?.[v.path[0]]===v.equals):'in'in v?v.in.includes(b[k]):'not'in v?v.not===AnyNull?b[k]!=null:b[k]!==v.not:false):b[k]===v);}
+const booking={id:'b',bookingNumber:10075,ownerId:'owner',renterId:'renter',deliveryIssue:null,returnIssue:null,depositClaim:null,damageClaimStatus:'NONE',deliveryConfirmationStatus:'CONFIRMED',returnConfirmationStatus:'CONFIRMED',settlementCompletedAt:null,rentAmountCents:20000,depositCents:2000,depositRetainedCents:500,depositRefundedCents:1500,depositStatus:'PARTIALLY_REFUNDED',platformFeeCents:3000,ownerPayoutCents:17000,ownerTransferId:'tr1',ownerTransferCents:17000,depositTransferId:'tr2',depositTransferredCents:500};let checks=0;
+for(const patch of [{deliveryConfirmationStatus:'DISPUTED'},{returnConfirmationStatus:'DISPUTED'},{deliveryIssue:{resolvedAt:'old'}},{returnIssue:{resolvedAt:'old'}},{depositClaim:{status:'APPROVED'},settlementCompletedAt:new Date()},{damageClaimStatus:'RESOLVED'}]){assert.ok(match({...booking,...patch},disputeWhere({})));checks++;}
+assert.ok(!match(booking,disputeWhere({})));checks++;
+const closed={...booking,depositClaim:{status:'APPROVED'},settlementCompletedAt:new Date()};assert.ok(match(closed,disputeWhere({state:'closed'})));assert.ok(!match(closed,disputeWhere({state:'open'})));checks+=2;
+for(const status of ['PENDING','DISPUTED','APPROVED']){const b={...booking,depositClaim:{status}};assert.ok(match(b,disputeWhere({state:'open'})));assert.ok(!match(b,disputeWhere({state:'closed'})));checks+=2;}
+assert.ok(!match({...booking,deliveryIssue:{}},disputeWhere({kind:'return'})));checks++;
+for(const role of ['owner','renter','all','invalid']){assert.ok(!match({...booking,ownerId:'someone',renterId:'someoneElse'},transactionWhere('renter',{role})));checks++;}
+assert.ok(match(booking,transactionWhere('renter',{})));assert.ok(!match(booking,transactionWhere('renter',{role:'owner'})));checks+=2;
+const renter=financialRows(booking,'renter');assert.ok(renter.every(([key])=>!/Prowizja|netto|saldo|przekazano/.test(key)));assert.ok(renter.some(([,amount])=>amount===1500));assert.throws(()=>financialRows(booking,'stranger'));checks+=3;
+assert.equal(financialRows(booking,'owner').at(-1)[1],17500);assert.equal(financialRows({...booking,ownerTransferId:null},'owner').at(-1)[1],null);checks+=2;
+assert.ok(match(booking,bookingFilter('#10075')));assert.ok(!match(booking,bookingFilter('wrong')));assert.equal(pageNumber('-1'),1);assert.equal(pageNumber('6'),6);checks+=4;
+console.log(checks+' checks passed: authorization, role privacy, legacy/closed disputes, filters and recorded totals.');
