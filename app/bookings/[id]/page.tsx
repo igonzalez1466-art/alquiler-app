@@ -1,3 +1,4 @@
+import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { Suspense } from "react";
 import InpostTracking from "./_components/InpostTracking";
 import { isInpost, normalizeInpostNumber } from "@/app/lib/inpostTracking";
@@ -289,10 +290,7 @@ export default async function BookingPage({
     booking.status === "AWAITING_PAYMENT" &&
     booking.paymentStatus === "PENDING";
 
-  const paymentExpired =
-    awaitingPayment &&
-    booking.paymentDueAt !== null &&
-    booking.paymentDueAt <= new Date();
+  const paymentExpired = isPaymentDeadlineExpired(booking);
 
   const canPay =
     isRenter &&
@@ -470,8 +468,8 @@ export default async function BookingPage({
 
           <div className="flex flex-col items-end gap-2">
             {badge(
-              statusLabel[booking.status] ?? booking.status,
-              statusClass[booking.status] ??
+              paymentExpired ? "Termin płatności upłynął" : statusLabel[booking.status] ?? booking.status,
+              paymentExpired ? "bg-rose-100 text-rose-700 border-rose-200" : statusClass[booking.status] ??
                 "bg-gray-100 text-gray-800 border-gray-200"
             )}
 

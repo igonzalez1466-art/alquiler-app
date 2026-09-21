@@ -1,3 +1,4 @@
+import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 // app/bookings/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import { getSession } from "@/app/lib/auth";
@@ -50,15 +51,16 @@ function pluralPLBooking(n: number) {
   return "rezerwacji";
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, expired }: { status: string; expired: boolean }) {
   const key = status as BookingStatus;
 
-  const cls =
-    key in statusClass
+  const cls = expired
+    ? "bg-rose-100 text-rose-700 border-rose-200"
+    : key in statusClass
       ? statusClass[key]
       : "bg-gray-100 text-gray-800 border-gray-200";
 
-  const label = key in statusLabel ? statusLabel[key] : status;
+  const label = expired ? "Termin płatności upłynął" : key in statusLabel ? statusLabel[key] : status;
 
   return (
     <span className={cx("text-xs px-2 py-1 rounded border", cls)}>{label}</span>
@@ -148,6 +150,7 @@ const booking = await prisma.booking.findUnique({
     ownerId: true,
     status: true,
     paymentStatus: true,
+  paymentDueAt: true,
     paidAt: true,
     returnConfirmationStatus: true,
     depositCents: true,
@@ -275,6 +278,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   endDate: true,
   status: true,
   paymentStatus: true,
+  paymentDueAt: true,
   paidAt: true,
   returnConfirmationStatus: true,
   depositCents: true,
@@ -504,7 +508,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                         </div>
 
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
-                      <StatusBadge status={b.status} />
+                      <StatusBadge status={b.status} expired={isPaymentDeadlineExpired(b, now)} />
                       <Link
                     href={`/bookings/${b.id}`}
                     className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded border text-gray-700 hover:bg-gray-50 text-center"
@@ -737,7 +741,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                         </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
-                       <StatusBadge status={b.status} />
+                       <StatusBadge status={b.status} expired={isPaymentDeadlineExpired(b, now)} />
                       <Link
                       href={`/bookings/${b.id}`}
                       className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded border text-gray-700 hover:bg-gray-50 text-center"
