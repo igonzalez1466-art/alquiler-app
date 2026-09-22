@@ -64,6 +64,7 @@ export async function updateReturnAction(formData: FormData) {
       returnTrackingNumber: true,
       returnShippedAt: true,
       returnDeliveredAt: true,
+      returnInpostPointCode: true,
 
       returnConfirmationStatus: true,
       returnConfirmBy: true,
@@ -123,6 +124,10 @@ export async function updateReturnAction(formData: FormData) {
     throw new Error("Zwrot oczekuje na potwierdzenie odbioru");
   }
 
+  if (returnCarrier === "InPost" && !booking.returnInpostPointCode) {
+    throw new Error("Właściciel musi najpierw potwierdzić punkt InPost do zwrotu w tej rezerwacji.");
+  }
+
   const now = new Date();
 
   const data: Prisma.BookingUpdateManyMutationInput = {
@@ -156,6 +161,7 @@ export async function updateReturnAction(formData: FormData) {
       returnConfirmationStatus: booking.returnConfirmationStatus,
       shippingStatus: "DELIVERED",
       deliveryConfirmationStatus: { in: ["CONFIRMED", "AUTO_CONFIRMED"] },
+      ...(returnCarrier === "InPost" ? { returnInpostPointCode: { not: null } } : {}),
     },
     data,
   });

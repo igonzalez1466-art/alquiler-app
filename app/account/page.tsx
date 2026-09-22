@@ -5,6 +5,7 @@ import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { startStripeConnectOnboarding } from "./connectActions";
 import PhoneVerification from "./PhoneVerification";
+import PreferredInpostPointForm from "./PreferredInpostPointForm";
 import { maskPhone } from "@/app/lib/phoneVerification";
 
 function getStripe() {
@@ -39,6 +40,8 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
       stripeAccountId: true,
       phone: true,
       phoneVerifiedAt: true,
+      preferredInpostPointCode: true,
+      preferredInpostPointAddress: true,
     },
   });
 
@@ -87,6 +90,8 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
       </div>
 
       <PhoneVerification verified={!!user.phoneVerifiedAt} maskedPhone={maskPhone(user.phone)} returnTo={returnTo} />
+
+      <PreferredInpostPointForm code={user.preferredInpostPointCode} address={user.preferredInpostPointAddress} />
 
       <div className="rounded border p-4 bg-gray-50 space-y-3">
         <h2 className="text-lg font-semibold">Zarządzanie</h2>

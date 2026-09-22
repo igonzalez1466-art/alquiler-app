@@ -22,6 +22,8 @@ model User {
   phoneVerifiedAt          DateTime?
   phoneVerificationTarget  String?
   phoneVerificationSentAt  DateTime?
+  preferredInpostPointCode    String?
+  preferredInpostPointAddress String?
 
   // Stripe Connect account del usuario cuando actúa como owner.
   stripeAccountId String? @unique
@@ -290,6 +292,8 @@ model Booking {
   trackingNumber String?
   shippedAt      DateTime?
   deliveredAt    DateTime?
+  deliveryInpostPointCode    String?
+  deliveryInpostPointAddress String?
 
   // ==========================================================
   // Confirmación de entrega
@@ -310,6 +314,8 @@ model Booking {
   returnTrackingNumber String?
   returnShippedAt      DateTime?
   returnDeliveredAt    DateTime?
+  returnInpostPointCode    String?
+  returnInpostPointAddress String?
 
   // ==========================================================
   // Confirmación de devolución

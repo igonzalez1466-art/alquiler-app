@@ -11,6 +11,7 @@ import RejectButton from "../_components/RejectButton";
 import { openChatFromBookingAction } from "./actions";
 
 import ShippingForm from "./_components/ShippingForm";
+import InpostDestination from "./_components/InpostDestination";
 import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
@@ -226,6 +227,8 @@ export default async function BookingPage({
       trackingNumber: true,
       shippedAt: true,
       deliveredAt: true,
+      deliveryInpostPointCode: true,
+      deliveryInpostPointAddress: true,
 
       deliveryConfirmationStatus: true,
       deliveryConfirmedAt: true,
@@ -238,6 +241,8 @@ export default async function BookingPage({
       returnTrackingNumber: true,
       returnShippedAt: true,
       returnDeliveredAt: true,
+      returnInpostPointCode: true,
+      returnInpostPointAddress: true,
 
       returnConfirmationStatus: true,
       returnConfirmedAt: true,
@@ -258,16 +263,22 @@ export default async function BookingPage({
         select: {
           id: true,
           name: true,
+          email: true,
           phone: true,
           phoneVerifiedAt: true,
+          preferredInpostPointCode: true,
+          preferredInpostPointAddress: true,
         },
       },
       owner: {
         select: {
           id: true,
           name: true,
+          email: true,
           phone: true,
           phoneVerifiedAt: true,
+          preferredInpostPointCode: true,
+          preferredInpostPointAddress: true,
         },
       },
     },
@@ -787,6 +798,18 @@ export default async function BookingPage({
 
                 </div>
 
+                {(isOwner || isRenter) && booking.carrier !== "Odbiór osobisty" && <InpostDestination
+                  bookingId={id}
+                  stage="DELIVERY"
+                  isRecipient={isRenter}
+                  locked={["SHIPPED", "DELIVERED"].includes(booking.shippingStatus)}
+                  code={booking.deliveryInpostPointCode}
+                  address={booking.deliveryInpostPointAddress}
+                  preferredCode={isRenter ? booking.renter.preferredInpostPointCode : null}
+                  preferredAddress={isRenter ? booking.renter.preferredInpostPointAddress : null}
+                  recipient={{ name: booking.renter.name, email: booking.renter.email, phone: booking.renter.phoneVerifiedAt ? booking.renter.phone : null }}
+                />}
+
                 {(isOwner || isRenter) && userId && (
                   <LogisticsIssuePanel
                     bookingId={id}
@@ -897,6 +920,18 @@ export default async function BookingPage({
 
 
                 </div>
+
+                {(isOwner || isRenter) && booking.returnCarrier !== "Odbiór osobisty" && <InpostDestination
+                  bookingId={id}
+                  stage="RETURN"
+                  isRecipient={isOwner}
+                  locked={["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
+                  code={booking.returnInpostPointCode}
+                  address={booking.returnInpostPointAddress}
+                  preferredCode={isOwner ? booking.owner.preferredInpostPointCode : null}
+                  preferredAddress={isOwner ? booking.owner.preferredInpostPointAddress : null}
+                  recipient={{ name: booking.owner.name, email: booking.owner.email, phone: booking.owner.phoneVerifiedAt ? booking.owner.phone : null }}
+                />}
 
                 {(isOwner || isRenter) && userId && (
                   <LogisticsIssuePanel

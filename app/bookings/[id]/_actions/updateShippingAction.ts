@@ -55,6 +55,7 @@ export async function updateShippingAction(formData: FormData) {
       paymentStatus: true,
       shippedAt: true,
       deliveredAt: true,
+      deliveryInpostPointCode: true,
       startDate: true,
       endDate: true,
 
@@ -112,6 +113,10 @@ export async function updateShippingAction(formData: FormData) {
     throw new Error("Nie można edytować — przesyłka została dostarczona");
   }
 
+  if (carrier === "InPost" && !booking.deliveryInpostPointCode) {
+    throw new Error("Najemca musi najpierw potwierdzić punkt InPost do dostawy w tej rezerwacji.");
+  }
+
   const now = new Date();
 
   const data: Prisma.BookingUpdateManyMutationInput = {
@@ -143,6 +148,7 @@ export async function updateShippingAction(formData: FormData) {
       paymentStatus: "PAID",
       shippingStatus: booking.shippingStatus,
       deliveryConfirmationStatus: booking.deliveryConfirmationStatus,
+      ...(carrier === "InPost" ? { deliveryInpostPointCode: { not: null } } : {}),
     },
     data,
   });
