@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import PhotosField from "./PhotosField";
+import PublishForm, { PublishButton } from "./PublishForm";
 import { sendMail } from "@/app/lib/mailer";
 import type { Gender, GarmentType, Color, Estado, MetodoEnvio } from "@prisma/client";
 import { put } from "@vercel/blob";
@@ -361,7 +362,7 @@ export default async function NewListingPage({
         </div>
       )}
 
-      <form
+      <PublishForm
         action={createListingAction}
         className="rounded-2xl border bg-white shadow-sm"
       >
@@ -627,16 +628,10 @@ export default async function NewListingPage({
           <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4">
                           <PhotosField />
 
-            <button
-              className="w-full md:w-auto rounded-lg bg-indigo-600 px-6 py-2.5 text-white font-semibold
-                         hover:bg-indigo-700 active:bg-indigo-800 transition"
-              type="submit"
-            >
-              Opublikuj
-            </button>
+            <PublishButton />
           </div>
         </div>
-      </form>
+      </PublishForm>
     </div>
   );
 }
