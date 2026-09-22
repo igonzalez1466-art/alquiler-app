@@ -29,8 +29,19 @@ export const authConfig: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      // Google verifies the email address. Reuse an existing password account
-      // with the same address instead of creating a duplicate user.
+      profile(profile) {
+        // Account linking by email is safe only when Google has verified it.
+        if (profile.email_verified !== true || !profile.email) {
+          throw new Error("GOOGLE_EMAIL_NOT_VERIFIED");
+        }
+        return {
+          id: profile.sub,
+          email: profile.email.toLowerCase().trim(),
+          name: profile.name ?? null,
+          image: profile.picture ?? null,
+        };
+      },
+      // Reuse an existing password account with the same verified email.
       allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
