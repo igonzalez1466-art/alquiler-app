@@ -173,7 +173,7 @@ async function getOwnerBooking(
 
   const approvedClaim = readDepositClaim(booking.depositClaim);
   const approvedMissingReturn =
-    booking.returnStatus === "PENDING" &&
+    ["PENDING", "SHIPPED"].includes(booking.returnStatus) &&
     booking.returnConfirmationStatus === "DISPUTED" &&
     approvedClaim?.status === "APPROVED" &&
     approvedClaim.reasonCode === "NOT_RETURNED";

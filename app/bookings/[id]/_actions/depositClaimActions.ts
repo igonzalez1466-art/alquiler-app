@@ -113,7 +113,7 @@ async function approve(tx: Prisma.TransactionClient, b: Awaited<ReturnType<typeo
       returnConfirmationStatus: "CONFIRMED", returnConfirmedAt: b.returnConfirmedAt ?? now,
       returnConfirmedBy: "OWNER", returnConfirmBy: null,
     }),
-    ...(issue ? { returnIssue: { ...issue, resolvedAt: now.toISOString(), resolvedById: claim.approvedById } } : {}),
+    ...(issue && claim.reasonCode !== "NOT_RETURNED" ? { returnIssue: { ...issue, resolvedAt: now.toISOString(), resolvedById: claim.approvedById } } : {}),
   } });
 }
 

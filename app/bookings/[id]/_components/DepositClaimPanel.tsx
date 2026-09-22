@@ -83,7 +83,7 @@ export default function DepositClaimPanel(p: Props) {
       {p.completed ? <p>Kaucja została rozliczona.</p> : p.settling ? <p>Rozliczenie zostało rozpoczęte.</p> : <>
         {p.receiptKnown && !p.returnCompleted && <p>Przedmiot został odebrany z zastrzeżeniami. Kaucja pozostaje zablokowana do rozwiązania sprawy.</p>}
         {!p.receiptKnown && !p.returnCompleted && <p>{p.canProposeNotReturned
-          ? "Okres najmu minął, ale zwrot przedmiotu nie został zgłoszony. Możesz zaproponować potrącenie z kaucji; najemca będzie mógł je zaakceptować albo zakwestionować."
+          ? "Okres najmu minął, ale właściciel nie otrzymał przedmiotu. Możesz zaproponować potrącenie z kaucji; najemca będzie mógł je zaakceptować albo zakwestionować."
           : "Rozliczenie kaucji będzie dostępne po odbiorze zwrotu. W przypadku uszkodzeń właściciel może zaproponować potrącenie bez zamykania zgłoszonego problemu jako rozwiązanego."}</p>}
         {p.isOwner && p.canRefund && <form onSubmit={submit(releaseDepositAction)} className="space-y-2">
           <p>Zwrot pełnej kaucji: {money(p.depositCents)}</p>
@@ -91,7 +91,7 @@ export default function DepositClaimPanel(p: Props) {
         </form>}
         {p.isOwner && (p.canPropose || p.canProposeNotReturned) && (!proposing ? <button disabled={pending} className={button} onClick={() => setProposing(true)}>Zaproponuj potrącenie z kaucji</button> : <form onSubmit={submit(proposeDepositClaimAction)} className="rounded border p-3 space-y-3">
           <p>Propozycja nie przenosi pieniędzy. Najemca może ją zaakceptować lub przekazać spór do obsługi. Brak odpowiedzi nie oznacza zgody.</p>
-          {p.canProposeNotReturned && <p>Okres najmu minął, a zwrot nie został zgłoszony. Wskaż, jaka część kaucji ma pozostać zablokowana, i opisz sytuację.</p>}
+          {p.canProposeNotReturned && <p>Okres najmu minął, a przedmiot nie został zwrócony. Wskaż, jaka część kaucji ma pozostać zablokowana, i opisz sytuację.</p>}
           <label className="block">Kwota do zatrzymania (zł)
             <input type="number" name="retainedAmountZl" min="0.01" max={p.depositCents / 100} step="0.01" required disabled={pending} className={input} />
           </label>

@@ -1,3 +1,6 @@
+import type { Prisma } from "@prisma/client";
+import { readIssue } from "@/app/lib/logisticsIssue";
+
 export const claimReasons = {
   DAMAGE: "Uszkodzenie", STAINING: "Zabrudzenie", MISSING_ITEM: "Brak elementu",
   LATE_RETURN: "Opóźniony zwrot", NOT_RETURNED: "Przedmiot nie został zwrócony",
@@ -10,11 +13,17 @@ export function canClaimNotReturned(booking: {
   deliveryConfirmationStatus: string;
   returnStatus: string;
   returnConfirmationStatus: string;
+  returnIssue: Prisma.JsonValue | null;
+  ownerId: string;
 }, now: Date = new Date()) {
+  const issue = readIssue(booking.returnIssue);
+  const reportedMissingReturn = booking.returnStatus === "SHIPPED" &&
+    booking.returnConfirmationStatus === "DISPUTED" &&
+    issue?.reportedById === booking.ownerId && !issue.resolvedAt &&
+    (issue.reason === "NOT_RECEIVED" || (issue.reason === "OTHER" && issue.received === false));
   return booking.shippingStatus === "DELIVERED" &&
     ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) &&
-    booking.returnStatus === "PENDING" &&
-    booking.returnConfirmationStatus === "NOT_REQUESTED" &&
+    ((booking.returnStatus === "PENDING" && booking.returnConfirmationStatus === "NOT_REQUESTED") || reportedMissingReturn) &&
     now.getTime() >= booking.endDate.getTime() + 24 * 60 * 60 * 1000;
 }
 export type DepositClaim = {
