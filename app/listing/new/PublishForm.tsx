@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 
 export function PublishButton() {
   const { pending } = useFormStatus();
@@ -35,6 +36,6 @@ export default function PublishForm({ action, children, className }: {
     } finally { busy.current = false; }
   }}>
     {children}
-    {error && <p role="alert" className="px-6 pb-6 text-sm text-rose-700">{error} <a href="/listing?tab=my" className="underline">Moje ogłoszenia</a></p>}
+    {error && <p role="alert" className="px-6 pb-6 text-sm text-rose-700">{error} <Link href="/listing?tab=my" className="underline">Moje ogłoszenia</Link></p>}
   </form>;
 }
