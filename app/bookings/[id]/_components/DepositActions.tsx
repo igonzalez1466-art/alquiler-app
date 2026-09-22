@@ -7,7 +7,9 @@ import {
   partialReleaseDepositAction,
   retainDepositAction,
   retrySettlementAction,
-} from "../_actions/depositActions";
+} from "./settlementClientActions";
+
+import PayoutSetupNotice from "./PayoutSetupNotice";
 
 type Mode = "refund" | "partial" | "retain";
 
@@ -39,6 +41,10 @@ export default function DepositActions({
   settlementPending?: boolean;
 }) {
   const router = useRouter();
+  const [errorMessage, setErrorMessage] = useState("");
+  const [payoutSetup, setPayoutSetup] = useState(false);
+  function showError(error: unknown) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setErrorMessage(error instanceof Error ? error.message : "Nie udało się dokończyć rozliczenia. Spróbuj ponownie."); }
+  const notice = <>{payoutSetup && <PayoutSetupNotice isOwner />}{errorMessage && <p role="alert" className="text-sm text-rose-700">{errorMessage}</p>}</>;
   const [mode, setMode] = useState<Mode>("refund");
   const [loading, setLoading] = useState(false);
 
@@ -63,16 +69,17 @@ export default function DepositActions({
 
   if (settlementPending) return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      {notice}
       <p>Rozliczenie rozpoczęte. Kwota i powód są zapisane i nie można ich zmienić.</p>
       <button disabled={loading} className="mt-3 rounded bg-zinc-900 px-4 py-2 text-white disabled:opacity-50"
         onClick={async () => {
-          setLoading(true);
+          setLoading(true); setErrorMessage(""); setPayoutSetup(false);
           try {
             const form = new FormData();
             form.set("bookingId", bookingId);
             await retrySettlementAction(form);
             window.location.reload();
-          } catch (error) { alert(error instanceof Error ? error.message : "Błąd rozliczenia"); }
+          } catch (error) { showError(error); }
           finally { setLoading(false); router.refresh(); }
         }}>{loading ? "Przetwarzanie…" : "Ponów rozliczenie"}</button>
     </section>
@@ -80,6 +87,7 @@ export default function DepositActions({
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      {notice}
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-zinc-900">Kaucja</h3>
@@ -162,9 +170,9 @@ export default function DepositActions({
         <form
           action={async (formData) => {
             try {
-              setLoading(true);
+              setLoading(true); setErrorMessage(""); setPayoutSetup(false);
               await releaseDepositAction(formData);
-            } finally {
+            } catch (error) { showError(error); } finally {
               setLoading(false); router.refresh();
             }
           }}
@@ -195,9 +203,9 @@ export default function DepositActions({
         <form
           action={async (formData) => {
             try {
-              setLoading(true);
+              setLoading(true); setErrorMessage(""); setPayoutSetup(false);
               await partialReleaseDepositAction(formData);
-            } finally {
+            } catch (error) { showError(error); } finally {
               setLoading(false); router.refresh();
             }
           }}
@@ -314,9 +322,9 @@ export default function DepositActions({
         <form
           action={async (formData) => {
             try {
-              setLoading(true);
+              setLoading(true); setErrorMessage(""); setPayoutSetup(false);
               await retainDepositAction(formData);
-            } finally {
+            } catch (error) { showError(error); } finally {
               setLoading(false); router.refresh();
             }
           }}

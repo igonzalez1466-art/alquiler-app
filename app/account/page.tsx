@@ -112,7 +112,7 @@ export default async function AccountPage() {
       </div>
 
       <div className="rounded border p-4 bg-white space-y-3">
-        <h2 className="text-lg font-semibold">Wypłaty</h2>
+        <h2 id="wyplaty" className="text-lg font-semibold scroll-mt-24">Wypłaty</h2>
 
         {!user.stripeAccountId && (
           <>

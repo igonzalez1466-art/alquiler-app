@@ -3,8 +3,9 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { claimReasons, type DepositClaim } from "@/app/lib/depositClaim";
-import { proposeDepositClaimAction, respondDepositClaimAction, resolveDepositClaimBySupportAction, executeApprovedClaimAction } from "../_actions/depositClaimActions";
-import { releaseDepositAction } from "../_actions/depositActions";
+import { proposeDepositClaimAction, respondDepositClaimAction, resolveDepositClaimBySupportAction } from "../_actions/depositClaimActions";
+import { releaseDepositAction, executeApprovedClaimAction } from "./settlementClientActions";
+import PayoutSetupNotice from "./PayoutSetupNotice";
 
 const money = (cents: number) => new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(cents / 100);
 const date = (value: string) => new Date(value).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
@@ -17,6 +18,7 @@ type Props = {
 
 export default function DepositClaimPanel(p: Props) {
   const router = useRouter();
+  const [payoutSetup, setPayoutSetup] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [proposing, setProposing] = useState(false);
@@ -28,9 +30,9 @@ export default function DepositClaimPanel(p: Props) {
     const data = new FormData(event.currentTarget);
     data.set("bookingId", p.bookingId);
     if (p.claim) data.set("claimId", p.claim.id);
-    busy.current = true; setPending(true); setError("");
+    busy.current = true; setPending(true); setError(""); setPayoutSetup(false);
     try { await action(data); setProposing(false); setDisputing(false); router.refresh(); }
-    catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
+    catch (error) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
     finally { busy.current = false; setPending(false); }
   };
   const button = "rounded border px-4 py-2 bg-white disabled:opacity-50";
@@ -97,6 +99,7 @@ export default function DepositClaimPanel(p: Props) {
         </form>)}
       </>}
     </>}
+    {payoutSetup && <PayoutSetupNotice isOwner={p.isOwner} />}
     {error && <p role="alert" className="text-rose-700">{error}</p>}
   </div>;
 }
