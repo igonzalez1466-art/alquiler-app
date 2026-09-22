@@ -16,17 +16,20 @@ type Props = {
 
 export default function ReturnForm({ bookingId, locked, initial }: Props) {
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(initial.returnStatus === "SHIPPED");
   const [error, setError] = useState("");
 
-  const disabled = locked || loading;
+  const disabled = locked || sent || loading;
 
   return (
     <form
       action={async (formData) => {
+        if (disabled) return;
         setLoading(true);
         setError("");
         try {
           await updateReturnAction(formData);
+          setSent(true);
         } catch (error) {
           setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie.");
         } finally {
@@ -51,9 +54,12 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
         className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60"
       >
         {loading && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-        {loading ? "Zapisywanie..." : (initial.returnStatus === "SHIPPED" ? "Zapisz dane przesyłki" : "Wysłano")}
+        {loading ? "Zapisywanie…" : sent ? "Wysłano — oczekuje na potwierdzenie" : "Wysłano"}
       </button>
       {loading && <p role="status" aria-live="polite" className="text-sm text-gray-600">Zapisywanie danych zwrotu…</p>}
+      {sent && !loading && <p role="status" className="text-sm text-amber-800">
+        Zwrot został oznaczony jako wysłany. Oczekuje na potwierdzenie odbioru przez właściciela.
+      </p>}
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
   );

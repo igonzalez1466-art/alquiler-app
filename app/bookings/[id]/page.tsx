@@ -357,7 +357,8 @@ export default async function BookingPage({
   const canRenterEditReturn =
     isRenter &&
     logisticsEnabled &&
-    deliveryCompleted && !returnLocked && booking.returnStatus !== "DELIVERED" &&
+    deliveryCompleted && !returnLocked &&
+    !["SHIPPED", "DELIVERED"].includes(booking.returnStatus) &&
     booking.returnConfirmationStatus !== "DISPUTED";
 
   /* ==========================================================
@@ -932,6 +933,12 @@ export default async function BookingPage({
                         booking.returnTrackingNumber,
                     }}
                   />
+                )}
+
+                {isRenter && booking.returnStatus === "SHIPPED" && !returnLocked && (
+                  <p className="text-sm text-amber-800">
+                    Zwrot został wysłany. Oczekuje na potwierdzenie odbioru przez właściciela — dane zwrotu są teraz zablokowane.
+                  </p>
                 )}
 
                 {!deliveryCompleted && !returnLocked && (

@@ -115,6 +115,10 @@ export async function updateReturnAction(formData: FormData) {
     throw new Error("Nie można edytować — zwrot został zakończony");
   }
 
+  if (booking.returnStatus === "SHIPPED" || booking.returnConfirmationStatus === "AWAITING_CONFIRMATION") {
+    throw new Error("Zwrot został już wysłany i oczekuje na potwierdzenie właściciela");
+  }
+
   if (booking.returnStatus === "DELIVERED") {
     throw new Error("Zwrot oczekuje na potwierdzenie odbioru");
   }
