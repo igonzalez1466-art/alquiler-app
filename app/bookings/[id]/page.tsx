@@ -605,8 +605,8 @@ export default async function BookingPage({
                   ) : (
                     <p className="mt-1">
                       {isOwner
-                        ? "Najemca ma 2 godziny od Twojej akceptacji na opłacenie rezerwacji. Jeśli nie zapłaci w terminie, rezerwacja zostanie anulowana."
-                        : "Masz 2 godziny od akceptacji właściciela na opłacenie rezerwacji. Jeśli nie zapłacisz w terminie, rezerwacja zostanie anulowana."}
+                        ? "Najemca ma 12 godzin od Twojej akceptacji na opłacenie rezerwacji. Jeśli nie zapłaci w terminie, rezerwacja zostanie anulowana."
+                        : "Masz 12 godzin od akceptacji właściciela na opłacenie rezerwacji. Jeśli nie zapłacisz w terminie, rezerwacja zostanie anulowana."}
                     </p>
                   )}
                 </div>

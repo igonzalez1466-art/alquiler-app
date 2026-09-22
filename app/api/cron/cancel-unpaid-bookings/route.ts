@@ -54,7 +54,7 @@ function bookingAutoCancelledHtml(p: {
         Twoja rezerwacja została
         <strong>automatycznie anulowana</strong>,
         ponieważ płatność nie została ukończona
-        w ciągu 2 godzin od zatwierdzenia.
+        w ciągu 12 godzin od zatwierdzenia.
       </p>
 
       <div style="margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">

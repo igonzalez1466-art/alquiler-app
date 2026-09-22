@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/cancel-unpaid-bookings",
-      "schedule": "0 0 * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/review-invitations",

@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
 
-export const PAYMENT_WINDOW_MS = 2 * 60 * 60 * 1000;
+export const PAYMENT_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 export async function expireUnpaidBooking(id: string) {
   return prisma.$transaction(

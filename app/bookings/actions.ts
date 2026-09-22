@@ -519,7 +519,7 @@ export async function approveBookingAction(
             <strong>Ważne:</strong><br/>
 
             Na opłacenie rezerwacji masz
-            <strong>2 godziny od zatwierdzenia</strong>.
+            <strong>12 godzin od zatwierdzenia</strong>.
             <br/><br/>
 
             <strong>Termin płatności:</strong>
