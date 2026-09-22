@@ -16,7 +16,7 @@ import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
-import { readDepositClaim } from "@/app/lib/depositClaim";
+import { canClaimNotReturned, readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 
 import LogisticsIssuePanel from "./_components/LogisticsIssuePanel";
@@ -939,6 +939,7 @@ export default async function BookingPage({
                     stage="RETURN"
                     receiptConfirmed={booking.returnConfirmedAt !== null}
                     hasDepositClaim={readDepositClaim(booking.depositClaim) !== null}
+                    claimNotReturned={readDepositClaim(booking.depositClaim)?.reasonCode === "NOT_RETURNED"}
                     stored={booking.returnIssue}
                     disputed={booking.returnConfirmationStatus === "DISPUTED"}
                     recipientId={booking.ownerId}
@@ -1045,6 +1046,7 @@ export default async function BookingPage({
                     returnCompleted={returnCompleted}
                     receiptKnown={hasReturnReceipt(booking)}
                     canPropose={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
+                    canProposeNotReturned={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && canClaimNotReturned(booking)}
                     initialReason={readIssue(booking.returnIssue)?.description ?? ""}
                     initialReasonCode={readIssue(booking.returnIssue)?.reason === "MISSING_ITEMS" ? "MISSING_ITEM" : readIssue(booking.returnIssue)?.reason === "DAMAGED" ? "DAMAGE" : "OTHER"}
                     completed={!!booking.settlementCompletedAt}

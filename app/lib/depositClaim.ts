@@ -1,7 +1,22 @@
 export const claimReasons = {
   DAMAGE: "Uszkodzenie", STAINING: "Zabrudzenie", MISSING_ITEM: "Brak elementu",
-  LATE_RETURN: "Opóźniony zwrot", CLEANING: "Koszt czyszczenia", OTHER: "Inny powód",
+  LATE_RETURN: "Opóźniony zwrot", NOT_RETURNED: "Przedmiot nie został zwrócony",
+  CLEANING: "Koszt czyszczenia", OTHER: "Inny powód",
 } as const;
+
+export function canClaimNotReturned(booking: {
+  endDate: Date;
+  shippingStatus: string;
+  deliveryConfirmationStatus: string;
+  returnStatus: string;
+  returnConfirmationStatus: string;
+}, now: Date = new Date()) {
+  return booking.shippingStatus === "DELIVERED" &&
+    ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) &&
+    booking.returnStatus === "PENDING" &&
+    booking.returnConfirmationStatus === "NOT_REQUESTED" &&
+    now.getTime() >= booking.endDate.getTime() + 24 * 60 * 60 * 1000;
+}
 export type DepositClaim = {
   id: string;
   status: "PENDING" | "DISPUTED" | "APPROVED";

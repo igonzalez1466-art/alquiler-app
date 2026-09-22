@@ -18,6 +18,7 @@ const RETENTION_REASON_CODES = [
   "STAINING",
   "MISSING_ITEM",
   "LATE_RETURN",
+  "NOT_RETURNED",
   "CLEANING",
   "OTHER",
 ] as const;
@@ -170,7 +171,14 @@ async function getOwnerBooking(
     booking.returnConfirmationStatus === "CONFIRMED" ||
     booking.returnConfirmationStatus === "AUTO_CONFIRMED";
 
-  if (!returnCompleted) {
+  const approvedClaim = readDepositClaim(booking.depositClaim);
+  const approvedMissingReturn =
+    booking.returnStatus === "PENDING" &&
+    booking.returnConfirmationStatus === "DISPUTED" &&
+    approvedClaim?.status === "APPROVED" &&
+    approvedClaim.reasonCode === "NOT_RETURNED";
+
+  if (!returnCompleted && !approvedMissingReturn) {
     throw new Error(
       "Kaucją można zarządzać dopiero po potwierdzeniu zwrotu"
     );

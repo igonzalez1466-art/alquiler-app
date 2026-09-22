@@ -12,6 +12,7 @@ const date = (value: string) => new Date(value).toLocaleString("pl-PL", { timeZo
 type Props = {
   bookingId: string; depositCents: number; claim: DepositClaim | null; hasClaim: boolean;
   isOwner: boolean; isRenter: boolean; receiptKnown?: boolean; isSupport?: boolean; canPropose?: boolean;
+  canProposeNotReturned?: boolean;
   canRefund?: boolean; returnCompleted?: boolean; initialReason?: string;
   initialReasonCode?: keyof typeof claimReasons; completed: boolean; settling: boolean;
 };
@@ -81,20 +82,23 @@ export default function DepositClaimPanel(p: Props) {
     </div> : <>
       {p.completed ? <p>Kaucja została rozliczona.</p> : p.settling ? <p>Rozliczenie zostało rozpoczęte.</p> : <>
         {p.receiptKnown && !p.returnCompleted && <p>Przedmiot został odebrany z zastrzeżeniami. Kaucja pozostaje zablokowana do rozwiązania sprawy.</p>}
-        {!p.receiptKnown && !p.returnCompleted && <p>Rozliczenie kaucji będzie dostępne po odbiorze zwrotu. W przypadku uszkodzeń właściciel może zaproponować potrącenie bez zamykania zgłoszonego problemu jako rozwiązanego.</p>}
+        {!p.receiptKnown && !p.returnCompleted && <p>{p.canProposeNotReturned
+          ? "Okres najmu minął, ale zwrot przedmiotu nie został zgłoszony. Możesz zaproponować potrącenie z kaucji; najemca będzie mógł je zaakceptować albo zakwestionować."
+          : "Rozliczenie kaucji będzie dostępne po odbiorze zwrotu. W przypadku uszkodzeń właściciel może zaproponować potrącenie bez zamykania zgłoszonego problemu jako rozwiązanego."}</p>}
         {p.isOwner && p.canRefund && <form onSubmit={submit(releaseDepositAction)} className="space-y-2">
           <p>Zwrot pełnej kaucji: {money(p.depositCents)}</p>
           <button disabled={pending} className={button}>Zwróć całą kaucję</button>
         </form>}
-        {p.isOwner && p.canPropose && (!proposing ? <button disabled={pending} className={button} onClick={() => setProposing(true)}>Zaproponuj potrącenie z kaucji</button> : <form onSubmit={submit(proposeDepositClaimAction)} className="rounded border p-3 space-y-3">
+        {p.isOwner && (p.canPropose || p.canProposeNotReturned) && (!proposing ? <button disabled={pending} className={button} onClick={() => setProposing(true)}>Zaproponuj potrącenie z kaucji</button> : <form onSubmit={submit(proposeDepositClaimAction)} className="rounded border p-3 space-y-3">
           <p>Propozycja nie przenosi pieniędzy. Najemca może ją zaakceptować lub przekazać spór do obsługi. Brak odpowiedzi nie oznacza zgody.</p>
+          {p.canProposeNotReturned && <p>Okres najmu minął, a zwrot nie został zgłoszony. Wskaż, jaka część kaucji ma pozostać zablokowana, i opisz sytuację.</p>}
           <label className="block">Kwota do zatrzymania (zł)
             <input type="number" name="retainedAmountZl" min="0.01" max={p.depositCents / 100} step="0.01" required disabled={pending} className={input} />
           </label>
           <p>Wpisz {money(p.depositCents)}, aby zaproponować zatrzymanie całej kaucji.</p>
-          <label className="block">Powód<select name="reasonCode" defaultValue={p.initialReasonCode ?? "OTHER"} disabled={pending} className={input}>{Object.entries(claimReasons).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="block">Powód<select name="reasonCode" defaultValue={p.canProposeNotReturned ? "NOT_RETURNED" : p.initialReasonCode ?? "OTHER"} disabled={pending} className={input}>{Object.entries(claimReasons).filter(([value]) => p.canProposeNotReturned ? value === "NOT_RETURNED" : value !== "NOT_RETURNED").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label className="block">Opis i uzasadnienie kwoty<textarea name="reason" defaultValue={p.initialReason ?? ""} required maxLength={2000} rows={3} disabled={pending} className={input} /></label>
-          {!p.receiptKnown && <label className="flex items-start gap-2"><input type="checkbox" name="received" value="yes" required disabled={pending} /><span>Potwierdzam faktyczny odbiór zwracanego przedmiotu. Zgłoszony problem nadal wymaga rozliczenia.</span></label>}
+          {!p.canProposeNotReturned && !p.receiptKnown && <label className="flex items-start gap-2"><input type="checkbox" name="received" value="yes" required disabled={pending} /><span>Potwierdzam faktyczny odbiór zwracanego przedmiotu. Zgłoszony problem nadal wymaga rozliczenia.</span></label>}
           <div className="flex gap-2"><button disabled={pending} className={button}>Wyślij propozycję najemcy</button><button type="button" disabled={pending} onClick={() => setProposing(false)} className={button}>Anuluj</button></div>
         </form>)}
       </>}

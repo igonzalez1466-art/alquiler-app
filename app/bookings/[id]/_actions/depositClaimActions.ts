@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { claimReasons, readDepositClaim, parseClaimAmount, claimSettlement, type DepositClaim } from "@/app/lib/depositClaim";
+import { claimReasons, canClaimNotReturned, readDepositClaim, parseClaimAmount, claimSettlement, type DepositClaim } from "@/app/lib/depositClaim";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 import { releaseDepositAction, partialReleaseDepositAction, retainDepositAction, retrySettlementAction } from "./depositActions";
@@ -42,6 +42,7 @@ export async function proposeDepositClaimAction(data: FormData) {
   }
   const notification = await prisma.$transaction(async tx => {
     const b = await lock(tx, id);
+    const notReturned = reasonCode === "NOT_RETURNED";
     if (b.ownerId !== userId || b.ownerId === b.renterId) throw new Error("Brak uprawnień");
     if (b.status === "CANCELLED" || b.cancelledAt || b.paymentStatus !== "PAID" ||
       b.depositStatus !== "PAID" || !b.depositCents || retainedCents > b.depositCents ||
@@ -49,8 +50,8 @@ export async function proposeDepositClaimAction(data: FormData) {
       b.settlementLegacyReview || b.depositDecisionAt || b.depositRefundId || b.depositTransferId ||
       (b.depositRefundedCents ?? 0) > 0 || (b.depositRetainedCents ?? 0) > 0 ||
       !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
-      !["SHIPPED", "DELIVERED"].includes(b.returnStatus)) throw new Error("Nie można teraz utworzyć roszczenia.");
-    if (!hasReturnReceipt(b) && data.get("received") !== "yes") throw new Error("Potwierdź faktyczny odbiór zwracanego przedmiotu.");
+      (notReturned ? !canClaimNotReturned(b) : !["SHIPPED", "DELIVERED"].includes(b.returnStatus))) throw new Error("Nie można teraz utworzyć roszczenia.");
+    if (!notReturned && !hasReturnReceipt(b) && data.get("received") !== "yes") throw new Error("Potwierdź faktyczny odbiór zwracanego przedmiotu.");
     const deadline = getDepositDecisionDeadline(b.returnConfirmedAt);
     if (deadline && deadline <= new Date()) throw new Error("Termin zgłoszenia roszczenia upłynął.");
     if (await tx.settlementOperation.findFirst({ where: { bookingId: id }, select: { id: true } })) {
@@ -65,7 +66,7 @@ export async function proposeDepositClaimAction(data: FormData) {
     };
     await tx.booking.update({ where: { id }, data: {
       depositClaim: claim, damageClaimStatus: "OPEN",
-      returnStatus: "DELIVERED", returnDeliveredAt: b.returnDeliveredAt ?? now,
+      ...(notReturned ? {} : { returnStatus: "DELIVERED", returnDeliveredAt: b.returnDeliveredAt ?? now }),
       returnConfirmationStatus: "DISPUTED", returnConfirmBy: null,
     } });
     return { booking: { id: b.id, bookingNumber: b.bookingNumber, renterId: b.renterId, depositCents: b.depositCents }, claim };
@@ -108,8 +109,10 @@ async function approve(tx: Prisma.TransactionClient, b: Awaited<ReturnType<typeo
   const issue = readIssue(b.returnIssue);
   await tx.booking.update({ where: { id: b.id }, data: {
     depositClaim: claim, damageClaimStatus: "RESOLVED",
-    returnConfirmationStatus: "CONFIRMED", returnConfirmedAt: b.returnConfirmedAt ?? now,
-    returnConfirmedBy: "OWNER", returnConfirmBy: null,
+    ...(claim.reasonCode === "NOT_RETURNED" ? {} : {
+      returnConfirmationStatus: "CONFIRMED", returnConfirmedAt: b.returnConfirmedAt ?? now,
+      returnConfirmedBy: "OWNER", returnConfirmBy: null,
+    }),
     ...(issue ? { returnIssue: { ...issue, resolvedAt: now.toISOString(), resolvedById: claim.approvedById } } : {}),
   } });
 }

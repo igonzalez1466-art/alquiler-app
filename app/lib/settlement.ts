@@ -100,10 +100,15 @@ export async function lockSettlementDecision(
       );
     }
 
+    const approvedMissingReturn = claim?.status === "APPROVED" &&
+      claim.reasonCode === "NOT_RETURNED" &&
+      booking.returnStatus === "PENDING" &&
+      booking.returnConfirmationStatus === "DISPUTED";
+
     if (
       booking.cancelledAt ||
       booking.paymentStatus !== "PAID" ||
-      (
+      (!approvedMissingReturn &&
         booking.returnConfirmationStatus !== "CONFIRMED" &&
         booking.returnConfirmationStatus !== "AUTO_CONFIRMED"
       )
