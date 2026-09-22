@@ -57,6 +57,7 @@ const colorMap: Record<string, string> = {
 type Listing = {
   id: string;
   title: string;
+  available: boolean;
   city: string | null;
   postalCode: string | null;
   pricePerDay: number; // ✅ PRECIO DIARIO
@@ -71,7 +72,7 @@ type Listing = {
 
 /* ===================== COMPONENT ===================== */
 
-export default function ListingResults({ listings }: { listings: Listing[] }) {
+export default function ListingResults({ listings, showStatus = false }: { listings: Listing[]; showStatus?: boolean }) {
   const [open, setOpen] = useState(false);
 
   if (!listings.length) {
@@ -105,9 +106,16 @@ export default function ListingResults({ listings }: { listings: Listing[] }) {
             >
               {/* ===== TITLE + PRICE ===== */}
               <div className="flex items-baseline justify-between gap-2">
-                <h2 className="text-lg font-semibold group-hover:underline truncate">
-                  {l.title}
-                </h2>
+                <div className="min-w-0 flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-semibold group-hover:underline truncate">
+                    {l.title}
+                  </h2>
+                  {showStatus && (
+                    <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-xs font-medium ${l.available ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
+                      {l.available ? "Aktywne" : "Nieaktywne"}
+                    </span>
+                  )}
+                </div>
 
                 <span className="shrink-0 text-sm font-semibold text-gray-900">
                   {l.pricePerDay} zł / dzień

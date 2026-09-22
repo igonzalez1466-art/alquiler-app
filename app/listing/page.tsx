@@ -213,6 +213,7 @@ export default async function ListingPage({
     select: {
       id: true,
       title: true,
+      available: true,
       pricePerDay: true,
       city: true,
       postalCode: true,
@@ -297,7 +298,7 @@ export default async function ListingPage({
         )}
       </div>
 
-      <ListingResults listings={listings as any} />
+      <ListingResults listings={listings as any} showStatus={tab === "my"} />
     </div>
   );
 }
