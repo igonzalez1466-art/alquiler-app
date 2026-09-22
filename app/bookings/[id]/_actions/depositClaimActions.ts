@@ -1,6 +1,6 @@
 "use server";
 
-import { notifyDepositClaimProposed } from "@/app/lib/depositClaimEmail";
+import { notifyDepositClaimAccepted, notifyDepositClaimProposed } from "@/app/lib/depositClaimEmail";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
@@ -81,17 +81,26 @@ export async function respondDepositClaimAction(data: FormData) {
   if (!["ACCEPT", "DISPUTE"].includes(response)) throw new Error("Wybierz odpowiedź.");
   if (response === "ACCEPT" && data.get("consent") !== "yes") throw new Error("Potwierdź zgodę na wskazaną kwotę potrącenia.");
   if (response === "DISPUTE" && (!note || note.length > 2000)) throw new Error("Opisz, dlaczego nie zgadzasz się z roszczeniem (do 2000 znaków).");
-  await prisma.$transaction(async tx => {
+  const acceptedClaim = await prisma.$transaction(async tx => {
     const b = await lock(tx, id), c = readDepositClaim(b.depositClaim);
     if (b.renterId !== userId || b.ownerId === userId || !c || c.status !== "PENDING" || c.id !== data.get("claimId")) throw new Error("Roszczenie nie jest dostępne do odpowiedzi.");
     if (b.status === "CANCELLED" || b.cancelledAt || b.paymentStatus !== "PAID" || b.depositStatus !== "PAID" || b.settlementDecision !== null || b.settlementCompletedAt) throw new Error("Stan rezerwacji uległ zmianie.");
     const now = new Date();
     if (response === "DISPUTE") {
       await tx.booking.update({ where: { id }, data: { depositClaim: { ...c, status: "DISPUTED", renterResponse: note, respondedAt: now.toISOString() } } });
+      return null;
     } else {
-      await approve(tx, b, { ...c, status: "APPROVED", respondedAt: now.toISOString(), approvedAt: now.toISOString(), approvedById: userId, approvedRetainedCents: c.retainedCents, resolutionSource: "RENTER" }, now);
+      const approvedClaim: DepositClaim = { ...c, status: "APPROVED", respondedAt: now.toISOString(), approvedAt: now.toISOString(), approvedById: userId, approvedRetainedCents: c.retainedCents, resolutionSource: "RENTER" };
+      await approve(tx, b, approvedClaim, now);
+      return {
+        booking: { id: b.id, bookingNumber: b.bookingNumber, ownerId: b.ownerId, depositCents: b.depositCents ?? 0 },
+        claim: approvedClaim,
+      };
     }
   });
+  if (acceptedClaim) {
+    await notifyDepositClaimAccepted(acceptedClaim.booking, acceptedClaim.claim);
+  }
   refresh(id);
 }
 
