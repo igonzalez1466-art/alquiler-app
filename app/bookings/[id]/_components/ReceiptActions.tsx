@@ -25,7 +25,10 @@ export default function ReceiptActions({ bookingId, stage }: { bookingId: string
     {!reporting ? <>
       <p className="text-sm text-gray-600">Potwierdź odbiór dopiero po otrzymaniu i sprawdzeniu przedmiotu. Jeśli coś jest nie tak, zgłoś problem.</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={pending} onClick={() => submit(stage === "DELIVERY" ? confirmDeliveryAction : confirmReturnAction)} className="bg-emerald-600 text-white rounded px-4 py-2 disabled:opacity-60">Odebrano</button>
+        <button type="button" disabled={pending} onClick={() => submit(stage === "DELIVERY" ? confirmDeliveryAction : confirmReturnAction)} className="inline-flex items-center gap-2 bg-emerald-600 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60">
+          {pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {pending ? "Zapisywanie…" : "Odebrano"}
+        </button>
         <button type="button" disabled={pending} onClick={() => { setError(""); setReporting(true); }} className="border border-rose-300 text-rose-700 rounded px-4 py-2 disabled:opacity-60">Zgłoś problem</button>
       </div>
     </> : <form onSubmit={(event) => {
@@ -50,10 +53,14 @@ export default function ReceiptActions({ bookingId, stage }: { bookingId: string
       </label>
       <p className="text-xs text-gray-500">Maksymalnie 2000 znaków. Szczegóły będą widoczne dla obu stron rezerwacji.</p>
       <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={pending} className="bg-rose-700 text-white rounded px-4 py-2 disabled:opacity-60">{pending ? "Zapisywanie…" : "Wyślij zgłoszenie"}</button>
+        <button type="submit" disabled={pending} className="inline-flex items-center gap-2 bg-rose-700 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60">
+          {pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {pending ? "Zapisywanie…" : "Wyślij zgłoszenie"}
+        </button>
         <button type="button" disabled={pending} onClick={() => { setReporting(false); setError(""); }} className="border rounded px-4 py-2">Anuluj</button>
       </div>
     </form>}
+    {pending && <p role="status" aria-live="polite" className="text-sm text-gray-600">Przetwarzanie… Nie zamykaj tej strony.</p>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
   </div>;
 }

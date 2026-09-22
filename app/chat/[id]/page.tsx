@@ -3,7 +3,8 @@ import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
-import { sendMessageAction, markChatAsRead } from "./actions";
+import { markChatAsRead } from "./actions";
+import SendMessageForm from "./SendMessageForm";
 
 type PageProps = { params: Promise<{ id: string }> }; // Next 15: params es Promise
 
@@ -137,23 +138,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
         })}
       </div>
 
-      <form action={sendMessageAction.bind(null, id)} className="flex gap-2">
-        <input
-          type="text"
-          name="text"
-          placeholder={isClosed ? "Czat zamknięty" : "Napisz wiadomość…"}
-          className="flex-1 border rounded px-3 py-2"
-          required={!isClosed}
-          disabled={isClosed}
-        />
-        <button
-          type="submit"
-          disabled={isClosed}
-          className="px-4 py-2 rounded bg-emerald-600 text-white disabled:opacity-50"
-        >
-          Wyślij
-        </button>
-      </form>
+      <SendMessageForm conversationId={id} isClosed={isClosed} />
     </div>
   );
 }
