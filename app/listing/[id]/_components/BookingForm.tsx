@@ -8,11 +8,13 @@ export default function BookingForm({
   listingId,
   isLoggedIn,
   pricePerDay,
+  minimumRentalDays,
   fianza,
 }: {
   listingId: string;
   isLoggedIn: boolean;
   pricePerDay: number;
+  minimumRentalDays: number;
   fianza: number;
 }) {
   const router = useRouter();
@@ -26,13 +28,16 @@ export default function BookingForm({
 
   const getDays = () => {
     if (!startDate || !endDate) return 0;
-    const start = new Date(startDate + "T00:00:00");
-    const end = new Date(endDate + "T00:00:00");
+    const start = new Date(startDate + "T00:00:00Z");
+    const end = new Date(endDate + "T00:00:00Z");
     const diff = end.getTime() - start.getTime();
     return diff >= 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1 : 0;
   };
 
   const days = getDays();
+  const earliestEnd = new Date(`${startDate || today}T00:00:00Z`);
+  earliestEnd.setUTCDate(earliestEnd.getUTCDate() + minimumRentalDays - 1);
+  const minEndDate = Number.isNaN(earliestEnd.getTime()) ? today : earliestEnd.toISOString().split("T")[0];
 
   const summary = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -52,6 +57,7 @@ export default function BookingForm({
     const d = getDays();
     if (d <= 0) return { error: "Nieprawidłowy zakres dat." as const };
 
+    if (d < minimumRentalDays) return { error: `Minimalny okres wynajmu: ${minimumRentalDays} dni. Wybierz dłuższy okres.` };
     const rentTotal = d * pricePerDay;
     const deposit = Math.max(0, Number.isFinite(fianza) ? Math.trunc(fianza) : 0);
     const total = rentTotal + deposit;
@@ -64,9 +70,9 @@ export default function BookingForm({
       deposit,
       total,
     };
-  }, [startDate, endDate, pricePerDay, fianza]);
+  }, [startDate, endDate, pricePerDay, fianza, minimumRentalDays]);
 
-  const fmtPL = (d: Date) => d.toLocaleDateString("pl-PL");
+  const fmtPL = (d: Date) => d.toLocaleDateString("pl-PL", { timeZone: "UTC" });
 
   /* ===== USUARIO NO LOGUEADO ===== */
   if (!isLoggedIn) {
@@ -91,6 +97,7 @@ export default function BookingForm({
     <form action={createBookingAction} className="space-y-4">
       <input type="hidden" name="listingId" value={listingId} />
 
+      <p className="text-sm text-gray-600">Minimalny okres wynajmu: <strong>{minimumRentalDays} {minimumRentalDays === 1 ? "dzień" : "dni"}</strong>. Liczymy dzień rozpoczęcia i zakończenia.</p>
       {/* ===== DATY ===== */}
       <label className="block">
         Początek
@@ -110,7 +117,7 @@ export default function BookingForm({
         <input
           type="date"
           name="endDate"
-          min={startDate || today}
+          min={minEndDate}
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
           className="border p-2 rounded w-full"
@@ -242,7 +249,7 @@ export default function BookingForm({
         type="submit"
         className="px-4 py-2 rounded bg-indigo-600 text-white w-full disabled:opacity-50"
         disabled={
-          days <= 0 ||
+          days < minimumRentalDays ||
           (!!summary && "error" in summary) ||
           !acceptedTerms
         }

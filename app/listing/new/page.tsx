@@ -146,6 +146,8 @@ export default async function NewListingPage({
 
     const pricePerDayRaw = String(formData.get("pricePerDay") || "").trim();
     const pricePerDay = Number(pricePerDayRaw);
+    const minimumRentalDays = Number(formData.get("minimumRentalDays") ?? 1);
+    if (!Number.isInteger(minimumRentalDays) || minimumRentalDays < 1 || minimumRentalDays > 2147483647) redirect(err("Minimalny okres wynajmu musi być dodatnią liczbą całkowitą."));
 
     // ✅ Deposit (kaucja / fianza) opcjonalna
     const fianzaRaw = String(formData.get("fianza") || "").trim();
@@ -250,6 +252,7 @@ export default async function NewListingPage({
         title,
         description: description || null,
         pricePerDay,
+        minimumRentalDays,
         fianza, // ✅
         marca: marca || null,
         city,
@@ -427,6 +430,11 @@ export default async function NewListingPage({
               />
             </div>
 
+            <div>
+              <label className={labelBase} htmlFor="minimumRentalDays">Minimalny okres wynajmu (dni)</label>
+              <input id="minimumRentalDays" name="minimumRentalDays" type="number" min={1} max={2147483647} step={1} defaultValue={1} required className={`${inputBase} mt-1`} />
+              <p className="mt-1 text-xs text-gray-500">Najemca nie będzie mógł zarezerwować krótszego okresu. Liczymy dzień rozpoczęcia i zakończenia.</p>
+            </div>
             <div>
               <label className={labelBase} htmlFor="fianza">
                 Kaucja (zł)

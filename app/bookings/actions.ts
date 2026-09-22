@@ -153,6 +153,7 @@ export async function createBookingAction(input: {
 
   // Los importes quedan guardados en la reserva.
   const days = diffDaysInclusive(start, end);
+  if (days < listing.minimumRentalDays) throw new Error(`Minimalny okres wynajmu: ${listing.minimumRentalDays} dni.`);
   const pricePerDay = listing.pricePerDay;
   const deposit = listing.fianza ?? 0;
 

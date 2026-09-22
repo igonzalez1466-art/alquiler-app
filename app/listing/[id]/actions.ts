@@ -189,6 +189,7 @@ export async function createBookingAction(
       id: true,
       title: true,
       pricePerDay: true,
+      minimumRentalDays: true,
       fianza: true,
       userId: true,
       available: true,
@@ -224,6 +225,7 @@ export async function createBookingAction(
   ========================================================== */
 
   const days = diffDaysInclusive(startDate, endDate);
+  if (days < listing.minimumRentalDays) redirect(`/listing/${listingId}?error=minimum-rental-days`);
 
   if (days <= 0) {
     redirect(

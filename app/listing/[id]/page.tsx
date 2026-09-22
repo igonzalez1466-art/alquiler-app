@@ -112,6 +112,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         title: true,
         description: true,
         pricePerDay: true,
+        minimumRentalDays: true,
         city: true,
         postalCode: true,
         createdAt: true,
@@ -181,6 +182,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         )}
       </div>
 
+      {error === "minimum-rental-days" && <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-rose-800">Minimalny okres wynajmu tego przedmiotu: {listing.minimumRentalDays} {listing.minimumRentalDays === 1 ? "dzień" : "dni"}. Wybierz dłuższy okres.</p>}
       {error === "fechas-no-disponibles" && (
         <div className="mb-6 border border-red-200 bg-red-50 p-3 text-sm text-red-800 rounded-lg">
           Te daty nie są dostępne.
@@ -321,6 +323,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
           {/* Price card */}
           <section className="border rounded-xl bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold mb-3">Cena</h2>
+            <p className="mb-3 text-sm"><strong>Minimalny okres wynajmu:</strong> {listing.minimumRentalDays} {listing.minimumRentalDays === 1 ? "dzień" : "dni"}</p>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border bg-gray-50 p-3">
@@ -351,6 +354,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 listingId={listing.id}
                 isLoggedIn={!!session?.user?.id}
                 pricePerDay={listing.pricePerDay}
+                minimumRentalDays={listing.minimumRentalDays}
                 fianza={listing.fianza ?? 0}
               />
             </section>
