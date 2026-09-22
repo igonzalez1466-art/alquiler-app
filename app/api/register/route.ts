@@ -63,7 +63,7 @@ export async function POST(req: Request) {
         name: String(name).trim(),
         email: e,
         passwordHash,
-        emailVerified: false,
+        emailVerified: null,
         verificationCode: codeHash,
         verificationExpiresAt: expiresAt,
       },

@@ -2,6 +2,7 @@
 import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -25,6 +26,13 @@ export const authConfig: NextAuthOptions = {
   session: { strategy: "jwt" },
 
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      // Google verifies the email address. Reuse an existing password account
+      // with the same address instead of creating a duplicate user.
+      allowDangerousEmailAccountLinking: true,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -79,6 +87,17 @@ export const authConfig: NextAuthOptions = {
       }
 
       return session;
+    },
+  },
+
+  events: {
+    async linkAccount({ user, account }) {
+      if (account.provider === "google") {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        });
+      }
     },
   },
 

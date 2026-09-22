@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import Link from "next/link";
+import GoogleSignInButton from "@/app/components/GoogleSignInButton";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,14 @@ export default function LoginPage() {
       <h1 className="text-xl font-bold mb-4">Logowanie</h1>
 
       {error && <p className="mb-3 text-red-600">{error}</p>}
+
+      <GoogleSignInButton />
+
+      <div className="my-5 flex items-center gap-3 text-xs text-gray-500" aria-hidden="true">
+        <span className="h-px flex-1 bg-gray-200" />
+        <span>lub e-mail i hasło</span>
+        <span className="h-px flex-1 bg-gray-200" />
+      </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
         {/* EMAIL */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import GoogleSignInButton from "@/app/components/GoogleSignInButton";
 
 function isStrongPassword(pw: string) {
   return (
@@ -71,6 +72,14 @@ export default function RegisterPage() {
         className="w-full max-w-sm bg-white p-6 rounded shadow flex flex-col gap-3"
       >
         <h1 className="text-xl font-bold mb-2">Rejestracja</h1>
+
+        <GoogleSignInButton />
+
+        <div className="my-2 flex items-center gap-3 text-xs text-gray-500" aria-hidden="true">
+          <span className="h-px flex-1 bg-gray-200" />
+          <span>lub utwórz konto hasłem</span>
+          <span className="h-px flex-1 bg-gray-200" />
+        </div>
 
         <input
           name="name"

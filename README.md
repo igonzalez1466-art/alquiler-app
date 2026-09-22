@@ -41,3 +41,16 @@ Phone verification uses Twilio Verify. Configure these variables in every enviro
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_VERIFY_SERVICE_SID`
+
+# Google authentication
+
+Create an OAuth 2.0 client of type **Web application** in Google Cloud and configure:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+Authorized redirect URIs must match the deployment exactly:
+
+- Local: `http://localhost:3000/api/auth/callback/google`
+- Staging: `https://YOUR-STAGING-DOMAIN/api/auth/callback/google`
+- Production: `https://YOUR-PRODUCTION-DOMAIN/api/auth/callback/google`
