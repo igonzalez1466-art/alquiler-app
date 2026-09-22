@@ -53,8 +53,9 @@ export default function ShippingForm({ bookingId, initial }: Props) {
       <div className="space-y-1">
         <button
           disabled={loading || isDelivered}
-          className="w-full sm:w-auto bg-indigo-600 text-white rounded px-4 py-2 disabled:opacity-60 whitespace-nowrap"
+          className="inline-flex w-full items-center justify-center gap-2 sm:w-auto bg-indigo-600 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60 whitespace-nowrap"
         >
+          {loading && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
           {loading ? "Zapisywanie..." : (initial.shippingStatus === "SHIPPED" ? "Zapisz dane przesyłki" : "Wysłano")}
         </button>
 
@@ -64,6 +65,7 @@ export default function ShippingForm({ bookingId, initial }: Props) {
             dalsze zmiany nie są możliwe.
           </p>
         )}
+        {loading && <p role="status" aria-live="polite" className="text-sm text-gray-600">Zapisywanie danych dostawy…</p>}
       </div>
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
