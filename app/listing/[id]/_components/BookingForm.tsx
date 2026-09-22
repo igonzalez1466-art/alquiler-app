@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createBookingAction } from "../actions";
 
 export default function BookingForm({
@@ -10,12 +11,14 @@ export default function BookingForm({
   pricePerDay,
   minimumRentalDays,
   fianza,
+  phoneVerified,
 }: {
   listingId: string;
   isLoggedIn: boolean;
   pricePerDay: number;
   minimumRentalDays: number;
   fianza: number;
+  phoneVerified: boolean;
 }) {
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
@@ -26,13 +29,13 @@ export default function BookingForm({
   // ✅ NUEVO: aceptar condiciones
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const getDays = () => {
+  const getDays = useCallback(() => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate + "T00:00:00Z");
     const end = new Date(endDate + "T00:00:00Z");
     const diff = end.getTime() - start.getTime();
     return diff >= 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1 : 0;
-  };
+  }, [startDate, endDate]);
 
   const days = getDays();
   const earliestEnd = new Date(`${startDate || today}T00:00:00Z`);
@@ -70,7 +73,7 @@ export default function BookingForm({
       deposit,
       total,
     };
-  }, [startDate, endDate, pricePerDay, fianza, minimumRentalDays]);
+  }, [startDate, endDate, pricePerDay, fianza, minimumRentalDays, getDays]);
 
   const fmtPL = (d: Date) => d.toLocaleDateString("pl-PL", { timeZone: "UTC" });
 
@@ -91,6 +94,13 @@ export default function BookingForm({
         Zaloguj się, aby dokonać rezerwacji
       </button>
     );
+  }
+
+  if (!phoneVerified) {
+    return <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">
+      <p>Przed wysłaniem prośby o rezerwację zweryfikuj numer telefonu.</p>
+      <Link href={`/account?returnTo=${encodeURIComponent(`/listing/${listingId}`)}#telefon`} className="inline-block rounded bg-zinc-900 px-4 py-2 font-semibold text-white">Zweryfikuj numer telefonu</Link>
+    </div>;
   }
 
   return (

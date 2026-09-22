@@ -18,6 +18,10 @@ model User {
   emailVerified         Boolean   @default(false)
   verificationCode      String?
   verificationExpiresAt DateTime?
+  phone                    String?   @unique
+  phoneVerifiedAt          DateTime?
+  phoneVerificationTarget  String?
+  phoneVerificationSentAt  DateTime?
 
   // Stripe Connect account del usuario cuando actúa como owner.
   stripeAccountId String? @unique

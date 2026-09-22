@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { startStripeConnectOnboarding } from "./connectActions";
+import PhoneVerification from "./PhoneVerification";
+import { maskPhone } from "@/app/lib/phoneVerification";
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -17,8 +19,10 @@ function getStripe() {
   });
 }
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams?: Promise<{ returnTo?: string }> }) {
   const session = await getSession();
+  const requestedReturn = (await searchParams)?.returnTo;
+  const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : null;
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account");
@@ -33,6 +37,8 @@ export default async function AccountPage() {
       name: true,
       email: true,
       stripeAccountId: true,
+      phone: true,
+      phoneVerifiedAt: true,
     },
   });
 
@@ -79,6 +85,8 @@ export default async function AccountPage() {
           <strong>E-mail:</strong> {user.email ?? "—"}
         </p>
       </div>
+
+      <PhoneVerification verified={!!user.phoneVerifiedAt} maskedPhone={maskPhone(user.phone)} returnTo={returnTo} />
 
       <div className="rounded border p-4 bg-gray-50 space-y-3">
         <h2 className="text-lg font-semibold">Zarządzanie</h2>

@@ -258,6 +258,16 @@ export default async function BookingPage({
         select: {
           id: true,
           name: true,
+          phone: true,
+          phoneVerifiedAt: true,
+        },
+      },
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          phoneVerifiedAt: true,
         },
       },
     },
@@ -272,6 +282,8 @@ export default async function BookingPage({
 
   const isRenter =
     !!userId && booking.renterId === userId;
+  const contactVisible = booking.paymentStatus === "PAID" && (isOwner || isRenter);
+  const counterpart = isOwner ? booking.renter : booking.owner;
 
   const deliveryTracking = isInpost(booking.carrier) ? normalizeInpostNumber(booking.trackingNumber) : null;
   const returnTracking = isInpost(booking.returnCarrier) ? normalizeInpostNumber(booking.returnTrackingNumber) : null;
@@ -499,6 +511,18 @@ export default async function BookingPage({
           </div>
         </div>
       </section>
+
+      {contactVisible && (
+        <section className="p-4 border rounded bg-white space-y-2">
+          <h2 className="text-lg font-semibold">Kontakt do {isOwner ? "najemcy" : "właściciela"}</h2>
+          <p className="text-sm text-gray-600">Dane są udostępnione wyłącznie stronom opłaconej rezerwacji. Do ustaleń i zachowania historii rozmowy używaj przede wszystkim czatu MojaSzafa.</p>
+          <p><strong>{counterpart.name ?? "Użytkownik"}:</strong>{" "}
+            {counterpart.phone && counterpart.phoneVerifiedAt
+              ? <a className="text-blue-700 underline" href={`tel:${counterpart.phone}`}>{counterpart.phone}</a>
+              : "brak zweryfikowanego numeru"}
+          </p>
+        </section>
+      )}
 
       {awaitingApproval && (
         <section
@@ -1019,7 +1043,7 @@ export default async function BookingPage({
           </h2>
 
           <div className="flex gap-3">
-            <ApproveButton bookingId={id} />
+            <ApproveButton bookingId={id} phoneVerified={!!booking.owner.phoneVerifiedAt} />
             <RejectButton bookingId={id} />
           </div>
         </section>

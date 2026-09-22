@@ -147,6 +147,11 @@ export async function createBookingAction(
     redirect("/login");
   }
 
+  const renterContact = await prisma.user.findUnique({ where: { id: renterId }, select: { phoneVerifiedAt: true } });
+  if (!renterContact?.phoneVerifiedAt) {
+    redirect(`/account?returnTo=${encodeURIComponent(`/listing/${formData.get("listingId")?.toString() ?? ""}`)}#telefon`);
+  }
+
   const listingId =
     formData.get("listingId")?.toString();
 

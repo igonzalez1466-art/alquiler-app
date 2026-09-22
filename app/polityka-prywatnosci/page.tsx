@@ -22,7 +22,7 @@ export default function PolitykaPrywatnosciPage() {
       <ul className="list-disc ml-6 mb-4 space-y-2">
         <li>imię i nazwisko,</li>
         <li>adres e-mail,</li>
-        <li>numer telefonu (opcjonalnie),</li>
+        <li>zweryfikowany numer telefonu — wymagany przy składaniu lub akceptowaniu rezerwacji,</li>
         <li>dane logowania,</li>
         <li>adres IP oraz dane techniczne przeglądarki,</li>
         <li>dane dotyczące rezerwacji i wystawianych ogłoszeń.</li>
@@ -34,6 +34,7 @@ export default function PolitykaPrywatnosciPage() {
       <ul className="list-disc ml-6 mb-4 space-y-2">
         <li>utworzenie i obsługa konta użytkownika,</li>
         <li>umożliwienie kontaktu i rezerwacji pomiędzy użytkownikami,</li>
+        <li>weryfikacja numeru telefonu kodem SMS oraz koordynacja dostawy i zwrotu,</li>
         <li>zapewnienie bezpieczeństwa serwisu oraz zapobieganie nadużyciom,</li>
         <li>podstawowa analiza statystyczna działania platformy,</li>
         <li>marketing — wyłącznie po wyrażeniu odpowiedniej zgody,</li>
@@ -53,6 +54,8 @@ export default function PolitykaPrywatnosciPage() {
 
       <ul className="list-disc ml-6 mb-4 space-y-2">
         <li>dostawcom usług hostingu i infrastruktury IT,</li>
+        <li>dostawcy usługi wysyłki kodów weryfikacyjnych SMS,</li>
+        <li>drugiej stronie opłaconej rezerwacji — wyłącznie zweryfikowany numer telefonu i tylko w celu realizacji rezerwacji,</li>
         <li>dostawcom narzędzi analitycznych — wyłącznie po wyrażeniu zgody,</li>
         <li>organom publicznym na podstawie obowiązujących przepisów prawa.</li>
       </ul>

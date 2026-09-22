@@ -93,6 +93,9 @@ export async function createBookingAction(input: {
     throw new Error("No autenticado");
   }
 
+  const renterContact = await prisma.user.findUnique({ where: { id: renterId }, select: { phoneVerifiedAt: true } });
+  if (!renterContact?.phoneVerifiedAt) throw new Error("Przed rezerwacją zweryfikuj numer telefonu w sekcji „Moje konto”.");
+
   const listing = await prisma.listing.findUnique({
     where: {
       id: input.listingId,
@@ -336,6 +339,10 @@ export async function approveBookingAction(
 
   if (booking.listing.userId !== userId) {
     throw new Error("No autorizado");
+  }
+
+  if (!booking.listing.user.phoneVerifiedAt) {
+    throw new Error("Przed zaakceptowaniem rezerwacji zweryfikuj numer telefonu w sekcji „Moje konto”.");
   }
 
   if (booking.status !== "PENDING") {

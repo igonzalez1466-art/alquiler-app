@@ -3,8 +3,9 @@
 
 import { useTransition, useState } from "react";
 import { approveBookingAction } from "@/app/bookings/actions";
+import Link from "next/link";
 
-export function ApproveButton({ bookingId }: { bookingId: string }) {
+export function ApproveButton({ bookingId, phoneVerified }: { bookingId: string; phoneVerified: boolean }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -26,6 +27,11 @@ export function ApproveButton({ bookingId }: { bookingId: string }) {
   if (done) {
     return <span className="text-green-600">✅ Rezerwacja potwierdzona</span>;
   }
+
+  if (!phoneVerified) return <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 space-y-2">
+    <p>Przed zaakceptowaniem rezerwacji zweryfikuj numer telefonu.</p>
+    <Link href={`/account?returnTo=${encodeURIComponent(`/bookings/${bookingId}`)}#telefon`} className="inline-block rounded bg-zinc-900 px-3 py-2 font-semibold text-white">Zweryfikuj numer telefonu</Link>
+  </div>;
 
   return (
     <button

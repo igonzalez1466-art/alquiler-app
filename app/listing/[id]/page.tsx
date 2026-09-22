@@ -133,6 +133,9 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
     }),
     getSession(),
   ]);
+  const phoneVerified = session?.user?.id
+    ? !!(await prisma.user.findUnique({ where: { id: session.user.id }, select: { phoneVerifiedAt: true } }))?.phoneVerifiedAt
+    : false;
 
   if (!listing) {
     return (
@@ -356,6 +359,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 pricePerDay={listing.pricePerDay}
                 minimumRentalDays={listing.minimumRentalDays}
                 fianza={listing.fianza ?? 0}
+                phoneVerified={phoneVerified}
               />
             </section>
           )}
