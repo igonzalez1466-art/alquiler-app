@@ -543,6 +543,25 @@ export default async function NewListingPage({
                 <option>L</option>
                 <option>XL</option>
                 <option>XXL</option>
+                <option>15</option>
+                <option>16</option>
+                <option>17</option>
+                <option>18</option>
+                <option>19</option>
+                <option>20</option>
+                <option>21</option>
+                <option>22</option>
+                <option>23</option>
+                <option>24</option>
+                <option>25</option>
+                <option>26</option>
+                <option>27</option>
+                <option>28</option>
+                <option>29</option>
+                <option>30</option>
+                <option>31</option>
+                <option>32</option>
+                <option>33</option>
                 <option>34</option>
                 <option>36</option>
                 <option>38</option>
