@@ -1,11 +1,14 @@
 "use client";
 
+import NextImage from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 const MIN_PHOTOS = 3;
 const MAX_TOTAL_BYTES = 3_000_000;
 const MIN_MESSAGE = "Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie.";
 const BUSY_MESSAGE = "Poczekaj, aż zakończy się przygotowanie zdjęć.";
+
+type Preview = { name: string; url: string };
 
 async function compressPhoto(file: File, budget: number): Promise<File> {
   if (!file.size || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -47,33 +50,53 @@ async function compressPhoto(file: File, budget: number): Promise<File> {
 export default function PhotosField() {
   const inputRef = useRef<HTMLInputElement>(null);
   const version = useRef(0);
+  const previewUrls = useRef<string[]>([]);
   const [count, setCount] = useState(0);
+  const [previews, setPreviews] = useState<Preview[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  function showPreviews(files: File[]) {
+    previewUrls.current.forEach(URL.revokeObjectURL);
+    const next = files.map((file) => ({ name: file.name, url: URL.createObjectURL(file) }));
+    previewUrls.current = next.map((preview) => preview.url);
+    setPreviews(next);
+  }
+
   useEffect(() => {
     const input = inputRef.current;
     const form = input?.form;
+    const versionRef = version;
+    const previewUrlsRef = previewUrls;
     if (!input || !form) return;
     const onReset = () => {
       version.current++;
       input.setCustomValidity("");
+      showPreviews([]);
       setCount(0); setBusy(false); setMessage(""); setError("");
     };
     form.addEventListener("reset", onReset);
-    return () => { version.current++; form.removeEventListener("reset", onReset); };
+    return () => {
+      versionRef.current++;
+      previewUrlsRef.current.forEach(URL.revokeObjectURL);
+      previewUrlsRef.current = [];
+      form.removeEventListener("reset", onReset);
+    };
   }, []);
 
   async function prepare(input: HTMLInputElement) {
     const currentVersion = ++version.current;
     const files = Array.from(input.files ?? []);
+    showPreviews(files);
     setCount(files.length); setError(""); setMessage(""); setBusy(false);
     // Invalidity is set synchronously: submitting during compression is blocked.
     input.setCustomValidity(MIN_MESSAGE);
     if (files.length < MIN_PHOTOS) {
-      input.value = "";
-      setCount(0); setError(MIN_MESSAGE);
+      const missing = MIN_PHOTOS - files.length;
+      setError(files.length === 0
+        ? MIN_MESSAGE
+        : `Wybrano ${files.length} ${files.length === 1 ? "zdjęcie" : "zdjęcia"}. Dodaj jeszcze ${missing} ${missing === 1 ? "zdjęcie" : "zdjęcia"}.`);
       return;
     }
     input.setCustomValidity(BUSY_MESSAGE);
@@ -104,6 +127,7 @@ export default function PhotosField() {
       // Never leave the original oversized files ready to submit after failure.
       input.value = "";
       input.setCustomValidity(text);
+      showPreviews([]);
       setCount(0); setMessage(""); setError(text);
     } finally {
       if (currentVersion === version.current) setBusy(false);
@@ -129,8 +153,20 @@ export default function PhotosField() {
         className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200"
       />
       <p id="photos-hint" className="mt-2 text-xs text-gray-500">
-        Wybrane zdjęcia: {count}. Minimum: 3. Wybierz wszystkie zdjęcia jednocześnie. Zdjęcia JPG, PNG i WebP zostaną automatycznie zmniejszone.
+        Wybrane zdjęcia: {count} z wymaganych minimum 3. Wybierz wszystkie zdjęcia jednocześnie. Zdjęcia JPG, PNG i WebP zostaną automatycznie zmniejszone.
       </p>
+      {previews.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Podgląd wybranych zdjęć">
+          {previews.map((preview, index) => (
+            <div key={`${preview.name}-${index}`} className="min-w-0 rounded-lg border bg-gray-50 p-2">
+              <div className="relative aspect-[4/3] overflow-hidden rounded bg-white">
+                <NextImage src={preview.url} alt={`Wybrane zdjęcie ${index + 1}`} fill unoptimized className="object-cover" />
+              </div>
+              <p className="mt-1 truncate text-xs text-gray-700" title={preview.name}>{index + 1}. {preview.name}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <p id="photos-status" role="status" className="mt-2 text-sm text-gray-600">{message}</p>
       <p id="photos-error" role="alert" className="mt-2 text-sm text-red-600">{error}</p>
     </div>
