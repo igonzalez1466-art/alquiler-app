@@ -25,11 +25,18 @@ type Point = { name: string; address?: unknown };
 type GeowidgetApi = { addPointSelectedCallback: (callback: (...values: unknown[]) => void) => void };
 const isPointCode = (name: string) => /^[A-Z0-9-]{3,20}$/.test(name) && /\d/.test(name);
 
+function readCode(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim().toUpperCase();
+  if (isPointCode(text)) return text;
+  return text.match(/\b[A-Z]{2,5}\d+[A-Z]{0,5}\b/g)?.find(isPointCode) ?? null;
+}
+
 function findPoint(value: unknown, depth = 0): Point | null {
   if (depth > 4) return null;
   if (typeof value === "string") {
-    const name = value.trim().toUpperCase();
-    return isPointCode(name) ? { name } : null;
+    const name = readCode(value);
+    return name ? { name } : null;
   }
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -41,15 +48,36 @@ function findPoint(value: unknown, depth = 0): Point | null {
   if (!value || typeof value !== "object") return null;
 
   const data = value as Record<string, unknown>;
-  for (const key of ["detail", "details", "point", "data", "payload"]) {
+  for (const key of ["detail", "details", "point", "selectedPoint", "data", "payload", "result"]) {
     const point = findPoint(data[key], depth + 1);
     if (point) return point;
   }
-  if (typeof data.name === "string") {
-    const name = data.name.trim().toUpperCase();
-    if (isPointCode(name)) return { name, address: data.address ?? data.address_details };
+  for (const key of ["name", "pointName", "point_name", "code", "pointCode"]) {
+    const name = readCode(data[key]);
+    if (name) return { name, address: data.address ?? data.address_details };
   }
   return null;
+}
+
+function describeSelection(value: unknown, depth = 0): string {
+  if (value === null) return "null";
+  if (typeof value !== "object") return typeof value === "string" ? `tekst (${value.length} znaków)` : typeof value;
+  if (Array.isArray(value)) return `[${value.slice(0, 2).map(item => describeSelection(item, depth + 1)).join("; ")}]`;
+  try {
+    const data = value as Record<string, unknown>;
+    const keys = Object.keys(data).slice(0, 12).join(", ") || "brak";
+    const names = ["name", "pointName", "point_name", "code", "pointCode"]
+      .filter(key => typeof data[key] === "string")
+      .map(key => `${key}: tekst (${(data[key] as string).length} znaków)`);
+    const nested = depth < 2
+      ? ["detail", "details", "point", "selectedPoint", "data", "payload", "result"]
+          .filter(key => data[key] != null)
+          .map(key => `${key}: ${describeSelection(data[key], depth + 1)}`)
+      : [];
+    return `klucze: ${keys}; ${[...names, ...nested].join("; ")}`.slice(0, 500);
+  } catch {
+    return "Nie można odczytać struktury odpowiedzi.";
+  }
 }
 
 function readAddress(value: unknown): string {
@@ -72,6 +100,7 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [diagnostic, setDiagnostic] = useState("");
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,21 +115,23 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
       stylesheet.dataset.inpostGeowidget = "true";
       document.head.appendChild(stylesheet);
     }
-    const selected = (value: unknown) => {
+    const selected = (value: unknown, source: string) => {
       if (accepted) return;
       const point = findPoint(value);
       if (!point) {
         setError("Nie udało się odczytać danych wybranego punktu. Wybierz inny punkt lub wpisz kod ręcznie.");
+        setDiagnostic(`${source}: ${describeSelection(value)}`);
         return;
       }
       accepted = true;
       setError("");
+      setDiagnostic("");
       onSelect(point.name, readAddress(point.address));
       setOpen(false);
     };
     const callbackName = `mojaSzafaInpostPoint${Math.random().toString(36).slice(2)}`;
     (window as unknown as Record<string, unknown>)[callbackName] = (value: unknown) => {
-      if (active) selected(value);
+      if (active) selected(value, "onpoint");
     };
     void loadWidget().then(() => {
       if (!active || !target) return;
@@ -111,7 +142,7 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
           setError("Nie udało się połączyć mapy z formularzem. Możesz wpisać kod punktu ręcznie.");
           return;
         }
-        api.addPointSelectedCallback((...values) => { if (active) selected(values); });
+        api.addPointSelectedCallback((...values) => { if (active) selected(values, "api"); });
       });
       widget.setAttribute("token", token);
       widget.setAttribute("config", "parcelCollect");
@@ -133,10 +164,11 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
   }, [open, token, onSelect]);
 
   return <div className="space-y-2">
-    <button type="button" disabled={disabled} onClick={() => { setError(""); setOpen(value => !value); }} className="rounded border border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-60">
+    <button type="button" disabled={disabled} onClick={() => { setError(""); setDiagnostic(""); setOpen(value => !value); }} className="rounded border border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-60">
       {open ? "Zamknij mapę punktów" : "Wybierz punkt z mapy InPost"}
     </button>
     {open && <div ref={container} className="min-h-72 overflow-hidden rounded border bg-gray-50" aria-label="Mapa punktów InPost"><p className="p-3 text-sm text-gray-600">Wczytywanie mapy InPost…</p></div>}
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    {diagnostic && <details className="text-xs text-gray-600"><summary className="cursor-pointer">Dane diagnostyczne (bez tokenu)</summary><code className="break-all">{diagnostic}</code></details>}
   </div>;
 }
