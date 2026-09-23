@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { createBookingAction } from "../actions";
+import BookingCalendar from "./BookingCalendar";
 
 function BookingSubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -28,6 +29,7 @@ export default function BookingForm({
   minimumRentalDays,
   fianza,
   phoneVerified,
+  occupiedRanges,
 }: {
   listingId: string;
   isLoggedIn: boolean;
@@ -35,6 +37,7 @@ export default function BookingForm({
   minimumRentalDays: number;
   fianza: number;
   phoneVerified: boolean;
+  occupiedRanges: { start: string; end: string }[];
 }) {
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
@@ -54,9 +57,7 @@ export default function BookingForm({
   }, [startDate, endDate]);
 
   const days = getDays();
-  const earliestEnd = new Date(`${startDate || today}T00:00:00Z`);
-  earliestEnd.setUTCDate(earliestEnd.getUTCDate() + minimumRentalDays - 1);
-  const minEndDate = Number.isNaN(earliestEnd.getTime()) ? today : earliestEnd.toISOString().split("T")[0];
+  const selectedRangeOccupied = !!startDate && !!endDate && occupiedRanges.some(range => range.start <= endDate && range.end >= startDate);
 
   const summary = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -72,6 +73,7 @@ export default function BookingForm({
         error: "Data zakończenia nie może być wcześniej niż rozpoczęcia." as const,
       };
     }
+    if (selectedRangeOccupied) return { error: "Wybrany termin obejmuje zajęte dni. Wybierz inne daty." as const };
 
     const d = getDays();
     if (d <= 0) return { error: "Nieprawidłowy zakres dat." as const };
@@ -89,7 +91,7 @@ export default function BookingForm({
       deposit,
       total,
     };
-  }, [startDate, endDate, pricePerDay, fianza, minimumRentalDays, getDays]);
+  }, [startDate, endDate, pricePerDay, fianza, minimumRentalDays, getDays, selectedRangeOccupied]);
 
   const fmtPL = (d: Date) => d.toLocaleDateString("pl-PL", { timeZone: "UTC" });
 
@@ -124,32 +126,15 @@ export default function BookingForm({
       <input type="hidden" name="listingId" value={listingId} />
 
       <p className="text-sm text-gray-600">Minimalny okres wynajmu: <strong>{minimumRentalDays} {minimumRentalDays === 1 ? "dzień" : "dni"}</strong>. Liczymy dzień rozpoczęcia i zakończenia.</p>
-      {/* ===== DATY ===== */}
-      <label className="block">
-        Początek
-        <input
-          type="date"
-          name="startDate"
-          min={today}
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="border p-2 rounded w-full"
-          required
-        />
-      </label>
-
-      <label className="block">
-        Koniec
-        <input
-          type="date"
-          name="endDate"
-          min={minEndDate}
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="border p-2 rounded w-full"
-          required
-        />
-      </label>
+      <BookingCalendar
+        today={today}
+        occupiedRanges={occupiedRanges}
+        startDate={startDate}
+        endDate={endDate}
+        onChange={(start, end) => { setStartDate(start); setEndDate(end); }}
+      />
+      <input type="hidden" name="startDate" value={startDate} />
+      <input type="hidden" name="endDate" value={endDate} />
 
       {/* ===== PODSUMOWANIE (TU NO SE TOCA NADA) ===== */}
       {endDate && (
@@ -274,6 +259,7 @@ export default function BookingForm({
       <BookingSubmitButton
         disabled={
           days < minimumRentalDays ||
+          selectedRangeOccupied ||
           (!!summary && "error" in summary) ||
           !acceptedTerms
         }

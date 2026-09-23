@@ -153,6 +153,20 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
   const isOwner = session?.user?.id === listing.userId;
 
+  const today = new Date().toISOString().slice(0, 10);
+  const occupiedBookings = !isOwner && phoneVerified ? await prisma.booking.findMany({
+    where: {
+      listingId: listing.id,
+      status: { in: ["PENDING", "AWAITING_PAYMENT", "CONFIRMED", "PAID"] },
+      endDate: { gte: new Date(`${today}T00:00:00Z`) },
+    },
+    select: { startDate: true, endDate: true },
+  }) : [];
+  const occupiedRanges = occupiedBookings.map(booking => ({
+    start: booking.startDate.toISOString().slice(0, 10),
+    end: booking.endDate.toISOString().slice(0, 10),
+  }));
+
   const ownerStats = await prisma.review.aggregate({
     where: { revieweeId: listing.userId, role: "OWNER" },
     _avg: { rating: true },
@@ -374,6 +388,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 minimumRentalDays={listing.minimumRentalDays}
                 fianza={listing.fianza ?? 0}
                 phoneVerified={phoneVerified}
+                occupiedRanges={occupiedRanges}
               />
             </section>
           )}
