@@ -52,9 +52,17 @@ function findPoint(value: unknown, depth = 0): Point | null {
     const point = findPoint(data[key], depth + 1);
     if (point) return point;
   }
-  for (const key of ["name", "pointName", "point_name", "code", "pointCode"]) {
+  for (const key of ["name", "display_name", "pointName", "point_name", "code", "pointCode"]) {
     const name = readCode(data[key]);
     if (name) return { name, address: data.address ?? data.address_details };
+  }
+  if (typeof data.href === "string") {
+    try {
+      const name = readCode(new URL(data.href).pathname.split("/").filter(Boolean).at(-1));
+      if (name) return { name, address: data.address ?? data.address_details };
+    } catch {
+      // An invalid link should not prevent the user from entering a point manually.
+    }
   }
   return null;
 }
@@ -66,7 +74,7 @@ function describeSelection(value: unknown, depth = 0): string {
   try {
     const data = value as Record<string, unknown>;
     const keys = Object.keys(data).slice(0, 12).join(", ") || "brak";
-    const names = ["name", "pointName", "point_name", "code", "pointCode"]
+    const names = ["name", "display_name", "pointName", "point_name", "code", "pointCode"]
       .filter(key => typeof data[key] === "string")
       .map(key => `${key}: tekst (${(data[key] as string).length} znaków)`);
     const nested = depth < 2
