@@ -15,6 +15,15 @@ export default async function InpostTracking({ number }: { number: string }) {
       <p>{result.label}</p>
       {result.updatedAt && <p className="text-xs text-gray-600">Aktualizacja InPost: {formatTime(result.updatedAt)}</p>}
       <p className="text-xs text-gray-600">Sprawdzono: {formatTime(result.checkedAt)}</p>
+      {result.events.length > 0 && <details className="border-t pt-2">
+        <summary className="cursor-pointer font-medium text-blue-700">Historia przesyłki ({result.events.length})</summary>
+        <ol className="mt-2 space-y-2 border-l border-gray-300 pl-3">
+          {result.events.map((event, index) => <li key={`${event.occurredAt}-${index}`}>
+            <span className="font-medium">{event.label}</span>
+            <span className="block text-xs text-gray-600">{formatTime(event.occurredAt)}</span>
+          </li>)}
+        </ol>
+      </details>}
     </> : <p className="text-gray-600">{result.kind === "missing"
       ? "Brak danych śledzenia. Sprawdź numer przesyłki. Nowe przesyłki mogą pojawić się z opóźnieniem, a starsze dane mogą być już niedostępne."
       : "Śledzenie jest chwilowo niedostępne. Możesz sprawdzić przesyłkę na stronie InPost."}</p>}

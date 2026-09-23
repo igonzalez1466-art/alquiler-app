@@ -30,11 +30,23 @@ export function normalizeInpostNumber(value: string | null): string | null {
 }
 
 export type TrackingResult =
-  | { kind: "ok"; label: string; updatedAt: string | null; checkedAt: string }
+  | { kind: "ok"; label: string; updatedAt: string | null; checkedAt: string; events: { label: string; occurredAt: string }[] }
   | { kind: "missing" | "unavailable" };
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function trackingEvents(value: unknown): { label: string; occurredAt: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 30).flatMap((entry: unknown) => {
+    if (!record(entry) || typeof entry.status !== "string" ||
+        typeof entry.datetime !== "string" || !Number.isFinite(Date.parse(entry.datetime))) return [];
+    return [{
+      label: Object.hasOwn(labels, entry.status) ? labels[entry.status] : "Inny status InPost",
+      occurredAt: new Date(entry.datetime).toISOString(),
+    }];
+  });
 }
 
 export async function fetchInpostTracking(number: string): Promise<TrackingResult> {
@@ -59,6 +71,7 @@ export async function fetchInpostTracking(number: string): Promise<TrackingResul
       label: Object.hasOwn(labels, data.status) ? labels[data.status] : "Sprawdź szczegóły na stronie InPost",
       updatedAt,
       checkedAt: new Date().toISOString(),
+      events: trackingEvents(data.tracking_details),
     };
   } catch {
     return { kind: "unavailable" };
