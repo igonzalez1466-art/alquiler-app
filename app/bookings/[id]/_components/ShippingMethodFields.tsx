@@ -36,6 +36,5 @@ export default function ShippingMethodFields({ initialCarrier, initialTracking, 
         <input name={trackingName} type="text" inputMode="numeric" required pattern="[0-9]{24}" title="Numer przesyłki InPost: 24 cyfry" value={tracking} onChange={(event) => setTracking(event.target.value.replace(/\s/g, ""))} disabled={disabled} className="mt-1 border rounded p-2 w-full disabled:bg-gray-100" placeholder="24-cyfrowy numer przesyłki" />
       </label>
     </div>}
-    {method === "PERSONAL" && <p className="text-sm text-gray-600">Przekazanie osobiste — numer śledzenia nie jest potrzebny.</p>}
   </div>;
 }

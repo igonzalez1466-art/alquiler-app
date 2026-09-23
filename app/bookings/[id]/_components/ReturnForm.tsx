@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ShippingMethodFields from "./ShippingMethodFields";
 import { updateReturnAction } from "../_actions/updateReturnAction";
 
@@ -18,23 +18,30 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(initial.returnStatus === "SHIPPED");
   const [error, setError] = useState("");
+  const submitting = useRef(false);
 
   const disabled = locked || sent || loading;
 
   return (
     <form
-      action={async (formData) => {
-        if (disabled) return;
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (disabled || submitting.current) return;
+        const formData = new FormData(event.currentTarget);
+        submitting.current = true;
         setLoading(true);
         setError("");
-        try {
-          await updateReturnAction(formData);
-          setSent(true);
-        } catch (error) {
-          setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie.");
-        } finally {
-          setLoading(false);
-        }
+        void (async () => {
+          try {
+            await updateReturnAction(formData);
+            setSent(true);
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "Nie udało się zapisać. Spróbuj ponownie.");
+          } finally {
+            submitting.current = false;
+            setLoading(false);
+          }
+        })();
       }}
       className="space-y-3"
     >
@@ -50,6 +57,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
       />
 
       <button
+        type="submit"
         disabled={disabled}
         className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60"
       >
