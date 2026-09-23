@@ -21,8 +21,49 @@ function loadWidget() {
   return widgetLoad;
 }
 
-type Point = { name?: unknown; address?: { line1?: unknown; line2?: unknown } };
-type GeowidgetApi = { addPointSelectedCallback: (callback: (point: Point) => void) => void };
+type Point = { name: string; address?: unknown };
+type GeowidgetApi = { addPointSelectedCallback: (callback: (...values: unknown[]) => void) => void };
+const isPointCode = (name: string) => /^[A-Z0-9-]{3,20}$/.test(name) && /\d/.test(name);
+
+function findPoint(value: unknown, depth = 0): Point | null {
+  if (depth > 4) return null;
+  if (typeof value === "string") {
+    const name = value.trim().toUpperCase();
+    return isPointCode(name) ? { name } : null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const point = findPoint(item, depth + 1);
+      if (point) return point;
+    }
+    return null;
+  }
+  if (!value || typeof value !== "object") return null;
+
+  const data = value as Record<string, unknown>;
+  for (const key of ["detail", "details", "point", "data", "payload"]) {
+    const point = findPoint(data[key], depth + 1);
+    if (point) return point;
+  }
+  if (typeof data.name === "string") {
+    const name = data.name.trim().toUpperCase();
+    if (isPointCode(name)) return { name, address: data.address ?? data.address_details };
+  }
+  return null;
+}
+
+function readAddress(value: unknown): string {
+  if (typeof value === "string") return value.trim().slice(0, 200);
+  if (!value || typeof value !== "object") return "";
+  const address = value as Record<string, unknown>;
+  const parts = address.line1 || address.line2
+    ? [address.line1, address.line2]
+    : [[address.street, address.building_number].filter(Boolean).join(" "),
+      [address.post_code, address.city].filter(Boolean).join(" ")];
+  return parts
+    .filter((part): part is string => typeof part === "string" && !!part.trim())
+    .map(part => part.trim()).join(", ").slice(0, 200);
+}
 
 export default function InpostPointPicker({ token, disabled, onSelect }: {
   token: string;
@@ -36,6 +77,7 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
   useEffect(() => {
     if (!open) return;
     let active = true;
+    let accepted = false;
     const target = container.current;
     if (!document.querySelector('link[data-inpost-geowidget="true"]')) {
       const stylesheet = document.createElement("link");
@@ -44,17 +86,21 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
       stylesheet.dataset.inpostGeowidget = "true";
       document.head.appendChild(stylesheet);
     }
-    const selected = (point: Point) => {
-      const code = typeof point?.name === "string" ? point.name.trim().toUpperCase() : "";
-      const address = [point?.address?.line1, point?.address?.line2]
-        .filter((part): part is string => typeof part === "string" && !!part.trim())
-        .map(part => part.trim()).join(", ");
-      if (!/^[A-Z0-9-]{3,20}$/.test(code) || address.length > 200) {
+    const selected = (value: unknown) => {
+      if (accepted) return;
+      const point = findPoint(value);
+      if (!point) {
         setError("Nie udało się odczytać danych wybranego punktu. Wybierz inny punkt lub wpisz kod ręcznie.");
         return;
       }
-      onSelect(code, address);
+      accepted = true;
+      setError("");
+      onSelect(point.name, readAddress(point.address));
       setOpen(false);
+    };
+    const callbackName = `mojaSzafaInpostPoint${Math.random().toString(36).slice(2)}`;
+    (window as unknown as Record<string, unknown>)[callbackName] = (value: unknown) => {
+      if (active) selected(value);
     };
     void loadWidget().then(() => {
       if (!active || !target) return;
@@ -65,12 +111,13 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
           setError("Nie udało się połączyć mapy z formularzem. Możesz wpisać kod punktu ręcznie.");
           return;
         }
-        api.addPointSelectedCallback(point => { if (active) selected(point); });
+        api.addPointSelectedCallback((...values) => { if (active) selected(values); });
       });
       widget.setAttribute("token", token);
       widget.setAttribute("config", "parcelCollect");
       widget.setAttribute("country", "PL");
       widget.setAttribute("language", "pl");
+      widget.setAttribute("onpoint", callbackName);
       widget.style.display = "block";
       widget.style.width = "100%";
       widget.style.height = "min(70vh, 560px)";
@@ -80,6 +127,7 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
     });
     return () => {
       active = false;
+      delete (window as unknown as Record<string, unknown>)[callbackName];
       target?.replaceChildren();
     };
   }, [open, token, onSelect]);
