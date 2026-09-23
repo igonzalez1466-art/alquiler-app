@@ -50,14 +50,22 @@ export default async function ChatInboxPage() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-semibold mb-4">Twoje czaty</h1>
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">Wiadomości</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-gray-900">Twoje czaty</h1>
+        <p className="mt-2 text-sm text-gray-600">Rozmowy o przedmiotach w MojaSzafa.</p>
+      </div>
 
       {sorted.length === 0 && (
-        <p className="text-gray-500">Nie masz jeszcze żadnych rozmów.</p>
+        <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
+          <p className="font-semibold text-gray-900">Nie masz jeszcze żadnych rozmów.</p>
+          <p className="mt-1 text-sm text-gray-600">Gdy napiszesz do właściciela przedmiotu, rozmowa pojawi się tutaj.</p>
+          <Link href="/listing" className="mt-4 inline-block text-sm font-semibold text-indigo-700 hover:underline">Przeglądaj ogłoszenia →</Link>
+        </div>
       )}
 
-      <ul className="divide-y border rounded bg-white">
+      <ul className="space-y-3">
         {sorted.map((c) => {
           const lastMsg = c.messages[0];
           const other = userId === c.buyerId ? c.seller : c.buyer;
@@ -80,47 +88,25 @@ export default async function ChatInboxPage() {
           const status = (c as unknown as { status?: unknown }).status;
           const isClosed = status === "CLOSED";
 
-          return (
-            <li
-              key={c.id}
-              className={`p-4 flex justify-between items-center ${
-                isClosed ? "bg-gray-50" : "hover:bg-gray-50"
-              }`}
-            >
-              <div className="min-w-0">
-                <Link
-                  href={`/chat/${c.id}`}
-                  className="font-medium text-blue-600 hover:underline flex items-center gap-2"
-                >
-                  <span className="truncate">{other?.name ?? "Użytkownik"}</span>
-
-                  {hasUnread && <span className="text-red-500 text-lg">●</span>}
-
-                  {isClosed && (
-                    <span className="text-[11px] px-2 py-0.5 rounded border bg-gray-100 text-gray-700">
-                      Zamknięty
-                    </span>
-                  )}
-                </Link>
-
-                <p className="text-sm text-gray-600 truncate">{c.listing.title}</p>
-
-                {lastMsg ? (
-                  <p className="text-sm text-gray-500 truncate">
-                    {lastMsg.sender.name ?? "Użytkownik"}: {lastMsg.text.slice(0, 60)}
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-400">Brak wiadomości</p>
-                )}
-              </div>
-
-              {lastMsg && (
-                <span className="text-xs text-gray-500 whitespace-nowrap pl-3">
-                  {formatChatDateTime(lastMsg.createdAt)}
+          return <li key={c.id}>
+            <Link href={`/chat/${c.id}`} className={`flex gap-3 rounded-2xl border p-4 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:gap-4 ${hasUnread ? "border-indigo-200 bg-indigo-50/30" : "border-gray-200 bg-white"}`}>
+              <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-700">
+                {other?.name?.trim().charAt(0).toUpperCase() || "?"}
+              </span>
+              <span className="min-w-0 flex-1 space-y-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className={`truncate text-gray-900 ${hasUnread ? "font-bold" : "font-semibold"}`}>{other?.name ?? "Użytkownik"}</span>
+                  {hasUnread && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-semibold text-white">Nowa wiadomość</span>}
+                  {isClosed && <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">Zamknięty</span>}
                 </span>
-              )}
-            </li>
-          );
+                <span className="block truncate text-xs font-medium text-indigo-700">{c.listing.title}</span>
+                <span className={`block truncate text-sm ${hasUnread ? "text-gray-800" : "text-gray-600"}`}>
+                  {lastMsg ? `${lastMsg.senderId === userId ? "Ty" : lastMsg.sender.name ?? "Użytkownik"}: ${lastMsg.text}` : "Brak wiadomości"}
+                </span>
+              </span>
+              {lastMsg && <span className="shrink-0 self-start whitespace-nowrap text-xs text-gray-500">{formatChatDateTime(lastMsg.createdAt)}</span>}
+            </Link>
+          </li>;
         })}
       </ul>
     </div>

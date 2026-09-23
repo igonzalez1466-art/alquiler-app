@@ -10,7 +10,7 @@ export default function SendMessageForm({ conversationId, isClosed }: { conversa
   const [pending, startTransition] = useTransition();
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
       <form
         ref={formRef}
         action={(formData) => {
@@ -35,13 +35,14 @@ export default function SendMessageForm({ conversationId, isClosed }: { conversa
           type="text"
           name="text"
           placeholder={isClosed ? "Czat zamknięty" : "Napisz wiadomość…"}
-          className="flex-1 border rounded px-3 py-2"
+          aria-label="Treść wiadomości"
+          className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
           disabled={isClosed || pending}
           required={!isClosed}
         />
         <button
           type="submit"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-wait disabled:opacity-50"
           disabled={isClosed || pending}
         >
           {pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
