@@ -22,6 +22,7 @@ function loadWidget() {
 }
 
 type Point = { name?: unknown; address?: { line1?: unknown; line2?: unknown } };
+type GeowidgetApi = { addPointSelectedCallback: (callback: (point: Point) => void) => void };
 
 export default function InpostPointPicker({ token, disabled, onSelect }: {
   token: string;
@@ -43,8 +44,7 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
       stylesheet.dataset.inpostGeowidget = "true";
       document.head.appendChild(stylesheet);
     }
-    const selected = (event: Event) => {
-      const point = (event as CustomEvent<Point>).detail;
+    const selected = (point: Point) => {
       const code = typeof point?.name === "string" ? point.name.trim().toUpperCase() : "";
       const address = [point?.address?.line1, point?.address?.line2]
         .filter((part): part is string => typeof part === "string" && !!part.trim())
@@ -56,15 +56,21 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
       onSelect(code, address);
       setOpen(false);
     };
-    document.addEventListener("onpointselect", selected);
     void loadWidget().then(() => {
       if (!active || !target) return;
       const widget = document.createElement("inpost-geowidget");
+      widget.addEventListener("inpost.geowidget.init", (event) => {
+        const api = (event as CustomEvent<{ api?: GeowidgetApi }>).detail?.api;
+        if (typeof api?.addPointSelectedCallback !== "function") {
+          setError("Nie udało się połączyć mapy z formularzem. Możesz wpisać kod punktu ręcznie.");
+          return;
+        }
+        api.addPointSelectedCallback(point => { if (active) selected(point); });
+      });
       widget.setAttribute("token", token);
       widget.setAttribute("config", "parcelCollect");
       widget.setAttribute("country", "PL");
       widget.setAttribute("language", "pl");
-      widget.setAttribute("onpoint", "onpointselect");
       widget.style.display = "block";
       widget.style.width = "100%";
       widget.style.height = "min(70vh, 560px)";
@@ -74,7 +80,6 @@ export default function InpostPointPicker({ token, disabled, onSelect }: {
     });
     return () => {
       active = false;
-      document.removeEventListener("onpointselect", selected);
       target?.replaceChildren();
     };
   }, [open, token, onSelect]);
