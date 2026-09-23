@@ -4,6 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 import { getSession } from "@/app/lib/auth";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
+import BookingDetailsLink from "./_components/BookingDetailsLink";
 
 /* ============ Helpers ============ */
 function formatRange(a: Date, b: Date) {
@@ -509,12 +510,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
                       <StatusBadge status={b.status} expired={isPaymentDeadlineExpired(b, now)} />
-                      <Link
-                    href={`/bookings/${b.id}`}
-                    className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded border text-gray-700 hover:bg-gray-50 text-center"
-                      >
-                    Zobacz szczegóły
-                      </Link>
+                      <BookingDetailsLink bookingId={b.id} />
                     </div>
                       </div>
 
@@ -742,12 +738,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
                        <StatusBadge status={b.status} expired={isPaymentDeadlineExpired(b, now)} />
-                      <Link
-                      href={`/bookings/${b.id}`}
-                      className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded border text-gray-700 hover:bg-gray-50 text-center"
-                      >
-                      Zobacz szczegóły
-                      </Link>
+                      <BookingDetailsLink bookingId={b.id} />
                       </div>
                     </div>
 
