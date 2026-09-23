@@ -2,8 +2,24 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { createBookingAction } from "../actions";
+
+function BookingSubmitButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      className="flex w-full items-center justify-center gap-2 rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50"
+      disabled={disabled || pending}
+      aria-busy={pending}
+    >
+      {pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+      {pending ? "Wysyłanie prośby…" : "Zarezerwuj"}
+    </button>
+  );
+}
 
 export default function BookingForm({
   listingId,
@@ -255,17 +271,13 @@ export default function BookingForm({
 
 
       {/* ===== SUBMIT ===== */}
-      <button
-        type="submit"
-        className="px-4 py-2 rounded bg-indigo-600 text-white w-full disabled:opacity-50"
+      <BookingSubmitButton
         disabled={
           days < minimumRentalDays ||
           (!!summary && "error" in summary) ||
           !acceptedTerms
         }
-      >
-        Zarezerwuj
-      </button>
+      />
     </form>
   );
 }

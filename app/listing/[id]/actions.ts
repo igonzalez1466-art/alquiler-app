@@ -163,7 +163,7 @@ export async function createBookingAction(
 
   if (!listingId || !startStr || !endStr) {
     redirect(
-      `/listing/${listingId ?? ""}?error=datos-incompletos`
+      `/listing/${listingId ?? ""}?blad=brak-danych`
     );
   }
 
@@ -175,14 +175,14 @@ export async function createBookingAction(
     isNaN(endDate.getTime())
   ) {
     redirect(
-      `/listing/${listingId}?error=fechas-invalidas`
+      `/listing/${listingId}?blad=nieprawidlowe-daty`
     );
   }
 
   // Permite una reserva con inicio y fin el mismo día.
   if (endDate < startDate) {
     redirect(
-      `/listing/${listingId}?error=fin-no-posterior`
+      `/listing/${listingId}?blad=data-zakonczenia-przed-poczatkiem`
     );
   }
 
@@ -209,19 +209,19 @@ export async function createBookingAction(
 
   if (!listing) {
     redirect(
-      `/listing/${listingId}?error=anuncio-no-encontrado`
+      `/listing/${listingId}?blad=ogloszenie-nie-istnieje`
     );
   }
 
   if (listing.userId === renterId) {
     redirect(
-      `/listing/${listingId}?error=no-propio`
+      `/listing/${listingId}?blad=wlasne-ogloszenie`
     );
   }
 
   if (listing.available === false) {
     redirect(
-      `/listing/${listingId}?error=anuncio-no-disponible`
+      `/listing/${listingId}?blad=ogloszenie-niedostepne`
     );
   }
 
@@ -230,11 +230,11 @@ export async function createBookingAction(
   ========================================================== */
 
   const days = diffDaysInclusive(startDate, endDate);
-  if (days < listing.minimumRentalDays) redirect(`/listing/${listingId}?error=minimum-rental-days`);
+  if (days < listing.minimumRentalDays) redirect(`/listing/${listingId}?blad=zbyt-krotki-okres`);
 
   if (days <= 0) {
     redirect(
-      `/listing/${listingId}?error=fechas-invalidas`
+      `/listing/${listingId}?blad=nieprawidlowe-daty`
     );
   }
 
@@ -243,7 +243,7 @@ export async function createBookingAction(
     listing.pricePerDay <= 0
   ) {
     redirect(
-      `/listing/${listingId}?error=precio-invalido`
+      `/listing/${listingId}?blad=nieprawidlowa-cena`
     );
   }
 
@@ -252,7 +252,7 @@ export async function createBookingAction(
     listing.fianza < 0
   ) {
     redirect(
-      `/listing/${listingId}?error=fianza-invalida`
+      `/listing/${listingId}?blad=nieprawidlowa-kaucja`
     );
   }
 
@@ -303,7 +303,7 @@ export async function createBookingAction(
 
     if (overlap) {
       redirect(
-        `/listing/${listingId}?error=fechas-no-disponibles`
+        `/listing/${listingId}?blad=termin-jest-zajety`
       );
     }
 

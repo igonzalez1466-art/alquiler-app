@@ -13,7 +13,7 @@ import type { Estado, MetodoEnvio } from "@prisma/client";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ blad?: string }>;
 };
 
 /* ===================== LABELS ===================== */
@@ -102,7 +102,7 @@ const pill = (text: string, cls = "bg-gray-50 text-gray-700 border-gray-200") =>
 export default async function ListingDetail({ params, searchParams }: PageProps) {
   const { id } = await params;
   const sp = (await searchParams) ?? {};
-  const error = sp.error;
+  const error = sp.blad;
 
   const [listing, session] = await Promise.all([
     prisma.listing.findUnique({
@@ -185,12 +185,21 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         )}
       </div>
 
-      {error === "minimum-rental-days" && <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-rose-800">Minimalny okres wynajmu tego przedmiotu: {listing.minimumRentalDays} {listing.minimumRentalDays === 1 ? "dzień" : "dni"}. Wybierz dłuższy okres.</p>}
-      {error === "fechas-no-disponibles" && (
-        <div className="mb-6 border border-red-200 bg-red-50 p-3 text-sm text-red-800 rounded-lg">
-          Te daty nie są dostępne.
-        </div>
-      )}
+      {error && <p role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        {error === "zbyt-krotki-okres"
+          ? `Minimalny okres wynajmu tego przedmiotu: ${listing.minimumRentalDays} ${listing.minimumRentalDays === 1 ? "dzień" : "dni"}. Wybierz dłuższy okres.`
+          : ({
+              "termin-jest-zajety": "Wybrany termin jest już zajęty. Wybierz inne daty.",
+              "brak-danych": "Uzupełnij datę rozpoczęcia i zakończenia rezerwacji.",
+              "nieprawidlowe-daty": "Podano nieprawidłowe daty. Wybierz termin ponownie.",
+              "data-zakonczenia-przed-poczatkiem": "Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.",
+              "ogloszenie-nie-istnieje": "Nie znaleziono tego ogłoszenia.",
+              "wlasne-ogloszenie": "Nie możesz zarezerwować własnego przedmiotu.",
+              "ogloszenie-niedostepne": "Ten przedmiot nie jest obecnie dostępny do rezerwacji.",
+              "nieprawidlowa-cena": "Nie można zarezerwować przedmiotu z powodu nieprawidłowej ceny.",
+              "nieprawidlowa-kaucja": "Nie można zarezerwować przedmiotu z powodu nieprawidłowej kaucji.",
+            } as Record<string, string>)[error] ?? "Nie udało się wysłać prośby o rezerwację. Spróbuj ponownie."}
+      </p>}
 
       {/* Layout: content + sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
