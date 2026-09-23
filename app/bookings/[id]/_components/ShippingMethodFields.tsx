@@ -26,7 +26,7 @@ export default function ShippingMethodFields({ initialCarrier, initialTracking, 
     {method === "INPOST" && <div className="space-y-3">
       <div className="rounded border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950 space-y-2">
         <p>Utwórz i opłać etykietę na swoim koncie InPost. Dane odbiorcy i wybrany punkt znajdziesz powyżej w rezerwacji.</p>
-        <a href="https://manager.paczkomaty.pl/" target="_blank" rel="noopener noreferrer" className="inline-flex rounded bg-indigo-700 px-3 py-2 font-semibold text-white hover:bg-indigo-800">
+        <a href="https://manager.paczkomaty.pl/shipments/send/simple" target="_blank" rel="noopener noreferrer" className="inline-flex rounded bg-indigo-700 px-3 py-2 font-semibold text-white hover:bg-indigo-800">
           Otwórz InPost i utwórz etykietę ↗
         </a>
         <p>Po faktycznym nadaniu paczki wróć tutaj, wpisz numer z etykiety i potwierdź wysyłkę. Statusy przewozu będą widoczne w szczegółach rezerwacji.</p>
