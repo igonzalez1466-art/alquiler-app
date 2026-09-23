@@ -3,6 +3,7 @@ import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import Link from "next/link";
+import { formatChatDateTime } from "@/app/lib/chatDateTime";
 
 function getUserId(session: unknown): string | undefined {
   if (!session || typeof session !== "object") return undefined;
@@ -47,35 +48,6 @@ export default async function ChatInboxPage() {
     const dateB = b.messages[0]?.createdAt ?? b.createdAt;
     return dateB.getTime() - dateA.getTime();
   });
-
-  // 🔧 Formato “Dzisiaj / Wczoraj / data”
-  function formatDateTime(date: Date) {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-
-    const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-    let dayLabel: string;
-    if (msgDate.getTime() === today.getTime()) {
-      dayLabel = "Dzisiaj";
-    } else if (msgDate.getTime() === yesterday.getTime()) {
-      dayLabel = "Wczoraj";
-    } else {
-      dayLabel = date.toLocaleDateString("pl-PL", {
-        day: "2-digit",
-        month: "2-digit",
-      });
-    }
-
-    const timeLabel = date.toLocaleTimeString("pl-PL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    return `${dayLabel} ${timeLabel}`;
-  }
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-4">
@@ -144,7 +116,7 @@ export default async function ChatInboxPage() {
 
               {lastMsg && (
                 <span className="text-xs text-gray-500 whitespace-nowrap pl-3">
-                  {formatDateTime(lastMsg.createdAt)}
+                  {formatChatDateTime(lastMsg.createdAt)}
                 </span>
               )}
             </li>

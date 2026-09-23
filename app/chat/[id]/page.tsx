@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import { markChatAsRead } from "./actions";
 import SendMessageForm from "./SendMessageForm";
+import { formatChatDateTime } from "@/app/lib/chatDateTime";
 
 type PageProps = { params: Promise<{ id: string }> }; // Next 15: params es Promise
 
@@ -56,34 +57,6 @@ export default async function ChatDetailPage({ params }: PageProps) {
   const convoStatus = (convo as unknown as { status?: unknown }).status;
   const isClosed = convoStatus === "CLOSED";
 
-  function formatDateTime(date: Date): string {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-
-    const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-    let dayLabel: string;
-    if (msgDate.getTime() === today.getTime()) {
-      dayLabel = "Dzisiaj";
-    } else if (msgDate.getTime() === yesterday.getTime()) {
-      dayLabel = "Wczoraj";
-    } else {
-      dayLabel = date.toLocaleDateString("pl-PL", {
-        day: "2-digit",
-        month: "2-digit",
-      });
-    }
-
-    const timeLabel = date.toLocaleTimeString("pl-PL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    return `${dayLabel} ${timeLabel}`;
-  }
-
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-4">
       <h1 className="text-xl font-semibold">
@@ -110,7 +83,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
 
         {convo.messages.map((m) => {
           const mine = m.senderId === userId;
-          const stamp = formatDateTime(new Date(m.createdAt));
+          const stamp = formatChatDateTime(m.createdAt);
 
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
