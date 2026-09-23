@@ -91,7 +91,7 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
 
       <PhoneVerification verified={!!user.phoneVerifiedAt} maskedPhone={maskPhone(user.phone)} returnTo={returnTo} />
 
-      <PreferredInpostPointForm code={user.preferredInpostPointCode} address={user.preferredInpostPointAddress} />
+      <PreferredInpostPointForm code={user.preferredInpostPointCode} address={user.preferredInpostPointAddress} geowidgetToken={process.env.INPOST_GEOWIDGET_TOKEN?.trim() || null} />
 
       <div className="rounded border p-4 bg-gray-50 space-y-3">
         <h2 className="text-lg font-semibold">Zarządzanie</h2>

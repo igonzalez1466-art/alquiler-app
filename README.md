@@ -54,3 +54,9 @@ Authorized redirect URIs must match the deployment exactly:
 - Local: `http://localhost:3000/api/auth/callback/google`
 - Staging: `https://YOUR-STAGING-DOMAIN/api/auth/callback/google`
 - Production: `https://YOUR-PRODUCTION-DOMAIN/api/auth/callback/google`
+
+# InPost point picker
+
+The **Mój punkt InPost** section can show InPost's official Geowidget so users can choose a pickup point on a map. Request a Geowidget key for each website domain from InPost, then set `INPOST_GEOWIDGET_TOKEN` in the corresponding environment (for example, the staging key for `stagingmojaszafa.eu` and a separate production key for the production domain). The key is supplied to the browser only when the account page is rendered; it is domain-bound, not a server API secret.
+
+The map loads only after the user opens it. Selecting a point fills in its code and address; the user then saves the profile form. If no key is configured or the widget cannot load, the existing manual fields remain available. See [InPost's Geowidget integration guide](https://developers.inpost-group.com/geowidget-integration).
