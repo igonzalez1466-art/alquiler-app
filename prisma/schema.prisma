@@ -63,6 +63,8 @@ model Listing {
   color       Color?
   garmentType GarmentType?
   gender      Gender?
+  sport       String?
+  pregnancy   Boolean @default(false)
   materials   Json?
   size        String?
 
@@ -78,6 +80,8 @@ model Listing {
   @@index([postalCode])
   @@index([country])
   @@index([gender])
+  @@index([sport])
+  @@index([pregnancy])
   @@index([size])
   @@index([color])
   @@index([garmentType])

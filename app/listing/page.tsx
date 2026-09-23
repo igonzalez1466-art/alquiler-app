@@ -7,6 +7,7 @@ import { authConfig } from "@/auth.config";
 import { redirect } from "next/navigation";
 import ListingFilters from "./ListingFilters";
 import ListingResults from "./ListingResults";
+import { isSportCode } from "@/app/lib/listingAttributes";
 
 /* ===================== LABELS ===================== */
 const enumLabels: Record<string, string> = {
@@ -73,6 +74,8 @@ type Search = {
   city?: string;
   marca?: string;
   gender?: "WOMAN" | "MAN" | "UNISEX" | "KIDS";
+  sport?: string;
+  pregnancy?: string;
   garmentType?: keyof typeof enumLabels;
   size?: string;
   color?: string;
@@ -132,6 +135,9 @@ export default async function ListingPage({
   const city = (p.city ?? "").trim();
   const marca = (p.marca ?? "").trim();
   const gender = p.gender;
+  const sportRaw = (p.sport ?? "").trim();
+  const sport = sportRaw === "ANY" || isSportCode(sportRaw) ? sportRaw : "";
+  const pregnancy = p.pregnancy === "1";
   const size = (p.size ?? "").trim();
 
   const colorRaw = String(p.color ?? "").trim();
@@ -186,6 +192,9 @@ export default async function ListingPage({
 
   if (marca) AND.push({ marca: { contains: marca } });
   if (gender) AND.push({ gender });
+  if (sport === "ANY") AND.push({ sport: { not: null } });
+  else if (sport) AND.push({ sport });
+  if (pregnancy) AND.push({ pregnancy: true });
   if (garmentType) AND.push({ garmentType });
   if (size) AND.push({ size });
   if (color) AND.push({ color });
@@ -221,6 +230,8 @@ export default async function ListingPage({
       lng: true,
       marca: true,
       gender: true,
+      sport: true,
+      pregnancy: true,
       size: true,
       color: true,
       garmentType: true,
@@ -276,10 +287,13 @@ export default async function ListingPage({
       </div>
 
       <ListingFilters
+        key={`${gender ?? ""}:${sport}:${pregnancy}`}
         q={q}
         city={city}
         marca={marca}
         gender={gender}
+        sport={sport}
+        pregnancy={pregnancy}
         garmentType={garmentType}
         size={size}
         color={color ?? ""}

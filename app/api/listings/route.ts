@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
-import { Estado, MetodoEnvio } from "@prisma/client";
+import { Estado, Gender, MetodoEnvio } from "@prisma/client";
+import { isSportCode } from "@/app/lib/listingAttributes";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -17,6 +18,13 @@ const listingSchema = z.object({
   estado: z.nativeEnum(Estado),
   fianza: z.coerce.number().int().min(0).optional(),
   metodoEnvio: z.nativeEnum(MetodoEnvio),
+  gender: z.nativeEnum(Gender).optional(),
+  sport: z.string().refine(isSportCode, "Wybierz sport").optional(),
+  pregnancy: z.boolean().optional().default(false),
+}).superRefine((data, context) => {
+  if (data.pregnancy && data.gender !== "WOMAN") {
+    context.addIssue({ code: "custom", path: ["pregnancy"], message: "Odzież ciążowa jest dostępna tylko dla kategorii Kobieta." });
+  }
 });
 
 export async function POST(req: Request) {

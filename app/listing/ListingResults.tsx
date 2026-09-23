@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { sportLabel } from "@/app/lib/listingAttributes";
 
 /* ===================== LABELS ===================== */
 
@@ -63,6 +64,8 @@ type Listing = {
   pricePerDay: number; // ✅ PRECIO DIARIO
   marca: string | null;
   gender: string | null;
+  sport: string | null;
+  pregnancy: boolean;
   size: string | null;
   color: string | null;
   garmentType: string | null;
@@ -126,6 +129,11 @@ export default function ListingResults({ listings, showStatus = false }: { listi
                 {l.city ?? "—"}
                 {l.postalCode ? ` (${l.postalCode})` : ""}
               </p>
+
+              {(l.sport || l.pregnancy) && <div className="flex flex-wrap gap-2 text-xs">
+                {l.sport && <span className="rounded-full border bg-indigo-50 px-2.5 py-1 text-indigo-800">Sport: {sportLabel(l.sport) ?? l.sport}</span>}
+                {l.pregnancy && <span className="rounded-full border bg-pink-50 px-2.5 py-1 text-pink-800">Odzież ciążowa</span>}
+              </div>}
 
               {/* ===== DETAILS ===== */}
               <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">

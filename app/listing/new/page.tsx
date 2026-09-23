@@ -7,9 +7,11 @@ import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import PhotosField from "./PhotosField";
 import PublishForm, { PublishButton } from "./PublishForm";
+import ListingAttributesFields from "./ListingAttributesFields";
 import { sendMail } from "@/app/lib/mailer";
 import type { Gender, GarmentType, Color, Estado, MetodoEnvio } from "@prisma/client";
 import { put } from "@vercel/blob";
+import { isSportCode } from "@/app/lib/listingAttributes";
 
 /* ===================== CONSTANTES ===================== */
 
@@ -161,6 +163,9 @@ export default async function NewListingPage({
     const marca = String(formData.get("marca") || "").trim();
 
     const genderRaw = String(formData.get("gender") || "").trim();
+    const sportEnabled = formData.get("isSport") === "yes";
+    const sportRaw = String(formData.get("sport") || "").trim();
+    const pregnancy = formData.get("pregnancy") === "yes";
     const garmentTypeRaw = String(formData.get("garmentType") || "").trim();
 
     const size = String(formData.get("size") || "").trim();
@@ -212,7 +217,10 @@ export default async function NewListingPage({
       : null;
 
     if (!gender) redirect(err("Nieprawidłowa płeć"));
+    if (sportEnabled && !isSportCode(sportRaw)) redirect(err("Wybierz dyscyplinę sportu."));
+    if (pregnancy && gender !== "WOMAN") redirect(err("Odzież ciążowa jest dostępna tylko dla kategorii Kobieta."));
     if (!garmentType) redirect(err("Nieprawidłowy typ ubrania"));
+    const sport = sportEnabled ? sportRaw : null;
 
     if (!size) redirect(err("Rozmiar jest obowiązkowy"));
     const estado = CONDITION_OPTIONS.find(
@@ -261,6 +269,8 @@ export default async function NewListingPage({
         lat,
         lng,
         gender,
+        sport,
+        pregnancy,
         size,
         color,
         garmentType,
@@ -508,23 +518,7 @@ export default async function NewListingPage({
               />
             </div>
 
-            <div>
-              <label className={labelBase} htmlFor="gender">
-                Płeć
-              </label>
-              <select
-                id="gender"
-                name="gender"
-                required
-                className={`${inputBase} mt-1`}
-              >
-                <option value="">Wybierz</option>
-                <option value="WOMAN">Kobieta</option>
-                <option value="MAN">Mężczyzna</option>
-                <option value="UNISEX">Unisex</option>
-                <option value="KIDS">Dziecko</option>
-              </select>
-            </div>
+            <ListingAttributesFields inputClassName={inputBase} labelClassName={labelBase} />
 
             <div>
               <label className={labelBase} htmlFor="size">

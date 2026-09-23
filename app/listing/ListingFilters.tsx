@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { SPORT_OPTIONS } from "@/app/lib/listingAttributes";
 
 type Props = {
   q: string;
   city: string;
   marca: string;
   gender?: string;
+  sport: string;
+  pregnancy: boolean;
   garmentType?: string;
   size: string;
   color: string;
@@ -84,12 +87,16 @@ export default function ListingFilters({
   city,
   marca,
   gender,
+  sport,
+  pregnancy,
   garmentType,
   size,
   color,
   materials,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [selectedGender, setSelectedGender] = useState(gender ?? "");
+  const [pregnancyOnly, setPregnancyOnly] = useState(pregnancy);
 
   return (
     <div>
@@ -154,7 +161,11 @@ export default function ListingFilters({
             <span className="block text-xs text-gray-600 mb-1">Dla kogo</span>
             <select
               name="gender"
-              defaultValue={gender ?? ""}
+              value={selectedGender}
+              onChange={(event) => {
+                setSelectedGender(event.target.value);
+                if (event.target.value !== "WOMAN") setPregnancyOnly(false);
+              }}
               className="w-full border rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Wszyscy</option>
@@ -250,7 +261,23 @@ export default function ListingFilters({
               ))}
             </select>
           </label>
+          <label className="text-sm">
+            <span className="block text-xs text-gray-600 mb-1">Sport</span>
+            <select name="sport" defaultValue={sport} className="w-full border rounded-lg px-3 py-2 text-sm">
+              <option value="">Bez filtra sportowego</option>
+              <option value="ANY">Wszystkie sporty</option>
+              {SPORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
         </div>
+
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="pregnancy" value="1" checked={pregnancyOnly} onChange={(event) => {
+            setPregnancyOnly(event.target.checked);
+            if (event.target.checked) setSelectedGender("WOMAN");
+          }} className="h-4 w-4" />
+          Odzież ciążowa
+        </label>
 
         {/* Botones */}
         <div className="w-full flex flex-wrap items-center justify-end gap-2 pt-1">

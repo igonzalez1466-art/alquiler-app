@@ -1,5 +1,6 @@
 // app/listing/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
+import { sportLabel } from "@/app/lib/listingAttributes";
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -125,6 +126,8 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         available: true,
         images: true,
         gender: true,
+        sport: true,
+        pregnancy: true,
         size: true,
         color: true,
         garmentType: true,
@@ -264,6 +267,8 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
               {pill(`Marka: ${listing.marca ?? "—"}`)}
               {pill(`Kategoria: ${labelEnum(listing.garmentType)}`)}
               {pill(`Płeć: ${labelEnum(listing.gender)}`)}
+              {listing.sport && pill(`Sport: ${sportLabel(listing.sport) ?? listing.sport}`)}
+              {listing.pregnancy && pill("Odzież ciążowa")}
               {pill(`Rozmiar: ${listing.size ?? "—"}`)}
 
               <span className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs bg-gray-50 text-gray-700 border-gray-200">
