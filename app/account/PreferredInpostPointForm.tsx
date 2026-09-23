@@ -16,12 +16,13 @@ export default function PreferredInpostPointForm({ code, address }: { code: stri
     try {
       await savePreferredInpostPointAction(formData);
       setSaved(true);
+      window.dispatchEvent(new Event("profile-tasks-updated"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Nie udało się zapisać punktu.");
     } finally {
       setSaving(false);
     }
-  }} className="rounded border bg-white p-4 space-y-3">
+  }} id="inpost" className="scroll-mt-24 rounded border bg-white p-4 space-y-3">
     <h2 className="text-lg font-semibold">Mój punkt InPost</h2>
     <p className="text-sm text-gray-600">To prywatny punkt domyślny. W każdej opłaconej rezerwacji potwierdzisz punkt osobno.</p>
     <label className="block text-sm">Kod punktu

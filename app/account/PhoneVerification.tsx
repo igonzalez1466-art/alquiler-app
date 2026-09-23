@@ -32,7 +32,7 @@ export default function PhoneVerification({ verified, maskedPhone, returnTo }: {
         <button type="button" disabled={pending} onClick={() => run(async () => {
           const result = await confirmPhoneVerification(code);
           if (!result.ok) { setError(result.message); return; }
-          setCodeSent(false); setPhone(""); setCode(""); setMessage("Numer telefonu został zweryfikowany."); router.refresh();
+          setCodeSent(false); setPhone(""); setCode(""); setMessage("Numer telefonu został zweryfikowany."); window.dispatchEvent(new Event("profile-tasks-updated")); router.refresh();
         })} className="rounded bg-emerald-700 px-4 py-2 font-semibold text-white disabled:opacity-50">Potwierdź</button></div>
     </label>}
     {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}

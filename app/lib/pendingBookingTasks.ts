@@ -5,7 +5,7 @@ import { readIssue } from "@/app/lib/logisticsIssue";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
-export type PendingTask = { id: string; bookingNumber: number; listing: string; title: string; description: string; href: string; deadline: string | null; priority: number };
+export type PendingTask = { id: string; bookingNumber: number | null; listing: string | null; title: string; description: string; href: string; deadline: string | null; priority: number };
 export type TaskBooking = Pick<Booking, "id" | "bookingNumber" | "ownerId" | "renterId" | "status" | "paymentStatus" | "paymentDueAt" | "createdAt" | "startDate" | "endDate" | "cancelledAt" | "shippingStatus" | "deliveryConfirmationStatus" | "returnStatus" | "returnConfirmationStatus" | "returnConfirmedAt" | "depositStatus" | "depositCents" | "depositClaim" | "settlementDecision" | "settlementCompletedAt" | "deliveryIssue" | "returnIssue" | "settlementLegacyReview" | "depositDecisionAt"> & { listing: { title: string } };
 export function bookingTask(b: TaskBooking, userId: string, now = new Date()): PendingTask | null {
   const owner = b.ownerId === userId, renter = b.renterId === userId;
@@ -46,5 +46,5 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
   return null;
 }
 export function pendingTasks(bookings: TaskBooking[], userId: string, now = new Date()) {
-  return bookings.flatMap(b => { const t = bookingTask(b, userId, now); return t ? [t] : []; }).sort((a, b) => a.priority - b.priority || (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999") || b.bookingNumber - a.bookingNumber);
+  return bookings.flatMap(b => { const t = bookingTask(b, userId, now); return t ? [t] : []; }).sort((a, b) => a.priority - b.priority || (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999") || (b.bookingNumber ?? 0) - (a.bookingNumber ?? 0));
 }

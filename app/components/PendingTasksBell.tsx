@@ -40,7 +40,8 @@ export default function PendingTasksBell({ userId }: { userId: string }) {
     window.addEventListener("focus", reload.current);
     document.addEventListener("visibilitychange", reload.current);
     const listener = reload.current;
-    return () => { active = false; controller.abort(); clearInterval(interval); window.removeEventListener("focus", listener); document.removeEventListener("visibilitychange", listener); };
+    window.addEventListener("profile-tasks-updated", listener);
+    return () => { active = false; controller.abort(); clearInterval(interval); window.removeEventListener("focus", listener); document.removeEventListener("visibilitychange", listener); window.removeEventListener("profile-tasks-updated", listener); };
   }, [userId, pathname]);
   useEffect(() => {
     const tick = () => {
@@ -67,10 +68,10 @@ export default function PendingTasksBell({ userId }: { userId: string }) {
       {!tasks && !error && <p className="py-3 text-sm">Wczytywanie…</p>}
       {visibleTasks?.length === 0 && !error && <p className="py-3 text-sm">Nie masz teraz zadań do wykonania.</p>}
       <ul className="max-h-[60vh] overflow-y-auto divide-y">{visibleTasks?.map(task => <li key={task.id}><Link prefetch={false} href={task.href} onClick={() => { if (panel.current) panel.current.open = false; }} className="block rounded p-3 hover:bg-gray-50">
-        <p className="text-sm font-semibold">{task.title}</p><p className="text-xs text-gray-600">#{task.bookingNumber} · {task.listing}</p><p className="mt-1 text-sm">{task.description}</p>
+        <p className="text-sm font-semibold">{task.title}</p><p className="text-xs text-gray-600">{task.bookingNumber === null ? "Mój profil" : `#${task.bookingNumber} · ${task.listing}`}</p><p className="mt-1 text-sm">{task.description}</p>
         {task.deadline && <p className="mt-1 text-xs text-rose-700">Termin: {new Date(task.deadline).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>}
       </Link></li>)}</ul>
-      <p className="border-t pt-2 text-xs text-gray-500">Zadania znikają po wykonaniu lub upływie terminu działania. Zaległe zwroty i nierozstrzygnięte sprawy pozostają widoczne. Daty w czasie polskim.</p>
+      <p className="border-t pt-2 text-xs text-gray-500">Przypomnienia profilu znikają po uzupełnieniu danych. Zadania rezerwacji znikają po wykonaniu lub upływie terminu działania. Zaległe zwroty i nierozstrzygnięte sprawy pozostają widoczne. Daty w czasie polskim.</p>
     </div>
   </details>;
 }
