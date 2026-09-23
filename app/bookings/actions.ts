@@ -515,6 +515,14 @@ export async function approveBookingAction(
             </a>
           </p>
 
+          <p>
+            Po opłaceniu rezerwacji sprawdź w jej szczegółach
+            <strong>punkt InPost do dostawy</strong>, jeśli przedmiot ma zostać
+            wysłany przez InPost. Potwierdź lub zaktualizuj punkt przed
+            nadaniem przesyłki.
+            <a href="${escapeHtml(bookingUrl)}">Przejdź do rezerwacji</a>.
+          </p>
+
           <div style="margin-top:18px;padding:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;">
             <strong>Ważne:</strong><br/>
 

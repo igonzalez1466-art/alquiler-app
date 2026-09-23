@@ -650,6 +650,13 @@ export async function POST(req: Request) {
     aby ustalić sposób przekazania.
   </p>
 
+  <p>
+    Jeśli zwrot przedmiotu odbędzie się przez InPost,
+    sprawdź w szczegółach rezerwacji
+    <strong>punkt InPost do zwrotu</strong>.
+    Potwierdź lub zaktualizuj go, zanim najemca nada przesyłkę.
+  </p>
+
   <!-- ==============================================
        SUCCESS BOX
   =============================================== -->
