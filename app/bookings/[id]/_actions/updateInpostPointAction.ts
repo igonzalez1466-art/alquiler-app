@@ -1,7 +1,7 @@
 "use server";
 
 import { getSession } from "@/app/lib/auth";
-import { readInpostPoint } from "@/app/lib/inpostPoint";
+import { fetchInpostPointAddress, readInpostPoint } from "@/app/lib/inpostPoint";
 import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -15,6 +15,7 @@ export async function updateInpostPointAction(formData: FormData) {
     throw new Error("Nieprawidłowa rezerwacja lub etap wysyłki.");
   }
   const point = readInpostPoint(formData);
+  const pointAddress = (await fetchInpostPointAddress(point.code)) ?? point.address;
 
   const updated = stage === "DELIVERY"
     ? await prisma.booking.updateMany({
@@ -28,7 +29,7 @@ export async function updateInpostPointAction(formData: FormData) {
         },
         data: {
           deliveryInpostPointCode: point.code,
-          deliveryInpostPointAddress: point.address,
+          deliveryInpostPointAddress: pointAddress,
         },
       })
     : await prisma.booking.updateMany({
@@ -42,7 +43,7 @@ export async function updateInpostPointAction(formData: FormData) {
         },
         data: {
           returnInpostPointCode: point.code,
-          returnInpostPointAddress: point.address,
+          returnInpostPointAddress: pointAddress,
         },
       });
 
@@ -50,4 +51,11 @@ export async function updateInpostPointAction(formData: FormData) {
     throw new Error("Punkt został już potwierdzony lub nie można go potwierdzić dla tej przesyłki. Odśwież stronę.");
   }
   revalidatePath(`/bookings/${bookingId}`);
+  return pointAddress;
+}
+
+export async function lookupBookingInpostPointAddressAction(code: string) {
+  const userId = (await getSession())?.user?.id;
+  if (!userId) throw new Error("Brak dostępu.");
+  return fetchInpostPointAddress(code.trim().toUpperCase());
 }

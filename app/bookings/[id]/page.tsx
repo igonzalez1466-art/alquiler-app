@@ -807,6 +807,7 @@ export default async function BookingPage({
                   address={booking.deliveryInpostPointAddress}
                   preferredCode={isRenter ? booking.renter.preferredInpostPointCode : null}
                   preferredAddress={isRenter ? booking.renter.preferredInpostPointAddress : null}
+                  geowidgetToken={process.env.INPOST_GEOWIDGET_TOKEN?.trim() || null}
                   recipient={{ name: booking.renter.name, email: booking.renter.email, phone: booking.renter.phoneVerifiedAt ? booking.renter.phone : null }}
                 />}
 
@@ -930,6 +931,7 @@ export default async function BookingPage({
                   address={booking.returnInpostPointAddress}
                   preferredCode={isOwner ? booking.owner.preferredInpostPointCode : null}
                   preferredAddress={isOwner ? booking.owner.preferredInpostPointAddress : null}
+                  geowidgetToken={process.env.INPOST_GEOWIDGET_TOKEN?.trim() || null}
                   recipient={{ name: booking.owner.name, email: booking.owner.email, phone: booking.owner.phoneVerifiedAt ? booking.owner.phone : null }}
                 />}
 
