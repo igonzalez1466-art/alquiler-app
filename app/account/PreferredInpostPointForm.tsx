@@ -36,15 +36,13 @@ export default function PreferredInpostPointForm({ code, address, geowidgetToken
     <p className="text-sm text-gray-600">To prywatny punkt domyślny. W każdej opłaconej rezerwacji potwierdzisz punkt osobno.</p>
     {geowidgetToken && <>
       <InpostPointPicker token={geowidgetToken} disabled={saving} onSelect={selectPoint} />
-      <p className="text-xs text-gray-600">Po wybraniu punktu z mapy kod i adres uzupełnią się automatycznie. Następnie zapisz punkt.</p>
+      <p className="text-xs text-gray-600">Po wybraniu punktu z mapy kod uzupełni się automatycznie. Następnie zapisz punkt.</p>
     </>}
     <label className="block text-sm">Kod punktu
-      <input name="pointCode" value={pointCode} onChange={event => { setPointCode(event.target.value); setSaved(false); }} maxLength={20} disabled={saving} placeholder="np. WAW01M" className="mt-1 w-full rounded border p-2" />
+      <input name="pointCode" value={pointCode} onChange={event => { setPointCode(event.target.value); setPointAddress(""); setSaved(false); }} maxLength={20} disabled={saving} placeholder="np. WAW01M" className="mt-1 w-full rounded border p-2" />
     </label>
-    <label className="block text-sm">Adres punktu (opcjonalnie)
-      <input name="pointAddress" value={pointAddress} onChange={event => { setPointAddress(event.target.value); setSaved(false); }} maxLength={200} disabled={saving} placeholder="Ulica, miasto" className="mt-1 w-full rounded border p-2" />
-    </label>
-    <p className="text-xs text-gray-500">Aby usunąć punkt domyślny, wyczyść oba pola i zapisz.</p>
+    <input type="hidden" name="pointAddress" value={pointAddress} />
+    <p className="text-xs text-gray-500">Aby usunąć punkt domyślny, wyczyść kod i zapisz.</p>
     <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
       {saving && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
       {saving ? "Zapisywanie…" : "Zapisz punkt"}
