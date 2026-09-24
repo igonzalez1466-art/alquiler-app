@@ -597,5 +597,5 @@ export async function createBookingAction(
   revalidatePath(`/listing/${listingId}`);
   revalidatePath("/bookings");
 
-  redirect("/bookings?ok=1");
+  redirect(`/bookings/${booking.id}`);
 }
