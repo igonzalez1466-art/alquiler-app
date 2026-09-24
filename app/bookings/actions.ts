@@ -516,10 +516,13 @@ export async function approveBookingAction(
           </p>
 
           <p>
-            Po opłaceniu rezerwacji sprawdź w jej szczegółach
-            <strong>punkt InPost do dostawy</strong>, jeśli przedmiot ma zostać
-            wysłany przez InPost. Potwierdź lub zaktualizuj punkt przed
-            nadaniem przesyłki.
+            Jeśli przedmiot będzie wysłany przez InPost, punktem dostawy
+            stanie się punkt zapisany w Twoim profilu w chwili opłacenia
+            rezerwacji. Będzie widoczny dla właściciela w szczegółach
+            rezerwacji. Nie musisz go osobno potwierdzać. Jeśli chcesz
+            użyć innego punktu, zmień go w tej rezerwacji przed nadaniem
+            przesyłki. Jeśli nie masz punktu w profilu, dodaj go bezpośrednio
+            w rezerwacji po opłaceniu.
             <a href="${escapeHtml(bookingUrl)}">Przejdź do rezerwacji</a>.
           </p>
 

@@ -114,7 +114,7 @@ export async function updateShippingAction(formData: FormData) {
   }
 
   if (carrier === "InPost" && !booking.deliveryInpostPointCode) {
-    throw new Error("Najemca musi najpierw potwierdzić punkt InPost do dostawy w tej rezerwacji.");
+    throw new Error("Najemca musi dodać punkt InPost do dostawy w tej rezerwacji przed nadaniem przesyłki.");
   }
 
   const now = new Date();

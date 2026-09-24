@@ -341,6 +341,14 @@ export async function POST(req: Request) {
               depositAmountCents > 0
                 ? pi.id
                 : null,
+
+            // Keep the destinations used by this booking independent of later profile edits.
+            ...(!wasAlreadyPaid ? {
+              deliveryInpostPointCode: existingBooking.deliveryInpostPointCode ?? existingBooking.renter.preferredInpostPointCode,
+              deliveryInpostPointAddress: existingBooking.deliveryInpostPointAddress ?? existingBooking.renter.preferredInpostPointAddress,
+              returnInpostPointCode: existingBooking.returnInpostPointCode ?? existingBooking.listing.user.preferredInpostPointCode,
+              returnInpostPointAddress: existingBooking.returnInpostPointAddress ?? existingBooking.listing.user.preferredInpostPointAddress,
+            } : {}),
           },
         });
 
@@ -651,10 +659,13 @@ export async function POST(req: Request) {
   </p>
 
   <p>
-    Jeśli zwrot przedmiotu odbędzie się przez InPost,
-    sprawdź w szczegółach rezerwacji
-    <strong>punkt InPost do zwrotu</strong>.
-    Potwierdź lub zaktualizuj go, zanim najemca nada przesyłkę.
+    Punkt InPost do zwrotu jest pobierany z Twojego profilu i widoczny
+    w szczegółach rezerwacji. Nie musisz go osobno potwierdzać.
+    Jeśli chcesz użyć innego punktu, zmień go w rezerwacji,
+    zanim najemca nada przesyłkę.
+    Jeśli nie masz punktu w profilu, dodaj go w rezerwacji.
+    Przed wysłaniem przedmiotu
+    sprawdź również punkt dostawy wybrany przez najemcę.
   </p>
 
   <!-- ==============================================

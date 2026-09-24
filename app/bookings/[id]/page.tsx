@@ -802,7 +802,7 @@ export default async function BookingPage({
                   bookingId={id}
                   stage="DELIVERY"
                   isRecipient={isRenter}
-                  locked={["SHIPPED", "DELIVERED"].includes(booking.shippingStatus)}
+                  locked={!["PENDING", "READY"].includes(booking.shippingStatus)}
                   code={booking.deliveryInpostPointCode}
                   address={booking.deliveryInpostPointAddress}
                   preferredCode={isRenter ? booking.renter.preferredInpostPointCode : null}
@@ -926,7 +926,7 @@ export default async function BookingPage({
                   bookingId={id}
                   stage="RETURN"
                   isRecipient={isOwner}
-                  locked={["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
+                  locked={!["PENDING", "READY"].includes(booking.returnStatus)}
                   code={booking.returnInpostPointCode}
                   address={booking.returnInpostPointAddress}
                   preferredCode={isOwner ? booking.owner.preferredInpostPointCode : null}

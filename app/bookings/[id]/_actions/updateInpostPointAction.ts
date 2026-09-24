@@ -24,8 +24,7 @@ export async function updateInpostPointAction(formData: FormData) {
           renterId: userId,
           status: { not: "CANCELLED" },
           paymentStatus: "PAID",
-          shippingStatus: { notIn: ["SHIPPED", "DELIVERED"] },
-          deliveryInpostPointCode: null,
+          shippingStatus: { in: ["PENDING", "READY"] },
         },
         data: {
           deliveryInpostPointCode: point.code,
@@ -38,8 +37,7 @@ export async function updateInpostPointAction(formData: FormData) {
           ownerId: userId,
           status: { not: "CANCELLED" },
           paymentStatus: "PAID",
-          returnStatus: { notIn: ["SHIPPED", "DELIVERED"] },
-          returnInpostPointCode: null,
+          returnStatus: { in: ["PENDING", "READY"] },
         },
         data: {
           returnInpostPointCode: point.code,
@@ -48,7 +46,7 @@ export async function updateInpostPointAction(formData: FormData) {
       });
 
   if (updated.count !== 1) {
-    throw new Error("Punkt został już potwierdzony lub nie można go potwierdzić dla tej przesyłki. Odśwież stronę.");
+    throw new Error("Nie można już zmienić punktu dla tej przesyłki. Odśwież stronę.");
   }
   revalidatePath(`/bookings/${bookingId}`);
   return pointAddress;

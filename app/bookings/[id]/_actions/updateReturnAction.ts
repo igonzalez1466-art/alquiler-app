@@ -125,7 +125,7 @@ export async function updateReturnAction(formData: FormData) {
   }
 
   if (returnCarrier === "InPost" && !booking.returnInpostPointCode) {
-    throw new Error("Właściciel musi najpierw potwierdzić punkt InPost do zwrotu w tej rezerwacji.");
+    throw new Error("Właściciel musi dodać punkt InPost do zwrotu w tej rezerwacji przed nadaniem przesyłki.");
   }
 
   const now = new Date();

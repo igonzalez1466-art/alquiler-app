@@ -28,7 +28,7 @@ export async function GET() {
     if (!user.preferredInpostPointCode?.trim()) profileTasks.push({
       id: "profile:inpost", bookingNumber: null, listing: null,
       title: "Ustaw swój punkt InPost",
-      description: "Dodaj kod punktu w sekcji „Mój punkt InPost”. Punkt dla konkretnej przesyłki potwierdzisz osobno w rezerwacji.",
+      description: "Dodaj kod punktu w sekcji „Mój punkt InPost”. Będzie automatycznie używany w nowych opłaconych rezerwacjach; w razie potrzeby zmienisz go w rezerwacji przed wysyłką.",
       href: "/account#inpost", deadline: null, priority: 2,
     });
     const tasks = [...pendingTasks(bookings, userId, checkedAt), ...profileTasks].sort((a, b) => a.priority - b.priority || (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999"));

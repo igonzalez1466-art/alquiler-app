@@ -52,7 +52,7 @@ export default function PreferredInpostPointForm({ code, address, geowidgetToken
     }
   }} id="inpost" className="scroll-mt-24 rounded border bg-white p-4 space-y-3">
     <h2 className="text-lg font-semibold">Mój punkt InPost</h2>
-    <p className="text-sm text-gray-600">To prywatny punkt domyślny. W każdej opłaconej rezerwacji potwierdzisz punkt osobno.</p>
+    <p className="text-sm text-gray-600">To prywatny punkt domyślny. Po opłaceniu rezerwacji zostanie do niej przypisany automatycznie. Jeśli potrzeba, zmienisz go w szczegółach rezerwacji przed wysyłką.</p>
     {geowidgetToken && <>
       <InpostPointPicker token={geowidgetToken} disabled={saving} onSelect={selectPoint} />
       <p className="text-xs text-gray-600">Po wybraniu punktu z mapy kod uzupełni się automatycznie. Następnie zapisz punkt.</p>
