@@ -34,9 +34,9 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
   }
   const owner = booking.ownerId === userId;
   const canUpload = stage === "DELIVERY"
-    ? owner ? ["PENDING", "READY"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus)
+    ? owner ? ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus)
     : owner ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)
-      : ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) && ["PENDING", "READY"].includes(booking.returnStatus);
+      : ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) && ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.returnStatus);
   if (!canUpload) throw new Error("Zdjęcia dodaj na właściwym etapie dostawy lub zwrotu.");
 
   const prepared = await Promise.all(files.map(async file => {

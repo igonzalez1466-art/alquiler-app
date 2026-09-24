@@ -44,11 +44,22 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const mine = photos.filter(photo => photo.uploaderId === userId).length;
   const remaining = Math.max(0, 3 - mine);
-  const ownMoment = stage === "DELIVERY" ? userId === ownerId ? "przed przekazaniem" : "po otrzymaniu" : userId === ownerId ? "po odbiorze zwrotu" : "przed zwrotem";
+
+  function selectPhotos() {
+    setError("");
+    input.current?.click();
+  }
+
+  function onPhotosChanged(event: React.ChangeEvent<HTMLInputElement>) {
+    const names = Array.from(event.currentTarget.files ?? []).map(file => file.name);
+    setSelectedNames(names);
+    setError(names.length > remaining ? `Wybierz najwyżej ${remaining} zdjęć.` : "");
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,6 +75,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
       setMessage("Zapisywanie zdjęć…");
       await addBookingEvidencePhotosAction(data);
       if (input.current) input.current.value = "";
+      setSelectedNames([]);
       setMessage("Zdjęcia zapisane. Są widoczne dla obu stron rezerwacji.");
       router.refresh();
     } catch (cause) {
@@ -90,12 +102,16 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
       </li>;
     })}</ul> : <p className="text-sm text-gray-600">Nie dodano jeszcze zdjęć.</p>}
     {canUpload && remaining > 0 && <form onSubmit={submit} className="space-y-2">
-      <label htmlFor={`evidence-${stage}`} className="block text-sm font-medium">Dodaj zdjęcia {ownMoment} (maks. {remaining})</label>
-      <input ref={input} id={`evidence-${stage}`} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} className="block w-full text-sm" />
-      <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-        {busy && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-        {busy ? "Zapisywanie…" : "Zapisz zdjęcia w rezerwacji"}
-      </button>
+      <p className="text-sm font-medium">Dodaj zdjęcia {stage === "DELIVERY" ? "dostawy" : "zwrotu"} (maks. {remaining})</p>
+      <input ref={input} id={`evidence-${stage}`} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={onPhotosChanged} className="sr-only" aria-label="Wybierz zdjęcia" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={selectPhotos} disabled={busy} className="rounded border border-indigo-600 bg-white px-3 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-60">Wybierz zdjęcia</button>
+        {selectedNames.length > 0 && <button type="submit" disabled={busy || selectedNames.length > remaining} className="inline-flex items-center gap-2 rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+          {busy && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {busy ? "Zapisywanie…" : "Zapisz zdjęcia w rezerwacji"}
+        </button>}
+      </div>
+      {selectedNames.length > 0 && <p className="text-xs text-gray-700" role="status">Wybrano: {selectedNames.join(", ")}</p>}
       <p className="text-xs text-gray-600">Duże zdjęcia zostaną zmniejszone przed wysłaniem.</p>
     </form>}
     {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}

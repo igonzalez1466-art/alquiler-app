@@ -830,7 +830,7 @@ export default async function BookingPage({
                   stage="DELIVERY"
                   userId={userId}
                   ownerId={booking.ownerId}
-                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["PENDING", "READY"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus))}
+                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus))}
                   photos={evidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
                 {(isOwner || isRenter) && userId && (
@@ -962,7 +962,7 @@ export default async function BookingPage({
                   stage="RETURN"
                   userId={userId}
                   ownerId={booking.ownerId}
-                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) : deliveryLocked && ["PENDING", "READY"].includes(booking.returnStatus))}
+                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) : deliveryLocked && ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.returnStatus))}
                   photos={evidencePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
                 {(isOwner || isRenter) && userId && (
