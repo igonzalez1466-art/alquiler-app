@@ -6,6 +6,7 @@ import { prisma } from "@/app/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
+import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
 import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
 import { openChatFromBookingAction } from "./actions";
@@ -830,7 +831,8 @@ export default async function BookingPage({
                   stage="DELIVERY"
                   userId={userId}
                   ownerId={booking.ownerId}
-                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus))}
+                  renterId={booking.renterId}
+                  canUpload={canUploadBookingEvidence(booking, "DELIVERY", userId)}
                   photos={evidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
                 {(isOwner || isRenter) && userId && (
@@ -962,7 +964,8 @@ export default async function BookingPage({
                   stage="RETURN"
                   userId={userId}
                   ownerId={booking.ownerId}
-                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) : deliveryLocked && ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.returnStatus))}
+                  renterId={booking.renterId}
+                  canUpload={canUploadBookingEvidence(booking, "RETURN", userId)}
                   photos={evidencePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
                 {(isOwner || isRenter) && userId && (

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { confirmDeliveryAction } from "../_actions/confirmDeliveryAction";
 import { confirmReturnAction } from "../_actions/confirmReturnAction";
 import { reportLogisticsProblemAction } from "../_actions/reportLogisticsProblemAction";
 import { issueReasons } from "@/app/lib/logisticsIssue";
 
 export default function ReceiptActions({ bookingId, stage }: { bookingId: string; stage: "DELIVERY" | "RETURN" }) {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [reason, setReason] = useState("");
@@ -17,7 +19,7 @@ export default function ReceiptActions({ bookingId, stage }: { bookingId: string
     setError("");
     data.set("bookingId", bookingId);
     data.set("stage", stage);
-    try { await action(data); setReporting(false); }
+    try { await action(data); setReporting(false); router.refresh(); }
     catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
     finally { setPending(false); }
   }

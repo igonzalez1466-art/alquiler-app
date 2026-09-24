@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
 import type { BookingEvidenceStage } from "@prisma/client";
 
 const MAX_PHOTOS_PER_PERSON_AND_STAGE = 3;
@@ -27,17 +28,15 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: { ownerId: true, renterId: true, status: true, paymentStatus: true, settlementCompletedAt: true,
-      shippingStatus: true, deliveryConfirmationStatus: true, returnStatus: true },
+      shippingStatus: true, deliveryConfirmationStatus: true, deliveryIssue: true,
+      returnStatus: true, returnConfirmationStatus: true, returnIssue: true },
   });
   if (!booking || (booking.ownerId !== userId && booking.renterId !== userId) || booking.status === "CANCELLED" || booking.paymentStatus !== "PAID" || booking.settlementCompletedAt) {
     throw new Error("Nie możesz dodać zdjęć do tej rezerwacji.");
   }
-  const owner = booking.ownerId === userId;
-  const canUpload = stage === "DELIVERY"
-    ? owner ? ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus)
-    : owner ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)
-      : ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) && ["PENDING", "READY", "SHIPPED", "DELIVERED"].includes(booking.returnStatus);
-  if (!canUpload) throw new Error("Zdjęcia dodaj na właściwym etapie dostawy lub zwrotu.");
+  if (!canUploadBookingEvidence(booking, stage, userId)) {
+    throw new Error("Zdjęcia można dodać przed potwierdzeniem odbioru albo po zgłoszeniu problemu przez osobę odbierającą.");
+  }
 
   const prepared = await Promise.all(files.map(async file => {
     if (file.size > MAX_PHOTO_BYTES) throw new Error("Każde zdjęcie może mieć maksymalnie 750 KB.");
