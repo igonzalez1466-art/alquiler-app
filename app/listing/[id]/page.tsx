@@ -375,6 +375,9 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
             <p className="mt-3 text-xs text-gray-600">
               Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i potwierdzeniu braku uszkodzeń).
             </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Jeśli wybierzecie wysyłkę InPost, koszt etykiety nie jest wliczony w cenę najmu. Osoba nadająca przesyłkę opłaca ją bezpośrednio w InPost.
+            </p>
           </section>
 
           {/* Booking (only not owner) */}

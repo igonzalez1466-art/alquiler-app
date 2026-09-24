@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import InpostTracking from "./_components/InpostTracking";
 import { isInpost, normalizeInpostNumber } from "@/app/lib/inpostTracking";
 import { prisma } from "@/app/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { ApproveButton } from "../_components/ApproveButton";
@@ -11,6 +11,8 @@ import RejectButton from "../_components/RejectButton";
 import { openChatFromBookingAction } from "./actions";
 
 import ShippingForm from "./_components/ShippingForm";
+import BookingProgress from "./_components/BookingProgress";
+import BookingEvidencePhotos from "./_components/BookingEvidencePhotos";
 import InpostDestination from "./_components/InpostDestination";
 import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
@@ -180,6 +182,7 @@ export default async function BookingPage({
 
   const session = await getSession();
   const userId = session?.user?.id ?? null;
+  if (!userId) redirect(`/login?callbackUrl=${encodeURIComponent(`/bookings/${id}`)}`);
 
   const booking = await prisma.booking.findUnique({
     where: { id },
@@ -293,6 +296,14 @@ export default async function BookingPage({
 
   const isRenter =
     !!userId && booking.renterId === userId;
+  if (!isOwner && !isRenter) return notFound();
+  const evidencePhotos = booking.paymentStatus === "PAID"
+    ? await prisma.bookingEvidencePhoto.findMany({
+        where: { bookingId: id },
+        select: { id: true, stage: true, uploaderId: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
   const contactVisible = booking.paymentStatus === "PAID" && (isOwner || isRenter);
   const counterpart = isOwner ? booking.renter : booking.owner;
 
@@ -524,6 +535,8 @@ export default async function BookingPage({
         </div>
       </section>
 
+      {!isCancelled && <BookingProgress booking={booking} />}
+
       {contactVisible && (
         <section className="p-4 border rounded bg-white space-y-2">
           <h2 className="text-lg font-semibold">Kontakt do {isOwner ? "najemcy" : "właściciela"}</h2>
@@ -711,7 +724,7 @@ export default async function BookingPage({
               {isRenter && (
                 <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
                   <span className="font-semibold">
-                    Razem do zapłaty
+                    Razem do zapłaty w MojaSzafa
                   </span>
 
                   <span className="font-bold text-indigo-700">
@@ -719,6 +732,7 @@ export default async function BookingPage({
                   </span>
                 </div>
               )}
+              <p className="text-xs text-gray-600">Przy wysyłce InPost koszt etykiety nie jest wliczony w płatność za rezerwację. Osoba nadająca przesyłkę opłaca ją bezpośrednio w InPost.</p>
             </div>
           </section>
 
@@ -811,6 +825,14 @@ export default async function BookingPage({
                   recipient={{ name: booking.renter.name, email: booking.renter.email, phone: booking.renter.phoneVerifiedAt ? booking.renter.phone : null }}
                 />}
 
+                {userId && <BookingEvidencePhotos
+                  bookingId={id}
+                  stage="DELIVERY"
+                  userId={userId}
+                  ownerId={booking.ownerId}
+                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["PENDING", "READY"].includes(booking.shippingStatus) : ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus))}
+                  photos={evidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
+                />}
                 {(isOwner || isRenter) && userId && (
                   <LogisticsIssuePanel
                     bookingId={id}
@@ -935,6 +957,14 @@ export default async function BookingPage({
                   recipient={{ name: booking.owner.name, email: booking.owner.email, phone: booking.owner.phoneVerifiedAt ? booking.owner.phone : null }}
                 />}
 
+                {userId && <BookingEvidencePhotos
+                  bookingId={id}
+                  stage="RETURN"
+                  userId={userId}
+                  ownerId={booking.ownerId}
+                  canUpload={!booking.settlementCompletedAt && (isOwner ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) : deliveryLocked && ["PENDING", "READY"].includes(booking.returnStatus))}
+                  photos={evidencePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
+                />}
                 {(isOwner || isRenter) && userId && (
                   <LogisticsIssuePanel
                     bookingId={id}

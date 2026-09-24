@@ -5,8 +5,8 @@ import AnalyticsLoader from "./components/AnalyticsLoader";
 import Footer from "./components/Footer"; // 👈 añade el footer
 
 export const metadata = {
-  title: "Alquiler App",
-  description: "Alquiler de bicicletas entre usuarios",
+  title: "MojaSzafa — wypożyczaj ubrania",
+  description: "Wypożyczaj i udostępniaj ubrania między osobami w Polsce.",
 };
 
 export default function RootLayout({
@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang="pl" className="h-full antialiased">
       <body className="min-h-full bg-background text-foreground font-sans">
         <NavbarWrapper />
 

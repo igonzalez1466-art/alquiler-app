@@ -7,6 +7,7 @@ import { startStripeConnectOnboarding } from "./connectActions";
 import PhoneVerification from "./PhoneVerification";
 import PreferredInpostPointForm from "./PreferredInpostPointForm";
 import { maskPhone } from "@/app/lib/phoneVerification";
+import AccountNextActions from "./AccountNextActions";
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -78,6 +79,8 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
   return (
     <div className="max-w-xl mx-auto mt-8 space-y-6">
       <h1 className="text-2xl font-bold">Mój profil</h1>
+
+      <AccountNextActions />
 
       <div className="rounded border p-4 space-y-2 bg-white">
         <p>

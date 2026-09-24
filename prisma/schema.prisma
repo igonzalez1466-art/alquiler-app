@@ -207,6 +207,7 @@ model Booking {
   owner   User    @relation("BookingOwner", fields: [ownerId], references: [id])
   renter  User    @relation("BookingRenter", fields: [renterId], references: [id])
 
+  evidencePhotos BookingEvidencePhoto[]
   reviews Review[]
 
   startDate DateTime
@@ -352,6 +353,27 @@ model Booking {
   @@index([deliveryConfirmationStatus, deliveryConfirmBy])
   @@index([returnConfirmationStatus, returnConfirmBy])
   @@index([damageClaimStatus, damageClaimBy])
+}
+
+model BookingEvidencePhoto {
+  id         String               @id @default(cuid())
+  bookingId  String
+  uploaderId String
+  stage      BookingEvidenceStage
+  slot       Int
+  mimeType   String
+  data       Bytes                @db.ByteA
+  createdAt  DateTime             @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, stage, createdAt])
+  @@unique([bookingId, stage, uploaderId, slot])
+}
+
+enum BookingEvidenceStage {
+  DELIVERY
+  RETURN
 }
 
 model Review {
