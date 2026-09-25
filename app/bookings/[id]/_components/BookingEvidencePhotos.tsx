@@ -3,42 +3,11 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
 import { addBookingEvidencePhotosAction } from "../_actions/addBookingEvidencePhotosAction";
 
 type Photo = { id: string; uploaderId: string; createdAt: string };
 type Props = { bookingId: string; stage: "DELIVERY" | "RETURN"; userId: string; ownerId: string; renterId: string; canUpload: boolean; photos: Photo[] };
-
-async function preparePhoto(file: File): Promise<File> {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Wybierz zdjęcia JPG, PNG lub WebP.");
-  if (file.size <= 700_000) return file;
-  const url = URL.createObjectURL(file);
-  const image = new window.Image();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error("Nie udało się odczytać zdjęcia."));
-      image.src = url;
-    });
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Nie udało się przygotować zdjęcia.");
-    for (const side of [1600, 1280, 1024, 800]) {
-      const scale = Math.min(1, side / Math.max(image.naturalWidth, image.naturalHeight));
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-      context.fillStyle = "#fff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      for (const quality of [0.82, 0.7, 0.58]) {
-        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error("Nie udało się przygotować zdjęcia.")), "image/jpeg", quality));
-        if (blob.size <= 700_000) return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
-      }
-    }
-    throw new Error("Zdjęcie jest zbyt duże. Wybierz mniejszy plik.");
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerId, renterId, canUpload, photos }: Props) {
   const router = useRouter();
@@ -78,7 +47,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
       const data = new FormData();
       data.set("bookingId", bookingId);
       data.set("stage", stage);
-      for (const file of files) data.append("photos", await preparePhoto(file));
+      for (const file of files) data.append("photos", await prepareBookingPhoto(file));
       setMessage("Zapisywanie zdjęć…");
       await addBookingEvidencePhotosAction(data);
       if (input.current) input.current.value = "";
@@ -105,7 +74,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
           <h4 className="text-sm font-semibold">{bucket.title}</h4>
           <span className="text-xs text-gray-600">{bucketPhotos.length}/3</span>
         </div>
-        {bucket.reportOnly && <p className="text-xs text-gray-600">Zdjęcia można dodać po wysłaniu zgłoszenia problemu. Potwierdzenie odbioru bez zastrzeżeń zamyka tę możliwość.</p>}
+        {bucket.reportOnly && <p className="text-xs text-gray-600">Przy uszkodzeniu lub brakujących elementach zdjęcia można dołączyć do zgłoszenia problemu. Po wysłaniu zgłoszenia można dodać pozostałe zdjęcia. Potwierdzenie odbioru bez zastrzeżeń zamyka tę możliwość.</p>}
         {bucketPhotos.length > 0 ? <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">{bucketPhotos.map(photo => {
       const href = `/api/bookings/${bookingId}/evidence/${photo.id}`;
       return <li key={photo.id} className="overflow-hidden rounded border bg-white">

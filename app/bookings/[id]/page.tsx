@@ -854,7 +854,7 @@ export default async function BookingPage({
                 )}
 
                 {renterCanConfirmDelivery && (
-                  <ReceiptActions bookingId={id} stage="DELIVERY" />
+                  <ReceiptActions bookingId={id} stage="DELIVERY" remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === userId).length)} />
                 )}
 
                 {canOwnerEditShipping && !deliveryLocked && (
@@ -990,7 +990,7 @@ export default async function BookingPage({
                 )}
 
                 {ownerCanConfirmReturn && (
-                  <ReceiptActions bookingId={id} stage="RETURN" />
+                  <ReceiptActions bookingId={id} stage="RETURN" remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === userId).length)} />
                 )}
 
                 {canRenterEditReturn && (
