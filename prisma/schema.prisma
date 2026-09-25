@@ -355,6 +355,7 @@ model Booking {
   @@index([damageClaimStatus, damageClaimBy])
 }
 
+/// Append-only evidence: the database checks the uploader, sets the time and rejects updates.
 model BookingEvidencePhoto {
   id         String               @id @default(cuid())
   bookingId  String

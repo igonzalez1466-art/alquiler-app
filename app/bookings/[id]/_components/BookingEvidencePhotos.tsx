@@ -80,7 +80,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
       return <li key={photo.id} className="overflow-hidden rounded border bg-white">
         <a href={href} target="_blank" rel="noreferrer" className="block" aria-label={`Otwórz zdjęcie: ${bucket.role}, ${new Date(photo.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}`}>
           <span className="relative block aspect-[4/3]"><Image src={href} alt={`Stan przedmiotu — ${bucket.role}`} fill unoptimized className="object-cover" /></span>
-          <span className="block p-2 text-xs">{new Date(photo.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</span>
+          <span className="block p-2 text-xs">Dodano: {new Date(photo.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</span>
         </a>
       </li>;
     })}</ul> : <p className="text-sm text-gray-600">Nie dodano jeszcze zdjęć.</p>}
