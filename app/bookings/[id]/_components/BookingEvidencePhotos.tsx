@@ -52,7 +52,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
       await addBookingEvidencePhotosAction(data);
       if (input.current) input.current.value = "";
       setSelectedNames([]);
-      setMessage("Zdjęcia zapisane. Są widoczne dla obu stron rezerwacji.");
+      setMessage("Zdjęcia zapisane w rezerwacji.");
       router.refresh();
     } catch (cause) {
       setMessage("");
@@ -65,7 +65,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
   return <section className="rounded-lg border bg-gray-50 p-3 space-y-3" aria-label={stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}>
     <div>
       <h3 className="font-semibold">{stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}</h3>
-      <p className="text-xs text-gray-600">Każda strona może dodać maksymalnie 3 zdjęcia na tym etapie. Zdjęcia są widoczne tylko dla stron rezerwacji i nie można ich zmienić po zapisaniu.</p>
+      <p className="text-xs text-gray-600">Każda strona może dodać maksymalnie 3 zdjęcia na tym etapie. Druga strona zobaczy zdjęcia dopiero po oznaczeniu przesyłki jako „Wysłano”. Zapisanych zdjęć nie można zmienić.</p>
     </div>
     {buckets.map(bucket => {
       const bucketPhotos = photos.filter(photo => photo.uploaderId === bucket.uploaderId);

@@ -7,6 +7,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
+import { canViewBookingEvidencePhoto } from "@/app/lib/bookingEvidenceVisibility";
 import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
 import { openChatFromBookingAction } from "./actions";
@@ -305,6 +306,7 @@ export default async function BookingPage({
         orderBy: { createdAt: "asc" },
       })
     : [];
+  const visibleEvidencePhotos = evidencePhotos.filter(photo => canViewBookingEvidencePhoto(booking, photo, userId));
   const contactVisible = booking.paymentStatus === "PAID" && (isOwner || isRenter);
   const counterpart = isOwner ? booking.renter : booking.owner;
 
@@ -833,7 +835,7 @@ export default async function BookingPage({
                   ownerId={booking.ownerId}
                   renterId={booking.renterId}
                   canUpload={canUploadBookingEvidence(booking, "DELIVERY", userId)}
-                  photos={evidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
+                  photos={visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
                 {(isOwner || isRenter) && userId && (
                   <LogisticsIssuePanel
@@ -966,7 +968,7 @@ export default async function BookingPage({
                   ownerId={booking.ownerId}
                   renterId={booking.renterId}
                   canUpload={canUploadBookingEvidence(booking, "RETURN", userId)}
-                  photos={evidencePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
+                  photos={visibleEvidencePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
                 {(isOwner || isRenter) && userId && (
                   <LogisticsIssuePanel
