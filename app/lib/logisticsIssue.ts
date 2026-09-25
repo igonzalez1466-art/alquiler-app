@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 export const issueReasons = {
   NOT_RECEIVED: "Nie otrzymano przedmiotu",
   DAMAGED: "Przedmiot jest uszkodzony",
+  DIRTY: "Przedmiot jest zabrudzony",
   MISSING_ITEMS: "Brakuje elementów lub akcesoriów",
   OTHER: "Inny problem",
 } as const;
@@ -46,7 +47,7 @@ export function issueReasonLabel(reason: IssueDetails["reason"]) {
 
 // A carrier's delivered status alone does not prove personal receipt.
 export function issueConfirmsReceipt(issue: IssueDetails | null): boolean {
-  return !!issue && (issue.reason === "DAMAGED" || issue.reason === "MISSING_ITEMS" ||
+  return !!issue && (issue.reason === "DAMAGED" || issue.reason === "DIRTY" || issue.reason === "MISSING_ITEMS" ||
     (issue.reason === "OTHER" && issue.received === true));
 }
 export function hasReturnReceipt(b: { returnConfirmationStatus: string; returnIssue: Prisma.JsonValue | null; ownerId: string }): boolean {

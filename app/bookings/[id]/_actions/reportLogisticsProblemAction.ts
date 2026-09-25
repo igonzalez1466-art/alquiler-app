@@ -20,14 +20,14 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   if (input.reason === "OTHER" && !["yes", "no"].includes(String(formData.get("received")))) throw new Error("Wskaż, czy przedmiot został odebrany.");
   const files = formData.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0);
   if (files.length > MAX_PHOTOS_PER_PERSON_AND_STAGE) throw new Error("Możesz dodać najwyżej 3 zdjęcia.");
-  if (files.length && !["DAMAGED", "MISSING_ITEMS"].includes(input.reason)) {
-    throw new Error("Zdjęcia dodaj przy zgłoszeniu uszkodzenia lub brakujących elementów.");
+  if (files.length && !["DAMAGED", "DIRTY", "MISSING_ITEMS"].includes(input.reason)) {
+    throw new Error("Zdjęcia dodaj przy zgłoszeniu uszkodzenia, zabrudzenia lub brakujących elementów.");
   }
   const preparedPhotos = await prepareBookingEvidencePhotoFiles(files);
   const now = new Date();
   const issue: IssueDetails = {
     ...input,
-    received: input.reason === "DAMAGED" || input.reason === "MISSING_ITEMS" || (input.reason === "OTHER" && formData.get("received") === "yes"),
+    received: input.reason === "DAMAGED" || input.reason === "DIRTY" || input.reason === "MISSING_ITEMS" || (input.reason === "OTHER" && formData.get("received") === "yes"),
     reportedById: userId,
     reportedAt: now.toISOString(),
     resolvedById: null,

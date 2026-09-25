@@ -45,11 +45,11 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       </div>
     </> : <form onSubmit={(event) => {
       event.preventDefault();
-      const photos = reason === "DAMAGED" || reason === "MISSING_ITEMS" ? Array.from(photoInput.current?.files ?? []) : [];
+      const photos = reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS" ? Array.from(photoInput.current?.files ?? []) : [];
       void submit(reportLogisticsProblemAction, new FormData(event.currentTarget), photos);
     }} className="rounded border border-rose-200 p-3 space-y-3">
       <h3 className="font-medium">Zgłoś problem</h3>
-      <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
+      <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia, zabrudzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
       <label className="block text-sm">Powód
         <select name="reason" required value={reason} onChange={event => {
           setReason(event.target.value);
@@ -69,7 +69,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       <label className="block text-sm">Opis problemu
         <textarea name="description" required maxLength={2000} rows={3} disabled={pending} className="mt-1 border rounded p-2 w-full" />
       </label>
-      {(reason === "DAMAGED" || reason === "MISSING_ITEMS") && <div className="space-y-2 rounded border border-rose-200 bg-white p-3">
+      {(reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS") && <div className="space-y-2 rounded border border-rose-200 bg-white p-3">
         <p className="text-sm font-medium">Zdjęcia problemu (opcjonalnie, maks. {remainingPhotos})</p>
         {remainingPhotos > 0 ? <>
         <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={pending}

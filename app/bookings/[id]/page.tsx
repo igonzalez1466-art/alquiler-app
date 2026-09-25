@@ -1085,7 +1085,7 @@ export default async function BookingPage({
                     canPropose={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
                     canProposeNotReturned={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && canClaimNotReturned(booking)}
                     initialReason={readIssue(booking.returnIssue)?.description ?? ""}
-                    initialReasonCode={readIssue(booking.returnIssue)?.reason === "MISSING_ITEMS" ? "MISSING_ITEM" : readIssue(booking.returnIssue)?.reason === "DAMAGED" ? "DAMAGE" : "OTHER"}
+                    initialReasonCode={readIssue(booking.returnIssue)?.reason === "MISSING_ITEMS" ? "MISSING_ITEM" : readIssue(booking.returnIssue)?.reason === "DAMAGED" ? "DAMAGE" : readIssue(booking.returnIssue)?.reason === "DIRTY" ? "STAINING" : "OTHER"}
                     completed={!!booking.settlementCompletedAt}
                     settling={settlementPending}
                     canRefund={canOwnerManageDeposit && !booking.settlementDecision}

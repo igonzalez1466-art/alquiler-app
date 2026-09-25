@@ -74,7 +74,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
           <h4 className="text-sm font-semibold">{bucket.title}</h4>
           <span className="text-xs text-gray-600">{bucketPhotos.length}/3</span>
         </div>
-        {bucket.reportOnly && <p className="text-xs text-gray-600">Przy uszkodzeniu lub brakujących elementach zdjęcia można dołączyć do zgłoszenia problemu. Po wysłaniu zgłoszenia można dodać pozostałe zdjęcia. Potwierdzenie odbioru bez zastrzeżeń zamyka tę możliwość.</p>}
+        {bucket.reportOnly && <p className="text-xs text-gray-600">Przy uszkodzeniu, zabrudzeniu lub brakujących elementach zdjęcia można dołączyć do zgłoszenia problemu. Po wysłaniu zgłoszenia można dodać pozostałe zdjęcia. Potwierdzenie odbioru bez zastrzeżeń zamyka tę możliwość.</p>}
         {bucketPhotos.length > 0 ? <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">{bucketPhotos.map(photo => {
       const href = `/api/bookings/${bookingId}/evidence/${photo.id}`;
       return <li key={photo.id} className="overflow-hidden rounded border bg-white">
