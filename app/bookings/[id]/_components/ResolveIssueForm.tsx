@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { resolveLogisticsProblemAction } from "../_actions/resolveLogisticsProblemAction";
 
 export default function ResolveIssueForm({ bookingId, stage }: { bookingId: string; stage: "DELIVERY" | "RETURN" }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -16,7 +18,7 @@ export default function ResolveIssueForm({ bookingId, stage }: { bookingId: stri
     data.set("stage", stage);
     setPending(true);
     setError("");
-    try { await resolveLogisticsProblemAction(data); setExpanded(false); }
+    try { await resolveLogisticsProblemAction(data); setExpanded(false); router.refresh(); }
     catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
     finally { setPending(false); }
   }}>

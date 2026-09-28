@@ -123,6 +123,7 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
               📅 Moje rezerwacje
             </Link>
           </li>
+          <li><Link href="/account/incidents">⚑ Moje incydenty</Link></li>
           <li><Link href="/account/transactions">💳 Historia transakcji</Link></li>
         </ul>
       </div>

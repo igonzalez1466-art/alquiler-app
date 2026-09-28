@@ -64,4 +64,6 @@ export async function resolveLogisticsProblemAction(formData: FormData) {
   if (stage === "RETURN") await tryInviteBookingReview(bookingId);
   revalidatePath("/bookings/" + bookingId);
   revalidatePath("/bookings");
+  revalidatePath("/account/incidents/" + bookingId);
+  revalidatePath("/account/incidents");
 }

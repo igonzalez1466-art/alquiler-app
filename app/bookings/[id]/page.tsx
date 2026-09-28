@@ -8,6 +8,7 @@ import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
 import { canViewBookingEvidencePhoto } from "@/app/lib/bookingEvidenceVisibility";
+import { hasIncident, incidentState, incidentTopics } from "@/app/lib/incidentCase";
 import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
 import { openChatFromBookingAction } from "./actions";
@@ -20,10 +21,9 @@ import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
-import { canClaimNotReturned, claimReasonFromReturnIssue, isNotReturnedClaimReason, readDepositClaim } from "@/app/lib/depositClaim";
+import { canClaimNotReturned, claimReasonFromReturnIssue, readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 
-import LogisticsIssuePanel from "./_components/LogisticsIssuePanel";
 import ReceiptActions from "./_components/ReceiptActions";
 import { canReceive } from "@/app/lib/logistics";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
@@ -212,6 +212,7 @@ export default async function BookingPage({
 
       // Fianza
       depositStatus: true,
+      depositDecisionAt: true,
       depositClaim: true,
       settlementDecision: true,
       settlementCompletedAt: true,
@@ -442,6 +443,10 @@ export default async function BookingPage({
       booking.depositStatus === "PAID" ||
       settlementPending
     );
+
+  const bookingHasIncident = hasIncident(booking);
+  const currentIncidentState = bookingHasIncident ? incidentState(booking, userId) : null;
+  const depositIncident = booking.returnIssue !== null || booking.depositClaim !== null || booking.returnConfirmationStatus === "DISPUTED";
 
   const paymentLabel =
     booking.paymentStatus === "PAID"
@@ -739,6 +744,13 @@ export default async function BookingPage({
             </div>
           </section>
 
+          {bookingHasIncident && currentIncidentState && <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Incydent w rezerwacji</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold">{currentIncidentState.label}</span></div>
+            <div className="flex flex-wrap gap-2">{incidentTopics(booking).map(topic => <span key={topic.label} className="rounded border bg-white px-2 py-1 text-xs">{topic.label}: {topic.detail}</span>)}</div>
+            <p className="text-sm">{currentIncidentState.next}</p>
+            <Link href={`/account/incidents/${encodeURIComponent(id)}`} className="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Zobacz przebieg i dostępne działania</Link>
+          </section>}
+
           {/* LOGÍSTICA */}
 
           {!logisticsEnabled ? (
@@ -837,28 +849,6 @@ export default async function BookingPage({
                   canUpload={canUploadBookingEvidence(booking, "DELIVERY", userId)}
                   photos={visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
-                {(isOwner || isRenter) && userId && (
-                  <LogisticsIssuePanel
-                    bookingId={id}
-                    stage="DELIVERY"
-                    stored={booking.deliveryIssue}
-                    disputed={booking.deliveryConfirmationStatus === "DISPUTED"}
-                    recipientId={booking.renterId}
-                    userId={userId}
-                    canResolve={canReceive({ ...booking, deliveryConfirmationStatus: "AWAITING_CONFIRMATION" }, "DELIVERY")}
-                    facts={{
-                      expectedAt: booking.startDate,
-                      sentAt: booking.shippedAt,
-                      receivedAt: booking.deliveredAt,
-                      carrier: booking.carrier,
-                      trackingNumber: booking.trackingNumber,
-                      ownerPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === booking.ownerId).length,
-                      renterPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === booking.renterId).length,
-                      rentCents: rentAmountCents,
-                      depositCents,
-                    }}
-                  />
-                )}
 
                 {(isOwner || isRenter) && isInpost(booking.carrier) && booking.trackingNumber && (
                   deliveryTracking ? <Suspense key={deliveryTracking} fallback={<p className="text-sm text-gray-500">Pobieranie statusu InPost…</p>}>
@@ -981,31 +971,6 @@ export default async function BookingPage({
                   canUpload={canUploadBookingEvidence(booking, "RETURN", userId)}
                   photos={visibleEvidencePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
                 />}
-                {(isOwner || isRenter) && userId && (
-                  <LogisticsIssuePanel
-                    bookingId={id}
-                    stage="RETURN"
-                    receiptConfirmed={booking.returnConfirmedAt !== null}
-                    hasDepositClaim={readDepositClaim(booking.depositClaim) !== null}
-                    claimNotReturned={isNotReturnedClaimReason(readDepositClaim(booking.depositClaim)?.reasonCode ?? "")}
-                    stored={booking.returnIssue}
-                    disputed={booking.returnConfirmationStatus === "DISPUTED"}
-                    recipientId={booking.ownerId}
-                    userId={userId}
-                    canResolve={booking.depositClaim === null && canReceive({ ...booking, returnConfirmationStatus: "AWAITING_CONFIRMATION" }, "RETURN")}
-                    facts={{
-                      expectedAt: booking.endDate,
-                      sentAt: booking.returnShippedAt,
-                      receivedAt: booking.returnDeliveredAt,
-                      carrier: booking.returnCarrier,
-                      trackingNumber: booking.returnTrackingNumber,
-                      ownerPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === booking.ownerId).length,
-                      renterPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === booking.renterId).length,
-                      rentCents: rentAmountCents,
-                      depositCents,
-                    }}
-                  />
-                )}
 
                 {(isOwner || isRenter) && isInpost(booking.returnCarrier) && booking.returnTrackingNumber && (
                   returnTracking ? <Suspense key={returnTracking} fallback={<p className="text-sm text-gray-500">Pobieranie statusu InPost…</p>}>
@@ -1094,7 +1059,8 @@ export default async function BookingPage({
                   </div>
                 )}
 
-                {(isOwner || isRenter) && (
+                {depositIncident && <Link href={`/account/incidents/${encodeURIComponent(id)}`} className="text-sm font-medium text-indigo-700 underline">Szczegóły incydentu i działania dotyczące kaucji →</Link>}
+                {(isOwner || isRenter) && !depositIncident && (
                   <DepositClaimPanel
                     bookingId={id}
                     depositCents={booking.depositCents ?? 0}

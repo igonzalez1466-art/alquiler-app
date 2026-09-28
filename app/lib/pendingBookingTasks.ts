@@ -10,7 +10,13 @@ export type TaskBooking = Pick<Booking, "id" | "bookingNumber" | "ownerId" | "re
 export function bookingTask(b: TaskBooking, userId: string, now = new Date()): PendingTask | null {
   const owner = b.ownerId === userId, renter = b.renterId === userId;
   if ((!owner && !renter) || b.status === "CANCELLED" || b.cancelledAt || b.settlementCompletedAt) return null;
-  const task = (kind: string, title: string, description: string, priority = 2, deadline: Date | null = null): PendingTask => ({ id: `${b.id}:${kind}`, bookingNumber: b.bookingNumber, listing: b.listing.title, title, description, href: `/bookings/${encodeURIComponent(b.id)}`, priority, deadline: deadline?.toISOString() ?? null });
+  const task = (kind: string, title: string, description: string, priority = 2, deadline: Date | null = null): PendingTask => ({
+    id: `${b.id}:${kind}`, bookingNumber: b.bookingNumber, listing: b.listing.title, title, description,
+    href: ["claim", "settle", "deliveryIssue", "deliveryIssueOwner", "returnIssue", "returnIssueRenter"].includes(kind) ||
+      (["deposit", "retry"].includes(kind) && (b.returnIssue !== null || b.depositClaim !== null))
+      ? `/account/incidents/${encodeURIComponent(b.id)}` : `/bookings/${encodeURIComponent(b.id)}`,
+    priority, deadline: deadline?.toISOString() ?? null,
+  });
   if (b.status === "PENDING") {
     const deadline = getApprovalDeadline(b.createdAt);
     return owner && deadline > now ? task("approve", "Odpowiedz na prośbę o wynajem", "Zaakceptuj lub odrzuć rezerwację.", 0, deadline) : null;

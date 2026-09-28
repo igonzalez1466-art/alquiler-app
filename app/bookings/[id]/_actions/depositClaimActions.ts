@@ -26,6 +26,8 @@ function refresh(id: string) {
   revalidatePath("/bookings/" + id);
   revalidatePath("/bookings");
   revalidatePath("/admin/deposit-claims");
+  revalidatePath("/account/incidents/" + id);
+  revalidatePath("/account/incidents");
 }
 async function lock(tx: Prisma.TransactionClient, id: string) {
   await tx.$queryRaw`SELECT "id" FROM "Booking" WHERE "id" = ${id} FOR UPDATE`;

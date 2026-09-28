@@ -59,4 +59,6 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   await notifyLogisticsIssue(bookingId, stage, issue);
   revalidatePath("/bookings/" + bookingId);
   revalidatePath("/bookings");
+  revalidatePath("/account/incidents/" + bookingId);
+  revalidatePath("/account/incidents");
 }
