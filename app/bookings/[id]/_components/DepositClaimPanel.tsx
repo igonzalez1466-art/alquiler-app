@@ -2,7 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { claimReasons, type DepositClaim } from "@/app/lib/depositClaim";
+import { claimReasonOptions, claimReasons, type DepositClaim } from "@/app/lib/depositClaim";
 import { proposeDepositClaimAction, respondDepositClaimAction, resolveDepositClaimBySupportAction } from "../_actions/depositClaimActions";
 import { releaseDepositAction, executeApprovedClaimAction } from "./settlementClientActions";
 import PayoutSetupNotice from "./PayoutSetupNotice";
@@ -14,7 +14,7 @@ type Props = {
   isOwner: boolean; isRenter: boolean; receiptKnown?: boolean; isSupport?: boolean; canPropose?: boolean;
   canProposeNotReturned?: boolean;
   canRefund?: boolean; returnCompleted?: boolean; initialReason?: string;
-  initialReasonCode?: keyof typeof claimReasons; completed: boolean; settling: boolean;
+  initialReasonCode?: (typeof claimReasonOptions)[number]["value"]; completed: boolean; settling: boolean;
 };
 
 export default function DepositClaimPanel(p: Props) {
@@ -96,7 +96,8 @@ export default function DepositClaimPanel(p: Props) {
             <input type="number" name="retainedAmountZl" min="0.01" max={p.depositCents / 100} step="0.01" required disabled={pending} className={input} />
           </label>
           <p>Wpisz {money(p.depositCents)}, aby zaproponować zatrzymanie całej kaucji.</p>
-          <label className="block">Powód<select name="reasonCode" defaultValue={p.canProposeNotReturned ? "NOT_RETURNED" : p.initialReasonCode ?? "OTHER"} disabled={pending} className={input}>{Object.entries(claimReasons).filter(([value]) => p.canProposeNotReturned ? value === "NOT_RETURNED" : value !== "NOT_RETURNED").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="block">Powód<select name="reasonCode" defaultValue={p.canProposeNotReturned ? "NOT_RECEIVED" : p.initialReasonCode ?? "DAMAGED"} disabled={pending} className={input}>{claimReasonOptions.filter(({ value }) => p.canProposeNotReturned ? value === "NOT_RECEIVED" : p.initialReasonCode ? value === p.initialReasonCode : value !== "NOT_RECEIVED").map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {p.initialReasonCode && !p.canProposeNotReturned && <p className="text-xs text-gray-600">Powód potrącenia odpowiada zgłoszonemu problemowi ze zwrotem.</p>}
           <label className="block">Opis i uzasadnienie kwoty<textarea name="reason" defaultValue={p.initialReason ?? ""} required maxLength={2000} rows={3} disabled={pending} className={input} /></label>
           {!p.canProposeNotReturned && !p.receiptKnown && <label className="flex items-start gap-2"><input type="checkbox" name="received" value="yes" required disabled={pending} /><span>Potwierdzam faktyczny odbiór zwracanego przedmiotu. Zgłoszony problem nadal wymaga rozliczenia.</span></label>}
           <div className="flex gap-2"><button disabled={pending} className={button}>Wyślij propozycję najemcy</button><button type="button" disabled={pending} onClick={() => setProposing(false)} className={button}>Anuluj</button></div>

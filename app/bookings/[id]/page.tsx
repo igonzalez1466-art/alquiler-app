@@ -20,7 +20,7 @@ import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
-import { canClaimNotReturned, readDepositClaim } from "@/app/lib/depositClaim";
+import { canClaimNotReturned, claimReasonFromReturnIssue, isNotReturnedClaimReason, readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 
 import LogisticsIssuePanel from "./_components/LogisticsIssuePanel";
@@ -987,7 +987,7 @@ export default async function BookingPage({
                     stage="RETURN"
                     receiptConfirmed={booking.returnConfirmedAt !== null}
                     hasDepositClaim={readDepositClaim(booking.depositClaim) !== null}
-                    claimNotReturned={readDepositClaim(booking.depositClaim)?.reasonCode === "NOT_RETURNED"}
+                    claimNotReturned={isNotReturnedClaimReason(readDepositClaim(booking.depositClaim)?.reasonCode ?? "")}
                     stored={booking.returnIssue}
                     disputed={booking.returnConfirmationStatus === "DISPUTED"}
                     recipientId={booking.ownerId}
@@ -1104,10 +1104,10 @@ export default async function BookingPage({
                     isRenter={isRenter}
                     returnCompleted={returnCompleted}
                     receiptKnown={hasReturnReceipt(booking)}
-                    canPropose={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus)}
+                    canPropose={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) && !(readIssue(booking.returnIssue)?.reason === "NOT_RECEIVED" && !readIssue(booking.returnIssue)?.resolvedAt)}
                     canProposeNotReturned={isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && canClaimNotReturned(booking)}
                     initialReason={readIssue(booking.returnIssue)?.description ?? ""}
-                    initialReasonCode={readIssue(booking.returnIssue)?.reason === "MISSING_ITEMS" ? "MISSING_ITEM" : readIssue(booking.returnIssue)?.reason === "DAMAGED" ? "DAMAGE" : readIssue(booking.returnIssue)?.reason === "DIRTY" ? "STAINING" : readIssue(booking.returnIssue)?.reason === "LATE_RETURN" ? "LATE_RETURN" : "OTHER"}
+                    initialReasonCode={readIssue(booking.returnIssue)?.resolvedAt ? undefined : claimReasonFromReturnIssue(readIssue(booking.returnIssue)?.reason)}
                     completed={!!booking.settlementCompletedAt}
                     settling={settlementPending}
                     canRefund={canOwnerManageDeposit && !booking.settlementDecision}

@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { claimReasons, canClaimNotReturned, readDepositClaim, parseClaimAmount, claimSettlement, type DepositClaim } from "@/app/lib/depositClaim";
+import { claimReasonOptions, canClaimNotReturned, isNotReturnedClaimReason, readDepositClaim, parseClaimAmount, claimSettlement, type DepositClaim } from "@/app/lib/depositClaim";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 import { releaseDepositAction, partialReleaseDepositAction, retainDepositAction, retrySettlementAction } from "./depositActions";
@@ -37,12 +37,12 @@ export async function proposeDepositClaimAction(data: FormData) {
   const retainedCents = parseClaimAmount(data.get("retainedAmountZl"));
   const reason = String(data.get("reason") || "").trim();
   const reasonCode = String(data.get("reasonCode") || "");
-  if (!Object.hasOwn(claimReasons, reasonCode) || !reason || reason.length > 2000 || retainedCents <= 0) {
+  if (!claimReasonOptions.some(option => option.value === reasonCode) || !reason || reason.length > 2000 || retainedCents <= 0) {
     throw new Error("Podaj kwotę, powód i opis (do 2000 znaków).");
   }
   const notification = await prisma.$transaction(async tx => {
     const b = await lock(tx, id);
-    const notReturned = reasonCode === "NOT_RETURNED";
+    const notReturned = reasonCode === "NOT_RECEIVED";
     if (b.ownerId !== userId || b.ownerId === b.renterId) throw new Error("Brak uprawnień");
     if (b.status === "CANCELLED" || b.cancelledAt || b.paymentStatus !== "PAID" ||
       b.depositStatus !== "PAID" || !b.depositCents || retainedCents > b.depositCents ||
@@ -52,6 +52,11 @@ export async function proposeDepositClaimAction(data: FormData) {
       !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
       (notReturned ? !canClaimNotReturned(b) : !["SHIPPED", "DELIVERED"].includes(b.returnStatus))) throw new Error("Nie można teraz utworzyć roszczenia.");
     if (!notReturned && !hasReturnReceipt(b) && data.get("received") !== "yes") throw new Error("Potwierdź faktyczny odbiór zwracanego przedmiotu.");
+    const reportedIssue = readIssue(b.returnIssue);
+    if (reportedIssue && !reportedIssue.resolvedAt && reportedIssue.reportedById === userId &&
+      reportedIssue.reason !== "OTHER" && reportedIssue.reason !== "LEGACY" && reportedIssue.reason !== reasonCode) {
+      throw new Error("Powód roszczenia musi odpowiadać zgłoszonemu problemowi ze zwrotem.");
+    }
     const deadline = getDepositDecisionDeadline(b.returnConfirmedAt);
     if (deadline && deadline <= new Date()) throw new Error("Termin zgłoszenia roszczenia upłynął.");
     if (await tx.settlementOperation.findFirst({ where: { bookingId: id }, select: { id: true } })) {
@@ -109,11 +114,11 @@ async function approve(tx: Prisma.TransactionClient, b: Awaited<ReturnType<typeo
   const issue = readIssue(b.returnIssue);
   await tx.booking.update({ where: { id: b.id }, data: {
     depositClaim: claim, damageClaimStatus: "RESOLVED",
-    ...(claim.reasonCode === "NOT_RETURNED" ? {} : {
+    ...(isNotReturnedClaimReason(claim.reasonCode) ? {} : {
       returnConfirmationStatus: "CONFIRMED", returnConfirmedAt: b.returnConfirmedAt ?? now,
       returnConfirmedBy: "OWNER", returnConfirmBy: null,
     }),
-    ...(issue && claim.reasonCode !== "NOT_RETURNED" ? { returnIssue: { ...issue, resolvedAt: now.toISOString(), resolvedById: claim.approvedById } } : {}),
+    ...(issue && !isNotReturnedClaimReason(claim.reasonCode) ? { returnIssue: { ...issue, resolvedAt: now.toISOString(), resolvedById: claim.approvedById } } : {}),
   } });
 }
 

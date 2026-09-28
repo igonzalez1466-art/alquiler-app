@@ -1,11 +1,23 @@
 import type { Prisma } from "@prisma/client";
-import { readIssue } from "@/app/lib/logisticsIssue";
+import { issueReasons, readIssue, reportableIssueReasons } from "@/app/lib/logisticsIssue";
 
 export const claimReasons = {
+  NOT_RECEIVED: issueReasons.NOT_RECEIVED,
+  DAMAGED: issueReasons.DAMAGED,
+  DIRTY: issueReasons.DIRTY,
+  MISSING_ITEMS: issueReasons.MISSING_ITEMS,
+  LATE_RETURN: issueReasons.LATE_RETURN,
+  // Existing claims may still contain these older codes.
   DAMAGE: "Uszkodzenie", STAINING: "Zabrudzenie", MISSING_ITEM: "Brak elementu",
-  LATE_RETURN: "Opóźniony zwrot", NOT_RETURNED: "Przedmiot nie został zwrócony",
+  NOT_RETURNED: "Przedmiot nie został zwrócony",
   CLEANING: "Koszt czyszczenia", OTHER: "Inny powód",
 } as const;
+
+export const claimReasonOptions = reportableIssueReasons.RETURN.map(value => ({ value, label: issueReasons[value] }));
+export const isNotReturnedClaimReason = (reasonCode: string) => reasonCode === "NOT_RECEIVED" || reasonCode === "NOT_RETURNED";
+export function claimReasonFromReturnIssue(reason: string | undefined) {
+  return claimReasonOptions.find(option => option.value === reason)?.value;
+}
 
 export function canClaimNotReturned(booking: {
   endDate: Date;

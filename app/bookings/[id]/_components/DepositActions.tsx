@@ -10,26 +10,13 @@ import {
 } from "./settlementClientActions";
 
 import PayoutSetupNotice from "./PayoutSetupNotice";
+import { claimReasonOptions } from "@/app/lib/depositClaim";
 
 type Mode = "refund" | "partial" | "retain";
 
-type RetentionReasonCode =
-  | "DAMAGE"
-  | "STAINING"
-  | "MISSING_ITEM"
-  | "LATE_RETURN"
-  | "CLEANING"
-  | "OTHER";
+type RetentionReasonCode = (typeof claimReasonOptions)[number]["value"];
 
-const RETENTION_REASON_OPTIONS: { value: RetentionReasonCode; label: string }[] =
-  [
-    { value: "DAMAGE", label: "Uszkodzenie" },
-    { value: "STAINING", label: "Zabrudzenie" },
-    { value: "MISSING_ITEM", label: "Brak elementu" },
-    { value: "LATE_RETURN", label: "Opóźniony zwrot" },
-    { value: "CLEANING", label: "Koszt czyszczenia" },
-    { value: "OTHER", label: "Inny powód" },
-  ];
+const RETENTION_REASON_OPTIONS = claimReasonOptions;
 
 export default function DepositActions({
   bookingId,
@@ -54,7 +41,7 @@ export default function DepositActions({
   );
 
   const [reasonCode, setReasonCode] =
-    useState<RetentionReasonCode>("DAMAGE");
+    useState<RetentionReasonCode>("DAMAGED");
   const [reason, setReason] = useState("");
 
   const safeAmount = useMemo(() => {

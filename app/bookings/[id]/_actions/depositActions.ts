@@ -2,7 +2,7 @@
 
 import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
 import Stripe from "stripe";
-import { readDepositClaim } from "@/app/lib/depositClaim";
+import { isNotReturnedClaimReason, readDepositClaim } from "@/app/lib/depositClaim";
 import { lockSettlementDecision, settlementOperation, finishSettlement, type SettlementDecision } from "@/app/lib/settlement";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -14,6 +14,10 @@ import {
 } from "@/app/lib/automaticDepositRelease";
 
 const RETENTION_REASON_CODES = [
+  "NOT_RECEIVED",
+  "DAMAGED",
+  "DIRTY",
+  "MISSING_ITEMS",
   "DAMAGE",
   "STAINING",
   "MISSING_ITEM",
@@ -176,7 +180,7 @@ async function getOwnerBooking(
     ["PENDING", "SHIPPED"].includes(booking.returnStatus) &&
     booking.returnConfirmationStatus === "DISPUTED" &&
     approvedClaim?.status === "APPROVED" &&
-    approvedClaim.reasonCode === "NOT_RETURNED";
+    isNotReturnedClaimReason(approvedClaim.reasonCode);
 
   if (!returnCompleted && !approvedMissingReturn) {
     throw new Error(

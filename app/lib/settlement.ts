@@ -101,7 +101,7 @@ export async function lockSettlementDecision(
     }
 
     const approvedMissingReturn = claim?.status === "APPROVED" &&
-      claim.reasonCode === "NOT_RETURNED" &&
+      ["NOT_RECEIVED", "NOT_RETURNED"].includes(claim.reasonCode) &&
       ["PENDING", "SHIPPED"].includes(booking.returnStatus) &&
       booking.returnConfirmationStatus === "DISPUTED";
 
