@@ -32,7 +32,7 @@ export function canUploadBookingEvidence(booking: EvidenceBooking, stage: "DELIV
 
   if (booking.renterId === userId) {
     return ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) &&
-      activeShipment.includes(booking.returnStatus) && awaitingReceipt.includes(booking.returnConfirmationStatus);
+      ["PENDING", "READY"].includes(booking.returnStatus) && awaitingReceipt.includes(booking.returnConfirmationStatus);
   }
   const issue = readIssue(booking.returnIssue);
   return booking.ownerId === userId && booking.returnConfirmationStatus === "DISPUTED" &&

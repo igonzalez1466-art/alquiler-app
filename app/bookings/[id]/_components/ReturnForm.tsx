@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import ShippingMethodFields from "./ShippingMethodFields";
 import { updateReturnAction } from "../_actions/updateReturnAction";
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export default function ReturnForm({ bookingId, locked, initial }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(initial.returnStatus === "SHIPPED");
   const [error, setError] = useState("");
@@ -35,6 +37,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
           try {
             await updateReturnAction(formData);
             setSent(true);
+            router.refresh();
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Nie udało się zapisać. Spróbuj ponownie.");
           } finally {

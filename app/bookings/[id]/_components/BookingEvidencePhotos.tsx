@@ -66,6 +66,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
     <div>
       <h3 className="font-semibold">{stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}</h3>
       <p className="text-xs text-gray-600">Każda strona może dodać maksymalnie 3 zdjęcia na tym etapie. Druga strona zobaczy zdjęcia dopiero po oznaczeniu przesyłki jako „Wysłano”. Zapisanych zdjęć nie można zmienić.</p>
+      {stage === "RETURN" && <p className="text-xs text-gray-600">Najemca może dodać zdjęcia zwrotu tylko przed oznaczeniem go jako „Wysłano”.</p>}
     </div>
     {buckets.map(bucket => {
       const bucketPhotos = photos.filter(photo => photo.uploaderId === bucket.uploaderId);

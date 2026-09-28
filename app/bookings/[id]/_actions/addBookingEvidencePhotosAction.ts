@@ -26,18 +26,35 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
     throw new Error("Nie możesz dodać zdjęć do tej rezerwacji.");
   }
   if (!canUploadBookingEvidence(booking, stage, userId)) {
+    if (stage === "RETURN" && booking.renterId === userId && !["PENDING", "READY"].includes(booking.returnStatus)) {
+      throw new Error("Po oznaczeniu zwrotu jako „Wysłano” nie można już dodawać zdjęć.");
+    }
     throw new Error("Zdjęcia można dodać przed potwierdzeniem odbioru albo po zgłoszeniu problemu przez osobę odbierającą.");
   }
 
   const prepared = (await prepareBookingEvidencePhotoFiles(files)).map(photo => ({ bookingId, uploaderId: userId, stage, ...photo }));
 
-  const existing = await prisma.bookingEvidencePhoto.findMany({ where: { bookingId, stage, uploaderId: userId }, select: { slot: true } });
-  const freeSlots = [1, 2, 3].filter(slot => !existing.some(photo => photo.slot === slot));
-  if (freeSlots.length < prepared.length) throw new Error("Możesz dodać najwyżej 3 zdjęcia na tym etapie.");
-  try {
-    await prisma.bookingEvidencePhoto.createMany({ data: prepared.map((photo, index) => ({ ...photo, slot: freeSlots[index] })) });
-  } catch {
-    throw new Error("Nie udało się zapisać zdjęć. Odśwież rezerwację i spróbuj ponownie.");
-  }
+  await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "Booking" WHERE "id" = ${bookingId} FOR UPDATE`;
+    const current = await tx.booking.findUnique({
+      where: { id: bookingId },
+      select: { ownerId: true, renterId: true, status: true, paymentStatus: true, settlementCompletedAt: true,
+        shippingStatus: true, deliveryConfirmationStatus: true, deliveryIssue: true,
+        returnStatus: true, returnConfirmationStatus: true, returnIssue: true },
+    });
+    if (!current || !canUploadBookingEvidence(current, stage, userId)) {
+      throw new Error(stage === "RETURN" && current?.renterId === userId && !["PENDING", "READY"].includes(current.returnStatus)
+        ? "Po oznaczeniu zwrotu jako „Wysłano” nie można już dodawać zdjęć."
+        : "Zdjęcia można dodać przed potwierdzeniem odbioru albo po zgłoszeniu problemu przez osobę odbierającą.");
+    }
+    const existing = await tx.bookingEvidencePhoto.findMany({ where: { bookingId, stage, uploaderId: userId }, select: { slot: true } });
+    const freeSlots = [1, 2, 3].filter(slot => !existing.some(photo => photo.slot === slot));
+    if (freeSlots.length < prepared.length) throw new Error("Możesz dodać najwyżej 3 zdjęcia na tym etapie.");
+    try {
+      await tx.bookingEvidencePhoto.createMany({ data: prepared.map((photo, index) => ({ ...photo, slot: freeSlots[index] })) });
+    } catch {
+      throw new Error("Nie udało się zapisać zdjęć. Odśwież rezerwację i spróbuj ponownie.");
+    }
+  });
   revalidatePath(`/bookings/${bookingId}`);
 }
