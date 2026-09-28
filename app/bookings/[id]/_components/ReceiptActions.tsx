@@ -16,6 +16,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
   const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
+  const canAttachIssuePhotos = reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS" || (stage === "DELIVERY" && reason === "WRONG_ITEM");
   async function submit(action: (data: FormData) => Promise<void>, data = new FormData(), photos: File[] = []) {
     if (pending) return;
     if (photos.length > remainingPhotos) { setError(`Wybierz najwyżej ${remainingPhotos} zdjęć.`); return; }
@@ -45,11 +46,12 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       </div>
     </> : <form onSubmit={(event) => {
       event.preventDefault();
-      const photos = reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS" ? Array.from(photoInput.current?.files ?? []) : [];
+      const photos = canAttachIssuePhotos ? Array.from(photoInput.current?.files ?? []) : [];
       void submit(reportLogisticsProblemAction, new FormData(event.currentTarget), photos);
     }} className="rounded border border-rose-200 p-3 space-y-3">
       <h3 className="font-medium">Zgłoś problem</h3>
       <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia, zabrudzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
+      {stage === "DELIVERY" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu także oznacza odbiór z zastrzeżeniami. Przy opóźnieniu dostawy wskaż, czy przedmiot już dotarł.</p>}
       <label className="block text-sm">Powód
         <select name="reason" required value={reason} onChange={event => {
           setReason(event.target.value);
@@ -58,10 +60,10 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
           if (photoInput.current) photoInput.current.value = "";
         }} disabled={pending} className="mt-1 border rounded p-2 w-full">
           <option value="" disabled>Wybierz powód</option>
-          {Object.entries(issueReasons).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {Object.entries(issueReasons).filter(([value]) => stage === "DELIVERY" || (value !== "WRONG_ITEM" && value !== "LATE_DELIVERY")).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
-      {reason === "OTHER" && <label className="block text-sm">Czy przedmiot został odebrany?
+      {(reason === "OTHER" || reason === "LATE_DELIVERY") && <label className="block text-sm">Czy przedmiot został odebrany?
         <select name="received" required defaultValue="" disabled={pending} className="mt-1 border rounded p-2 w-full">
           <option value="" disabled>Wybierz odpowiedź</option><option value="yes">Tak</option><option value="no">Nie</option>
         </select>
@@ -69,7 +71,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       <label className="block text-sm">Opis problemu
         <textarea name="description" required maxLength={2000} rows={3} disabled={pending} className="mt-1 border rounded p-2 w-full" />
       </label>
-      {(reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS") && <div className="space-y-2 rounded border border-rose-200 bg-white p-3">
+      {canAttachIssuePhotos && <div className="space-y-2 rounded border border-rose-200 bg-white p-3">
         <p className="text-sm font-medium">Zdjęcia problemu (opcjonalnie, maks. {remainingPhotos})</p>
         {remainingPhotos > 0 ? <>
         <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={pending}

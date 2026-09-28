@@ -5,6 +5,8 @@ export const issueReasons = {
   DAMAGED: "Przedmiot jest uszkodzony",
   DIRTY: "Przedmiot jest zabrudzony",
   MISSING_ITEMS: "Brakuje elementów lub akcesoriów",
+  WRONG_ITEM: "Przedmiot nie jest tym z ogłoszenia",
+  LATE_DELIVERY: "Opóźniona dostawa",
   OTHER: "Inny problem",
 } as const;
 
@@ -31,10 +33,13 @@ export function readIssue(value: Prisma.JsonValue | null): IssueDetails | null {
   return value as IssueDetails;
 }
 
-export function validateIssueInput(formData: FormData) {
+export function validateIssueInput(formData: FormData, stage: "DELIVERY" | "RETURN") {
   const reason = String(formData.get("reason") || "");
   const description = String(formData.get("description") || "").trim();
   if (!Object.hasOwn(issueReasons, reason)) throw new Error("Wybierz powód zgłoszenia.");
+  if (stage === "RETURN" && (reason === "WRONG_ITEM" || reason === "LATE_DELIVERY")) {
+    throw new Error("Ten powód można zgłosić tylko przy odbiorze od właściciela.");
+  }
   if (!description || description.length > 2000) {
     throw new Error("Opisz problem — od 1 do 2000 znaków.");
   }
@@ -48,7 +53,8 @@ export function issueReasonLabel(reason: IssueDetails["reason"]) {
 // A carrier's delivered status alone does not prove personal receipt.
 export function issueConfirmsReceipt(issue: IssueDetails | null): boolean {
   return !!issue && (issue.reason === "DAMAGED" || issue.reason === "DIRTY" || issue.reason === "MISSING_ITEMS" ||
-    (issue.reason === "OTHER" && issue.received === true));
+    issue.reason === "WRONG_ITEM" ||
+    ((issue.reason === "OTHER" || issue.reason === "LATE_DELIVERY") && issue.received === true));
 }
 export function hasReturnReceipt(b: { returnConfirmationStatus: string; returnIssue: Prisma.JsonValue | null; ownerId: string }): boolean {
   const issue = readIssue(b.returnIssue);
