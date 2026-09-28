@@ -17,7 +17,7 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   const stage = String(formData.get("stage") || "");
   if (!bookingId || (stage !== "DELIVERY" && stage !== "RETURN")) throw new Error("Nieprawidłowe zgłoszenie");
   const input = validateIssueInput(formData, stage);
-  if ((input.reason === "OTHER" || input.reason === "LATE_DELIVERY") && !["yes", "no"].includes(String(formData.get("received")))) throw new Error("Wskaż, czy przedmiot został odebrany.");
+  if (input.reason === "LATE_DELIVERY" && !["yes", "no"].includes(String(formData.get("received")))) throw new Error("Wskaż, czy przedmiot został odebrany.");
   const files = formData.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0);
   if (files.length > MAX_PHOTOS_PER_PERSON_AND_STAGE) throw new Error("Możesz dodać najwyżej 3 zdjęcia.");
   if (files.length && !["DAMAGED", "DIRTY", "MISSING_ITEMS", "WRONG_ITEM"].includes(input.reason)) {
@@ -27,7 +27,7 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   const now = new Date();
   const issue: IssueDetails = {
     ...input,
-    received: input.reason === "DAMAGED" || input.reason === "DIRTY" || input.reason === "MISSING_ITEMS" || input.reason === "WRONG_ITEM" || ((input.reason === "OTHER" || input.reason === "LATE_DELIVERY") && formData.get("received") === "yes"),
+    received: input.reason === "DAMAGED" || input.reason === "DIRTY" || input.reason === "MISSING_ITEMS" || input.reason === "WRONG_ITEM" || input.reason === "LATE_RETURN" || (input.reason === "LATE_DELIVERY" && formData.get("received") === "yes"),
     reportedById: userId,
     reportedAt: now.toISOString(),
     resolvedById: null,

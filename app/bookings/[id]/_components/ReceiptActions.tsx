@@ -6,7 +6,7 @@ import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
 import { confirmDeliveryAction } from "../_actions/confirmDeliveryAction";
 import { confirmReturnAction } from "../_actions/confirmReturnAction";
 import { reportLogisticsProblemAction } from "../_actions/reportLogisticsProblemAction";
-import { issueReasons } from "@/app/lib/logisticsIssue";
+import { issueReasons, reportableIssueReasons } from "@/app/lib/logisticsIssue";
 
 export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { bookingId: string; stage: "DELIVERY" | "RETURN"; remainingPhotos: number }) {
   const router = useRouter();
@@ -52,6 +52,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       <h3 className="font-medium">Zgłoś problem</h3>
       <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia, zabrudzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
       {stage === "DELIVERY" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu także oznacza odbiór z zastrzeżeniami. Przy opóźnieniu dostawy wskaż, czy przedmiot już dotarł.</p>}
+      {stage === "RETURN" && <p className="text-sm text-gray-600">Spóźniony zwrot zapisze odbiór z zastrzeżeniami. Samo zgłoszenie nie potrąca kaucji.</p>}
       <label className="block text-sm">Powód
         <select name="reason" required value={reason} onChange={event => {
           setReason(event.target.value);
@@ -60,10 +61,10 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
           if (photoInput.current) photoInput.current.value = "";
         }} disabled={pending} className="mt-1 border rounded p-2 w-full">
           <option value="" disabled>Wybierz powód</option>
-          {Object.entries(issueReasons).filter(([value]) => stage === "DELIVERY" || (value !== "WRONG_ITEM" && value !== "LATE_DELIVERY")).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {reportableIssueReasons[stage].map(value => <option key={value} value={value}>{issueReasons[value]}</option>)}
         </select>
       </label>
-      {(reason === "OTHER" || reason === "LATE_DELIVERY") && <label className="block text-sm">Czy przedmiot został odebrany?
+      {reason === "LATE_DELIVERY" && <label className="block text-sm">Czy przedmiot został odebrany?
         <select name="received" required defaultValue="" disabled={pending} className="mt-1 border rounded p-2 w-full">
           <option value="" disabled>Wybierz odpowiedź</option><option value="yes">Tak</option><option value="no">Nie</option>
         </select>

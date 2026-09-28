@@ -7,10 +7,17 @@ export const issueReasons = {
   MISSING_ITEMS: "Brakuje elementów lub akcesoriów",
   WRONG_ITEM: "Przedmiot nie jest tym z ogłoszenia",
   LATE_DELIVERY: "Opóźniona dostawa",
+  LATE_RETURN: "Przedmiot zwrócono po terminie",
   OTHER: "Inny problem",
 } as const;
 
 export type IssueReason = keyof typeof issueReasons;
+// OTHER remains readable for historical reports, but is not available for new reports.
+export const reportableIssueReasons = {
+  DELIVERY: ["NOT_RECEIVED", "DAMAGED", "DIRTY", "MISSING_ITEMS", "WRONG_ITEM", "LATE_DELIVERY"],
+  RETURN: ["NOT_RECEIVED", "DAMAGED", "DIRTY", "MISSING_ITEMS", "LATE_RETURN"],
+} as const;
+
 export type IssueDetails = {
   reason: IssueReason | "LEGACY";
   received?: boolean;
@@ -37,8 +44,8 @@ export function validateIssueInput(formData: FormData, stage: "DELIVERY" | "RETU
   const reason = String(formData.get("reason") || "");
   const description = String(formData.get("description") || "").trim();
   if (!Object.hasOwn(issueReasons, reason)) throw new Error("Wybierz powód zgłoszenia.");
-  if (stage === "RETURN" && (reason === "WRONG_ITEM" || reason === "LATE_DELIVERY")) {
-    throw new Error("Ten powód można zgłosić tylko przy odbiorze od właściciela.");
+  if (!(reportableIssueReasons[stage] as readonly string[]).includes(reason)) {
+    throw new Error("Ten powód nie jest dostępny na tym etapie.");
   }
   if (!description || description.length > 2000) {
     throw new Error("Opisz problem — od 1 do 2000 znaków.");
@@ -53,7 +60,7 @@ export function issueReasonLabel(reason: IssueDetails["reason"]) {
 // A carrier's delivered status alone does not prove personal receipt.
 export function issueConfirmsReceipt(issue: IssueDetails | null): boolean {
   return !!issue && (issue.reason === "DAMAGED" || issue.reason === "DIRTY" || issue.reason === "MISSING_ITEMS" ||
-    issue.reason === "WRONG_ITEM" ||
+    issue.reason === "WRONG_ITEM" || issue.reason === "LATE_RETURN" ||
     ((issue.reason === "OTHER" || issue.reason === "LATE_DELIVERY") && issue.received === true));
 }
 export function hasReturnReceipt(b: { returnConfirmationStatus: string; returnIssue: Prisma.JsonValue | null; ownerId: string }): boolean {
