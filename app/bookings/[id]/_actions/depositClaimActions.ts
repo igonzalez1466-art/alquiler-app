@@ -53,7 +53,7 @@ export async function proposeDepositClaimAction(data: FormData) {
       (notReturned ? !canClaimNotReturned(b) : !["SHIPPED", "DELIVERED"].includes(b.returnStatus))) throw new Error("Nie można teraz utworzyć roszczenia.");
     if (!notReturned && !hasReturnReceipt(b) && data.get("received") !== "yes") throw new Error("Potwierdź faktyczny odbiór zwracanego przedmiotu.");
     const reportedIssue = readIssue(b.returnIssue);
-    if (reportedIssue && !reportedIssue.resolvedAt && reportedIssue.reportedById === userId &&
+    if (reportedIssue && reportedIssue.reportedById === userId &&
       reportedIssue.reason !== "OTHER" && reportedIssue.reason !== "LEGACY" && reportedIssue.reason !== reasonCode) {
       throw new Error("Powód roszczenia musi odpowiadać zgłoszonemu problemowi ze zwrotem.");
     }
