@@ -1,6 +1,7 @@
 import { prisma } from "@/app/lib/prisma";
 import { sendMail } from "@/app/lib/mailer";
 import { issueReasonLabel, type IssueDetails } from "@/app/lib/logisticsIssue";
+import { logisticsIssueGuidance } from "@/app/lib/logisticsIssueGuidance";
 
 const escapeHtml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const datePL = (date: Date) => date.toLocaleString("pl-PL", { timeZone: "Europe/Warsaw", dateStyle: "short", timeStyle: "short" });
@@ -38,10 +39,11 @@ export async function notifyLogisticsIssue(bookingId: string, stage: "DELIVERY" 
     ];
     const chat = "Możecie skontaktować się ze sobą przez czat na platformie MojaSzafa, aby wyjaśnić problem. Otwórz rezerwację i wybierz „Otwórz czat”.";
     const reason = issueReasonLabel(issue.reason);
+    const nextStep = logisticsIssueGuidance(stage, issue.reason).nextStep;
     await sendMail({
       to: recipient.email,
       subject: `${stageLabel}: zgłoszono problem — rezerwacja #${booking.bookingNumber}`,
-      text: `Cześć ${recipient.name || ""}!\n\n${introduction}\n\n${details.map(([label, value]) => `${label}: ${value}`).join("\n")}\nDaty w czasie polskim.\n\nPowód: ${reason}\nOpis problemu: ${issue.description}\n\n${chat}\n\nOtwórz rezerwację: ${url}\n\nPozdrawiamy,\nZespół MojaSzafa\nTa wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.`,
+      text: `Cześć ${recipient.name || ""}!\n\n${introduction}\n\n${details.map(([label, value]) => `${label}: ${value}`).join("\n")}\nDaty w czasie polskim.\n\nPowód: ${reason}\nOpis problemu: ${issue.description}\n\nSugerowany następny krok: ${nextStep}\nTo podpowiedź, nie decyzja o płatności ani odpowiedzialności.\n\n${chat}\n\nOtwórz rezerwację: ${url}\n\nPozdrawiamy,\nZespół MojaSzafa\nTa wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.`,
       html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#18181b;">
         <p style="margin:0 0 24px;">Cześć ${escapeHtml(recipient.name || "")}!</p>
         <p style="margin:0 0 18px;">${introduction}</p>
@@ -53,6 +55,8 @@ export async function notifyLogisticsIssue(bookingId: string, stage: "DELIVERY" 
           <strong>Powód: ${escapeHtml(reason)}</strong>
           <p style="margin:7px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;">${escapeHtml(issue.description)}</p>
         </div>
+        <p style="margin:20px 0;"><strong>Sugerowany następny krok:</strong> ${escapeHtml(nextStep)}</p>
+        <p style="margin:0 0 20px;font-size:12px;color:#71717a;">To podpowiedź, nie decyzja o płatności ani odpowiedzialności.</p>
         <p style="margin:20px 0;">${chat}</p>
         <p style="margin:26px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 18px;border-radius:6px;background:#111827;color:#ffffff;font-weight:700;text-decoration:none;">Otwórz rezerwację</a></p>
         <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />

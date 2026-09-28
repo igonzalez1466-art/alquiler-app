@@ -27,11 +27,21 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
   if (b.settlementDecision) return owner ? task("retry", "Sprawdź rozpoczęte rozliczenie", "Rozliczenie nie zostało zakończone. Otwórz rezerwację i sprawdź możliwość ponowienia.", 1) : null;
   if (b.deliveryConfirmationStatus === "DISPUTED") {
     const issue = readIssue(b.deliveryIssue);
-    return renter && (b.deliveryIssue === null || (issue?.reportedById === userId && !issue.resolvedAt)) ? task("deliveryIssue", "Wyjaśnij problem z dostawą", "Sprawdź zgłoszenie. Zamknij je dopiero po otrzymaniu przedmiotu i rozwiązaniu problemu.", 1) : null;
+    if (renter && (b.deliveryIssue === null || (issue?.reportedById === userId && !issue.resolvedAt))) {
+      return task("deliveryIssue", "Wyjaśnij problem z dostawą", "Sprawdź zgłoszenie. Zamknij je dopiero po otrzymaniu przedmiotu i rozwiązaniu problemu.", 1);
+    }
+    return owner && (b.deliveryIssue === null || (issue?.reportedById === b.renterId && !issue.resolvedAt))
+      ? task("deliveryIssueOwner", "Odpowiedz na zgłoszenie dostawy", "Najemca zgłosił problem. Sprawdź zdjęcia, daty i śledzenie; uzgodnij rozwiązanie przez czat.", 1)
+      : null;
   }
   if (b.returnConfirmationStatus === "DISPUTED") {
     const issue = readIssue(b.returnIssue);
-    return owner && (b.returnIssue === null || (issue?.reportedById === userId && !issue.resolvedAt)) ? task("returnIssue", "Wyjaśnij problem ze zwrotem", "Sprawdź zgłoszenie: zaproponuj rozliczenie kaucji lub potwierdź rozwiązanie problemu.", 1) : null;
+    if (owner && (b.returnIssue === null || (issue?.reportedById === userId && !issue.resolvedAt))) {
+      return task("returnIssue", "Wyjaśnij problem ze zwrotem", "Sprawdź zgłoszenie: zaproponuj rozliczenie kaucji lub potwierdź rozwiązanie problemu.", 1);
+    }
+    return renter && (b.returnIssue === null || (issue?.reportedById === b.ownerId && !issue.resolvedAt))
+      ? task("returnIssueRenter", "Odpowiedz na zgłoszenie zwrotu", "Właściciel zgłosił problem. Sprawdź zdjęcia, daty i śledzenie; odpowiedz przez czat lub na propozycję rozliczenia kaucji.", 1)
+      : null;
   }
   if (renter && canReceive(b, "DELIVERY")) return task("receive", "Sprawdź odbiór przedmiotu", "Po otrzymaniu przedmiotu potwierdź odbiór lub zgłoś problem.");
   if (owner && canReceive(b, "RETURN")) return task("receiveReturn", "Sprawdź odbiór zwrotu", "Po otrzymaniu zwrotu potwierdź odbiór lub zgłoś problem.");

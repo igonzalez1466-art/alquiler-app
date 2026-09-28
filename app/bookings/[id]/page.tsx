@@ -846,6 +846,17 @@ export default async function BookingPage({
                     recipientId={booking.renterId}
                     userId={userId}
                     canResolve={canReceive({ ...booking, deliveryConfirmationStatus: "AWAITING_CONFIRMATION" }, "DELIVERY")}
+                    facts={{
+                      expectedAt: booking.startDate,
+                      sentAt: booking.shippedAt,
+                      receivedAt: booking.deliveredAt,
+                      carrier: booking.carrier,
+                      trackingNumber: booking.trackingNumber,
+                      ownerPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === booking.ownerId).length,
+                      renterPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === booking.renterId).length,
+                      rentCents: rentAmountCents,
+                      depositCents,
+                    }}
                   />
                 )}
 
@@ -982,6 +993,17 @@ export default async function BookingPage({
                     recipientId={booking.ownerId}
                     userId={userId}
                     canResolve={booking.depositClaim === null && canReceive({ ...booking, returnConfirmationStatus: "AWAITING_CONFIRMATION" }, "RETURN")}
+                    facts={{
+                      expectedAt: booking.endDate,
+                      sentAt: booking.returnShippedAt,
+                      receivedAt: booking.returnDeliveredAt,
+                      carrier: booking.returnCarrier,
+                      trackingNumber: booking.returnTrackingNumber,
+                      ownerPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === booking.ownerId).length,
+                      renterPhotos: visibleEvidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === booking.renterId).length,
+                      rentCents: rentAmountCents,
+                      depositCents,
+                    }}
                   />
                 )}
 
