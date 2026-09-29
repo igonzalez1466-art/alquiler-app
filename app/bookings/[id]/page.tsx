@@ -860,7 +860,7 @@ export default async function BookingPage({
 
                 {(isOwner || isRenter) && isInpost(booking.carrier) && booking.trackingNumber && (
                   deliveryTracking ? <Suspense key={deliveryTracking} fallback={<p className="text-sm text-gray-500">Pobieranie statusu InPost…</p>}>
-                    <InpostTracking number={deliveryTracking} />
+                    <InpostTracking number={deliveryTracking} rentalStartAt={booking.startDate} />
                   </Suspense> : <p className="text-sm text-amber-800">Numer przesyłki InPost powinien zawierać 24 cyfry. Sprawdź zapisany numer.</p>
                 )}
 

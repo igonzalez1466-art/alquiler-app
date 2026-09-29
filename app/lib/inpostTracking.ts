@@ -12,6 +12,7 @@ const labels: Record<string, string> = {
   adopted_at_target_branch: "Przesyłka w oddziale docelowym",
   out_for_delivery: "Przesyłka w doręczeniu",
   ready_to_pickup: "Przesyłka gotowa do odbioru",
+  ready_to_pickup_from_pok: "Przesyłka gotowa do odbioru w punkcie",
   pickup_reminder_sent: "Przesyłka oczekuje na odbiór",
   delivered: "Przesyłka odebrana / doręczona",
   returned_to_sender: "Przesyłka zwrócona nadawcy",
@@ -30,11 +31,23 @@ export function normalizeInpostNumber(value: string | null): string | null {
 }
 
 export type TrackingResult =
-  | { kind: "ok"; label: string; updatedAt: string | null; checkedAt: string; events: { label: string; occurredAt: string }[] }
+  | { kind: "ok"; label: string; updatedAt: string | null; checkedAt: string; readyToPickupAt: string | null; events: { label: string; occurredAt: string }[] }
   | { kind: "missing" | "unavailable" };
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function firstReadyToPickupAt(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  let earliest = Infinity;
+  for (const entry of value) {
+    if (!record(entry) || (entry.status !== "ready_to_pickup" && entry.status !== "ready_to_pickup_from_pok") ||
+        typeof entry.datetime !== "string") continue;
+    const at = Date.parse(entry.datetime);
+    if (Number.isFinite(at)) earliest = Math.min(earliest, at);
+  }
+  return Number.isFinite(earliest) ? new Date(earliest).toISOString() : null;
 }
 
 function trackingEvents(value: unknown): { label: string; occurredAt: string }[] {
@@ -71,6 +84,7 @@ export async function fetchInpostTracking(number: string): Promise<TrackingResul
       label: Object.hasOwn(labels, data.status) ? labels[data.status] : "Sprawdź szczegóły na stronie InPost",
       updatedAt,
       checkedAt: new Date().toISOString(),
+      readyToPickupAt: firstReadyToPickupAt(data.tracking_details),
       events: trackingEvents(data.tracking_details),
     };
   } catch {

@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
+import { Suspense } from "react";
 import { readIssue, issueReasonLabel, issueConfirmsReceipt } from "@/app/lib/logisticsIssue";
 import { logisticsIssueGuidance, logisticsTimeObservations } from "@/app/lib/logisticsIssueGuidance";
 import { isInpost, normalizeInpostNumber } from "@/app/lib/inpostTracking";
 import ResolveIssueForm from "./ResolveIssueForm";
+import { InpostPickupComparison } from "./InpostTracking";
 
 type IssueFacts = {
   expectedAt: Date;
@@ -56,6 +58,9 @@ export default function LogisticsIssuePanel({ bookingId, stage, stored, disputed
         <div><dt className="font-medium">Kwoty rezerwacji</dt><dd>Najem: {facts.rentCents === null ? "—" : moneyPL(facts.rentCents)} · Kaucja: {facts.depositCents === null ? "—" : moneyPL(facts.depositCents)}</dd></div>
       </dl>
       {tracking && <a className="inline-block text-blue-700 underline" href={`https://inpost.pl/sledzenie-przesylek?number=${encodeURIComponent(tracking)}`} target="_blank" rel="noopener noreferrer">Sprawdź historię InPost ↗</a>}
+      {stage === "DELIVERY" && tracking && <Suspense fallback={<p className="text-xs text-gray-600">Porównywanie dat InPost…</p>}>
+        <InpostPickupComparison number={tracking} rentalStartAt={facts.expectedAt} />
+      </Suspense>}
       {observations.length > 0 && <ul className="list-disc space-y-1 pl-5">{observations.map(value => <li key={value}>{value}</li>)}</ul>}
       <p><strong>Następny krok:</strong> {guidance.nextStep}</p>
       <p><strong>Cena najmu:</strong> {guidance.rent}</p>
