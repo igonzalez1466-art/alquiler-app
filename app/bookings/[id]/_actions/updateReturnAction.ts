@@ -8,6 +8,7 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 import { readShippingMethod } from "@/app/lib/shippingMethod";
+import { normalizeInpostNumber } from "@/app/lib/inpostTracking";
 
 function fmt(d: Date | string) {
   const dt = new Date(d);
@@ -177,6 +178,10 @@ export async function updateReturnAction(formData: FormData) {
       const title = booking.listing?.title ?? "Przedmiot";
       const s = fmt(booking.startDate);
       const e = fmt(booking.endDate);
+      const inpostNumber = returnCarrier === "InPost" ? normalizeInpostNumber(returnTrackingNumber) : null;
+      const inpostTrackingUrl = inpostNumber
+        ? `https://inpost.pl/sledzenie-przesylek?number=${inpostNumber}`
+        : null;
 
       await sendMail({
         to: ownerEmail,
@@ -225,6 +230,15 @@ export async function updateReturnAction(formData: FormData) {
         : ""
     }
   </div>
+
+  ${inpostTrackingUrl ? `
+  <p style="margin:16px 0;">
+    <a href="${inpostTrackingUrl}" style="color:#1d4ed8; font-weight:600;">
+      Sprawdź aktualny status zwrotu w InPost →
+    </a>
+  </p>
+  <p style="font-size:12px; color:#555;">Status może pojawić się po zarejestrowaniu przesyłki przez InPost.</p>
+  ` : ""}
 
   <p>
     Gdy otrzymasz przedmiot, zaloguj się do panelu i potwierdź odbiór zwracanego przedmiotu.
