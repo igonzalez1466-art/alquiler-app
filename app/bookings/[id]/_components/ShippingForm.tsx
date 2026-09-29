@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 import ShippingMethodFields from "./ShippingMethodFields";
 import { updateShippingAction } from "../_actions/updateShippingAction";
 
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export default function ShippingForm({ bookingId, initial }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
@@ -35,6 +38,8 @@ export default function ShippingForm({ bookingId, initial }: Props) {
         void (async () => {
           try {
             await updateShippingAction(formData);
+            announceBookingAction(bookingId, initial.shippingStatus === "SHIPPED" ? "Dane dostawy zostały zaktualizowane. Czekamy na potwierdzenie odbioru przez najemcę." : "Dostawa została oznaczona jako wysłana. Teraz najemca potwierdza odbiór.");
+            router.refresh();
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Nie udało się zapisać. Spróbuj ponownie.");
           } finally {

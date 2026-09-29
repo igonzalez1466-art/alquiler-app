@@ -7,6 +7,7 @@ import { confirmDeliveryAction } from "../_actions/confirmDeliveryAction";
 import { confirmReturnAction } from "../_actions/confirmReturnAction";
 import { reportLogisticsProblemAction } from "../_actions/reportLogisticsProblemAction";
 import { issueReasons, reportableIssueReasons } from "@/app/lib/logisticsIssue";
+import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
 export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { bookingId: string; stage: "DELIVERY" | "RETURN"; remainingPhotos: number }) {
   const router = useRouter();
@@ -27,6 +28,10 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
     try {
       for (const photo of photos) data.append("photos", await prepareBookingPhoto(photo));
       await action(data);
+      announceBookingAction(bookingId, action === reportLogisticsProblemAction
+        ? "Zgłoszenie problemu zostało zapisane. Dalsze kroki znajdziesz w sekcji Moje incydenty."
+        : stage === "DELIVERY" ? "Odbiór został potwierdzony. Wynajem może być kontynuowany."
+        : "Zwrot został potwierdzony. Możesz teraz rozliczyć kaucję.");
       setReporting(false);
       setSelectedNames([]);
       router.refresh();

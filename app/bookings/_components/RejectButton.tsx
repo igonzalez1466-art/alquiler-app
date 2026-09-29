@@ -4,6 +4,7 @@
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { rejectBookingAction } from "@/app/bookings/actions";
+import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
 export default function RejectButton({ bookingId }: { bookingId: string }) {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function RejectButton({ bookingId }: { bookingId: string }) {
         await rejectBookingAction(bookingId);
 
         setDone(true);
+        announceBookingAction(bookingId, "Prośba została odrzucona. Rezerwacja została anulowana.");
         router.refresh();
       } catch (e: unknown) {
         const message =

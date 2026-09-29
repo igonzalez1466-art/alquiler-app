@@ -15,6 +15,8 @@ import { openChatFromBookingAction } from "./actions";
 
 import ShippingForm from "./_components/ShippingForm";
 import BookingProgress from "./_components/BookingProgress";
+import BookingNextAction from "./_components/BookingNextAction";
+import BookingActionFeedback from "./_components/BookingActionFeedback";
 import BookingEvidencePhotos from "./_components/BookingEvidencePhotos";
 import InpostDestination from "./_components/InpostDestination";
 import ReturnForm from "./_components/ReturnForm";
@@ -198,6 +200,7 @@ export default async function BookingPage({
       endDate: true,
       status: true,
       createdAt: true,
+      cancelledAt: true,
 
       paymentStatus: true,
       paymentDueAt: true,
@@ -216,6 +219,7 @@ export default async function BookingPage({
       depositClaim: true,
       settlementDecision: true,
       settlementCompletedAt: true,
+      settlementLegacyReview: true,
       ownerTransferId: true,
       ownerTransferCents: true,
       depositTransferId: true,
@@ -491,6 +495,7 @@ export default async function BookingPage({
         </Link>
       </div>
 
+      <BookingActionFeedback bookingId={id} />
       {/* INFORMACIÓN GENERAL */}
 
       <section className="p-4 border rounded bg-white space-y-2">
@@ -543,6 +548,7 @@ export default async function BookingPage({
         </div>
       </section>
 
+      <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
       {!isCancelled && <BookingProgress booking={booking} />}
 
       {contactVisible && (
@@ -559,6 +565,7 @@ export default async function BookingPage({
 
       {awaitingApproval && (
         <section
+          id="approval-actions"
           className={
             approvalExpired
               ? "p-4 border border-rose-200 rounded bg-rose-50 text-sm text-rose-900"
@@ -762,7 +769,7 @@ export default async function BookingPage({
             <>
               {/* ENTREGA */}
 
-              <section className="p-4 border rounded bg-white space-y-3">
+              <section id="delivery-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   Dostawa
 
@@ -883,7 +890,7 @@ export default async function BookingPage({
 
               {/* DEVOLUCIÓN */}
 
-              <section className="p-4 border rounded bg-white space-y-3">
+              <section id="return-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   Zwrot
 
@@ -1017,7 +1024,7 @@ export default async function BookingPage({
 
               {/* FIANZA */}
 
-              <section className="p-4 border rounded bg-white space-y-3">
+              <section id="deposit-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold">
                   Kaucja
                 </h2>

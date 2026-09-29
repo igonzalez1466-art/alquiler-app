@@ -28,13 +28,6 @@ export default function BookingProgress({ booking }: { booking: ProgressBooking 
     { label: "Kaucja", done: returnDone && (!hasDeposit || settled), skipped: !hasDeposit },
   ];
   const current = steps.findIndex(step => !step.done);
-  const nextAction = !accepted ? "Właściciel podejmuje decyzję o rezerwacji."
-    : !paid ? "Najemca opłaca zaakceptowaną rezerwację."
-    : steps[3].problem || steps[4].problem ? "Zgłoszony problem wymaga wyjaśnienia w szczegółach rezerwacji."
-    : !deliveryDone ? ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus) ? "Najemca sprawdza i potwierdza odbiór przedmiotu." : "Właściciel przygotowuje i przekazuje przedmiot."
-    : !returnDone ? ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) ? "Właściciel sprawdza i potwierdza zwrot." : "Najemca organizuje zwrot przedmiotu."
-    : hasDeposit && !settled ? "Właściciel rozlicza kaucję." : "Rezerwacja została zakończona.";
-
   return <section className="rounded border bg-white p-4 space-y-3" aria-labelledby="booking-progress-title">
     <h2 id="booking-progress-title" className="text-lg font-semibold">Przebieg rezerwacji</h2>
     <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Etapy rezerwacji">
@@ -47,7 +40,6 @@ export default function BookingProgress({ booking }: { booking: ProgressBooking 
         </li>;
       })}
     </ol>
-    <p className="text-sm font-medium text-gray-800">Następny krok: {nextAction}</p>
-    <p className="text-xs text-gray-600">Szczegóły i dostępne działania znajdziesz w sekcjach poniżej.</p>
+    <p className="text-xs text-gray-600">Aktualne działanie lub informację o oczekiwaniu znajdziesz powyżej.</p>
   </section>;
 }

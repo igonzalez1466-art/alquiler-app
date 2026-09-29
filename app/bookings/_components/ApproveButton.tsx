@@ -4,8 +4,11 @@
 import { useTransition, useState } from "react";
 import { approveBookingAction } from "@/app/bookings/actions";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
 export function ApproveButton({ bookingId, phoneVerified }: { bookingId: string; phoneVerified: boolean }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -16,9 +19,11 @@ export function ApproveButton({ bookingId, phoneVerified }: { bookingId: string;
       try {
         await approveBookingAction(bookingId);
         setDone(true);
+        announceBookingAction(bookingId, "Prośba została zaakceptowana. Teraz czekamy na płatność najemcy.");
+        router.refresh();
       } catch (e: unknown) {
         const message =
-          e instanceof Error ? e.message : "No se pudo aprobar";
+          e instanceof Error ? e.message : "Nie udało się zaakceptować rezerwacji";
         setError(message);
       }
     });

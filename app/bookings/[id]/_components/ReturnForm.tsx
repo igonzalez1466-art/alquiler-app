@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import ShippingMethodFields from "./ShippingMethodFields";
 import { updateReturnAction } from "../_actions/updateReturnAction";
+import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
 type Props = {
   bookingId: string;
@@ -37,6 +38,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
           try {
             await updateReturnAction(formData);
             setSent(true);
+            announceBookingAction(bookingId, "Zwrot został oznaczony jako wysłany. Teraz właściciel potwierdza odbiór.");
             router.refresh();
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Nie udało się zapisać. Spróbuj ponownie.");

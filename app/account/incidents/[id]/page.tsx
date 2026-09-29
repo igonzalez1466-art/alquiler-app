@@ -12,6 +12,7 @@ import LogisticsIssuePanel from "@/app/bookings/[id]/_components/LogisticsIssueP
 import BookingEvidencePhotos from "@/app/bookings/[id]/_components/BookingEvidencePhotos";
 import DepositClaimPanel from "@/app/bookings/[id]/_components/DepositClaimPanel";
 import DepositActions from "@/app/bookings/[id]/_components/DepositActions";
+import BookingActionFeedback from "@/app/bookings/[id]/_components/BookingActionFeedback";
 
 export const dynamic = "force-dynamic";
 const datePL = (date: Date) => date.toLocaleString("pl-PL", { timeZone: "Europe/Warsaw", dateStyle: "medium", timeStyle: "short" });
@@ -46,6 +47,7 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
 
   return <main className="mx-auto max-w-4xl space-y-6 p-4">
     <nav className="flex flex-wrap gap-4 text-sm"><Link href="/account/incidents" className="underline">← Moje incydenty</Link><Link href={`/bookings/${encodeURIComponent(id)}`} className="underline">Rezerwacja #{booking.bookingNumber}</Link></nav>
+    <BookingActionFeedback bookingId={id} />
     <header className="rounded-xl border bg-white p-5 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">Sprawa rezerwacji #{booking.bookingNumber}</h1><p className="text-gray-600">{booking.listing.title} · {isOwner ? "Właściciel" : "Najemca"}</p></div><span className={`rounded-full px-3 py-1 text-sm font-semibold ${state.needsAction ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-700"}`}>{state.label}</span></div>
       <div className="flex flex-wrap gap-2">{incidentTopics(booking).map(topic => <span key={topic.label} className="rounded border px-2 py-1 text-xs">{topic.label}: {topic.detail}</span>)}</div>

@@ -1,6 +1,7 @@
 import type { Booking } from "@prisma/client";
 import { claimReasons, readDepositClaim } from "@/app/lib/depositClaim";
 import { issueReasonLabel, readIssue } from "@/app/lib/logisticsIssue";
+import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 
 type IncidentBooking = Pick<Booking,
   "ownerId" | "renterId" | "status" | "deliveryIssue" | "returnIssue" | "depositClaim" |
@@ -43,22 +44,36 @@ export function incidentState(booking: IncidentBooking, userId: string) {
     ? { label: "Czeka na Twoją odpowiedź", next: "Zaakceptuj lub zakwestionuj propozycję potrącenia.", needsAction: true }
     : { label: "Czeka na najemcę", next: "Najemca może zaakceptować lub zakwestionować propozycję.", needsAction: false };
   if (claim?.status === "DISPUTED") return { label: "Spór w obsłudze", next: "Obsługa musi rozstrzygnąć zgłoszone zastrzeżenia.", needsAction: false };
-  if (claim?.status === "APPROVED" && !booking.settlementCompletedAt) return booking.ownerId === userId
-    ? { label: "Rozliczenie zatwierdzone", next: "Wykonaj zatwierdzone rozliczenie kaucji.", needsAction: true }
-    : { label: "Rozliczenie zatwierdzone", next: "Oczekuje na wykonanie rozliczenia kaucji.", needsAction: false };
+  if (claim?.status === "APPROVED" && !booking.settlementCompletedAt) return {
+    label: "Rozliczenie zatwierdzone", next: "Wykonaj zatwierdzone rozliczenie kaucji.", needsAction: true,
+  };
   if (booking.deliveryConfirmationStatus === "DISPUTED") return {
     label: "Problem z dostawą", next: booking.renterId === userId ? "Sprawdź stan sprawy i zamknij ją dopiero po rozwiązaniu problemu." : "Wyjaśnij zgłoszenie z najemcą.",
-    needsAction: booking.renterId === userId,
+    needsAction: true,
   };
   if (booking.returnConfirmationStatus === "DISPUTED") return {
     label: "Problem ze zwrotem", next: booking.ownerId === userId ? "Wyjaśnij problem albo zaproponuj rozliczenie kaucji." : "Sprawdź zgłoszenie i odpowiedz właścicielowi.",
-    needsAction: booking.ownerId === userId,
+    needsAction: true,
   };
-  if (booking.returnIssue !== null && booking.depositStatus === "PAID" && !booking.depositDecisionAt && !booking.settlementCompletedAt) return {
-    label: "Oczekuje na rozliczenie kaucji", next: booking.ownerId === userId ? "Zwróć kaucję albo przedstaw uzasadnioną propozycję potrącenia." : "Właściciel rozlicza kaucję.",
-    needsAction: booking.ownerId === userId,
-  };
+  if (booking.returnIssue !== null && booking.depositStatus === "PAID" && !booking.depositDecisionAt && !booking.settlementCompletedAt) {
+    const deadline = getDepositDecisionDeadline(booking.returnConfirmedAt);
+    const overdue = !!deadline && deadline <= new Date();
+    return {
+      label: "Oczekuje na rozliczenie kaucji",
+      next: overdue ? "Termin decyzji minął. Oczekujemy na automatyczny zwrot kaucji." :
+        booking.ownerId === userId ? "Zwróć kaucję albo przedstaw uzasadnioną propozycję potrącenia." : "Właściciel rozlicza kaucję.",
+      needsAction: booking.ownerId === userId && !overdue,
+    };
+  }
   return { label: "Zakończona", next: "Zobacz przebieg sprawy i zapisane rozliczenie.", needsAction: false };
+}
+
+export type IncidentBucket = "action" | "waiting" | "closed";
+
+export function incidentBucket(booking: IncidentBooking, userId: string): IncidentBucket {
+  const state = incidentState(booking, userId);
+  if (state.needsAction) return "action";
+  return state.label === "Zakończona" || state.label === "Rezerwacja anulowana" ? "closed" : "waiting";
 }
 
 export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {

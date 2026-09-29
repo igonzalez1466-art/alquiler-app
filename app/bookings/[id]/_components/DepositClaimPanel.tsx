@@ -6,6 +6,7 @@ import { claimReasonOptions, claimReasons, type DepositClaim } from "@/app/lib/d
 import { proposeDepositClaimAction, respondDepositClaimAction, resolveDepositClaimBySupportAction } from "../_actions/depositClaimActions";
 import { releaseDepositAction, executeApprovedClaimAction } from "./settlementClientActions";
 import PayoutSetupNotice from "./PayoutSetupNotice";
+import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
 const money = (cents: number) => new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(cents / 100);
 const date = (value: string) => new Date(value).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
@@ -32,7 +33,16 @@ export default function DepositClaimPanel(p: Props) {
     data.set("bookingId", p.bookingId);
     if (p.claim) data.set("claimId", p.claim.id);
     busy.current = true; setPending(true); setError(""); setPayoutSetup(false);
-    try { await action(data); setProposing(false); setDisputing(false); router.refresh(); }
+    try {
+      await action(data);
+      const message = action === proposeDepositClaimAction ? "Propozycja potrącenia została wysłana. Czekamy na odpowiedź najemcy."
+        : action === respondDepositClaimAction ? data.get("response") === "ACCEPT" ? "Propozycja została zaakceptowana. Czekamy na rozliczenie kaucji." : "Sprzeciw został zapisany. Sprawa trafiła do obsługi serwisu."
+        : action === resolveDepositClaimBySupportAction ? "Decyzja obsługi została zapisana."
+        : action === releaseDepositAction ? "Zwrot całej kaucji został uruchomiony. Sprawdź aktualny stan rozliczenia."
+        : "Zatwierdzone rozliczenie zostało uruchomione. Sprawdź aktualny stan kaucji.";
+      announceBookingAction(p.bookingId, message);
+      setProposing(false); setDisputing(false); router.refresh();
+    }
     catch (error) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
     finally { busy.current = false; setPending(false); }
   };
