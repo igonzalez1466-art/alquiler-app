@@ -15,7 +15,7 @@ export type IssueReason = keyof typeof issueReasons;
 // OTHER remains readable for historical reports, but is not available for new reports.
 export const reportableIssueReasons = {
   DELIVERY: ["NOT_RECEIVED", "DAMAGED", "DIRTY", "MISSING_ITEMS", "WRONG_ITEM", "LATE_DELIVERY"],
-  RETURN: ["NOT_RECEIVED", "DAMAGED", "DIRTY", "MISSING_ITEMS", "LATE_RETURN"],
+  RETURN: ["NOT_RECEIVED", "DAMAGED", "DIRTY", "MISSING_ITEMS", "WRONG_ITEM", "LATE_RETURN"],
 } as const;
 
 export type IssueDetails = {

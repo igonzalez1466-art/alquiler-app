@@ -6,6 +6,7 @@ export const claimReasons = {
   DAMAGED: issueReasons.DAMAGED,
   DIRTY: issueReasons.DIRTY,
   MISSING_ITEMS: issueReasons.MISSING_ITEMS,
+  WRONG_ITEM: issueReasons.WRONG_ITEM,
   LATE_RETURN: issueReasons.LATE_RETURN,
   // Existing claims may still contain these older codes.
   DAMAGE: "Uszkodzenie", STAINING: "Zabrudzenie", MISSING_ITEM: "Brak elementu",

@@ -17,7 +17,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
   const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
-  const canAttachIssuePhotos = reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS" || (stage === "DELIVERY" && reason === "WRONG_ITEM");
+  const canAttachIssuePhotos = reason === "DAMAGED" || reason === "DIRTY" || reason === "MISSING_ITEMS" || reason === "WRONG_ITEM";
   async function submit(action: (data: FormData) => Promise<void>, data = new FormData(), photos: File[] = []) {
     if (pending) return;
     if (photos.length > remainingPhotos) { setError(`Wybierz najwyżej ${remainingPhotos} zdjęć.`); return; }
@@ -57,7 +57,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       <h3 className="font-medium">Zgłoś problem</h3>
       <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia, zabrudzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
       {stage === "DELIVERY" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu także oznacza odbiór z zastrzeżeniami. Przy opóźnieniu dostawy wskaż, czy przedmiot już dotarł.</p>}
-      {stage === "RETURN" && <p className="text-sm text-gray-600">Spóźniony zwrot zapisze odbiór z zastrzeżeniami. Samo zgłoszenie nie potrąca kaucji.</p>}
+      {stage === "RETURN" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu lub spóźniony zwrot zapisze odbiór z zastrzeżeniami. Samo zgłoszenie nie potrąca kaucji.</p>}
       <label className="block text-sm">Powód
         <select name="reason" required value={reason} onChange={event => {
           setReason(event.target.value);

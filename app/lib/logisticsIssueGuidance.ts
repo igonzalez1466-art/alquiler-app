@@ -64,6 +64,11 @@ export function logisticsIssueGuidance(stage: Stage, reason: IssueDetails["reaso
       rent: "Pierwotna cena najmu pozostaje bez zmian.",
       deposit: "Możliwe roszczenie o uzasadniony koszt brakującego elementu, jeśli jego wydanie na początku jest potwierdzone.",
     };
+    case "WRONG_ITEM": return {
+      nextStep: "Porównaj zwrócony przedmiot ze zdjęciami z ogłoszenia i przekazania. Ustal, gdzie jest właściwy przedmiot, i daj najemcy możliwość jego oddania.",
+      rent: "Pierwotna cena najmu pozostaje bez zmian.",
+      deposit: "Jeśli właściwy przedmiot nie zostanie zwrócony, możliwe jest uzasadnione roszczenie do wysokości kaucji, po zgodzie najemcy lub decyzji obsługi. Samo zgłoszenie nie potrąca kaucji.",
+    };
     case "LATE_RETURN": return {
       nextStep: "Porównaj koniec najmu z faktycznym przekazaniem zwrotu. Sprawdź, czy opóźnienie dotyczy najemcy czy przewoźnika.",
       rent: "Koszt dodatkowego czasu można zaproponować tylko za opóźnienie po stronie najemcy, według wcześniej ustalonej stawki.",
