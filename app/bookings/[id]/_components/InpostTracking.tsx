@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { fetchInpostTracking, type TrackingResult } from "@/app/lib/inpostTracking";
+import { calendarDayOffset, formatCalendarDate, rentalCalendarDate, warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
 
 // The argument is part of the cache key; cache only the minimal public status.
 const getTracking = unstable_cache(fetchInpostTracking, ["inpost-tracking-v2"], { revalidate: 300 });
@@ -11,18 +12,19 @@ function PickupReadinessComparison({ result, rentalStartAt }: { result: Tracking
   if (result.kind !== "ok") return <p className="text-xs text-gray-600">Nie można teraz porównać daty udostępnienia przesyłki z początkiem najmu.</p>;
   if (!result.readyToPickupAt) return <p className="text-xs text-gray-600">InPost nie podał jeszcze daty „Przesyłka gotowa do odbioru”. Porównanie będzie dostępne po pojawieniu się tego statusu.</p>;
   const readyAt = new Date(result.readyToPickupAt);
-  const delayMinutes = Math.max(0, Math.ceil((readyAt.getTime() - rentalStartAt.getTime()) / 60_000));
-  const late = delayMinutes > 0;
-  const hours = Math.floor(delayMinutes / 60);
-  const minutes = delayMinutes % 60;
-  return <div className={`rounded border p-3 space-y-1 ${late ? "border-amber-300 bg-amber-50" : "border-emerald-300 bg-emerald-50"}`}>
-    <p className="font-medium">Porównanie z początkiem najmu</p>
-    <p>Początek najmu: <strong>{rentalStartAt.toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</strong></p>
+  const startDate = rentalCalendarDate(rentalStartAt);
+  const readyDate = warsawCalendarDate(readyAt);
+  const dayOffset = calendarDayOffset(startDate, readyDate);
+  return <div className={`rounded border p-3 space-y-1 ${dayOffset > 0 ? "border-amber-300 bg-amber-50" : "border-emerald-300 bg-emerald-50"}`}>
+    <p className="font-medium">Porównanie z pierwszym dniem najmu</p>
+    <p>Pierwszy dzień najmu: <strong>{formatCalendarDate(startDate)}</strong></p>
     <p>Gotowa do odbioru w InPost: <strong>{formatTime(result.readyToPickupAt)}</strong></p>
-    <p className="font-medium">{late
-      ? `Przesyłka była gotowa do odbioru ${hours} godz. ${minutes} min po początku najmu.`
-      : "Przesyłka była gotowa do odbioru przed początkiem najmu."}</p>
-    <p className="text-xs text-gray-600">To data udostępnienia przesyłki przez InPost, nie faktycznego odbioru przez najemcę. Porównanie samo nie zmienia ceny najmu.</p>
+    <p className="font-medium">{dayOffset > 0
+      ? `Przesyłka była gotowa ${dayOffset} ${dayOffset === 1 ? "dzień" : "dni"} kalendarzowe po pierwszym dniu najmu. Możesz zgłosić utracony czas najmu.`
+      : dayOffset === 0
+        ? "Przesyłka była gotowa pierwszego dnia najmu. Sama godzina nie dowodzi spóźnienia, chyba że uzgodniono konkretną godzinę przekazania."
+        : "Przesyłka była gotowa przed pierwszym dniem najmu. Późniejszy odbiór przez najemcę sam w sobie nie oznacza spóźnionej dostawy."}</p>
+    <p className="text-xs text-gray-600">To data udostępnienia przesyłki, nie jej faktycznego odbioru. Jeśli InPost nie udostępnił jej na czas, strony mogą uzgodnić przesunięcie najmu albo zwrot za niewykorzystane dni; bez zgody sprawę wyjaśnia obsługa. Ten status nie ustala winy, nie zmienia ceny automatycznie i nie daje podstawy do potrącenia kaucji.</p>
   </div>;
 }
 

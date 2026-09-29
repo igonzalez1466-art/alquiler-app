@@ -1,4 +1,5 @@
 import type { IssueDetails } from "./logisticsIssue";
+import { rentalCalendarDate, warsawCalendarDate } from "./rentalCalendarDate";
 
 type Stage = "DELIVERY" | "RETURN";
 
@@ -30,9 +31,9 @@ export function logisticsIssueGuidance(stage: Stage, reason: IssueDetails["reaso
         deposit: "Po anulowaniu i zwrocie otrzymanego przedmiotu kaucja powinna wrócić w całości.",
       };
       case "LATE_DELIVERY": return {
-        nextStep: "Porównaj początek najmu z nadaniem i faktycznym odbiorem. Sprawdź historię przewoźnika oraz czy przedmiot nadal jest potrzebny.",
-        rent: "Możliwe rozwiązania to przesunięcie okresu najmu, uzgodniony rabat za utracony czas albo anulowanie, jeśli najem nie ma już sensu.",
-        deposit: "Opóźnienie dostawy nie jest podstawą do potrącenia kaucji najemcy.",
+        nextStep: "Porównaj pierwszy dzień najmu z datą udostępnienia paczki w InPost, a potem sprawdź nadanie i ewentualną uzgodnioną godzinę przekazania. Sam późniejszy odbiór przez najemcę nie dowodzi opóźnienia dostawy.",
+        rent: "Jeśli przesyłka była dostępna później i najemca utracił czas korzystania, strony mogą uzgodnić zmianę terminów albo zwrot za utracony czas, ale nie oba za ten sam okres. Anulowanie i pełny zwrot najmu rozważ, gdy przedmiot nie dotarł na czas potrzebny do najmu. Sama data InPost nie ustala kwoty ani odpowiedzialności.",
+        deposit: "Opóźnienie dostawy nie jest podstawą do potrącenia kaucji najemcy. Przy anulowaniu bez wydania przedmiotu kaucja powinna wrócić w całości.",
       };
       default: return {
         nextStep: "Sprawdź opis zgłoszenia, historię przesyłki i zdjęcia; ustal rozwiązanie z drugą stroną lub obsługą.",
@@ -83,15 +84,18 @@ export function logisticsTimeObservations(
   receivedAt: Date | null,
 ): string[] {
   const observations: string[] = [];
+  const expectedDay = rentalCalendarDate(expectedAt);
+  const sentDay = sentAt ? warsawCalendarDate(sentAt) : null;
+  const receivedDay = receivedAt ? warsawCalendarDate(receivedAt) : null;
   if (!sentAt) observations.push("Brak zapisanej w aplikacji daty nadania lub przekazania.");
-  else if (sentAt > expectedAt) observations.push(stage === "DELIVERY"
-    ? "Nadanie zapisano po planowanym początku najmu. Sprawdź, kiedy przedmiot faktycznie dotarł."
-    : "Zwrot oznaczono jako wysłany po końcu najmu. Sprawdź faktyczną godzinę przekazania przedmiotu.");
-  else if (stage === "RETURN" && receivedAt && receivedAt > expectedAt) observations.push(
-    "Zwrot oznaczono jako wysłany przed końcem najmu, ale odbiór zapisano później. Opóźnienie przewoźnika samo w sobie nie obciąża najemcy.",
+  else if (sentDay && sentDay > expectedDay) observations.push(stage === "DELIVERY"
+    ? "Nadanie zapisano po pierwszym dniu najmu. Sprawdź, kiedy przesyłka była dostępna do odbioru."
+    : "Zwrot oznaczono jako wysłany po ostatnim dniu najmu. Sprawdź rzeczywistą datę nadania.");
+  else if (stage === "RETURN" && receivedDay && receivedDay > expectedDay) observations.push(
+    "Zwrot oznaczono jako wysłany najpóźniej ostatniego dnia najmu, ale odbiór zapisano później. Sam późniejszy odbiór nie dowodzi spóźnienia najemcy.",
   );
-  if (stage === "DELIVERY" && receivedAt && receivedAt > expectedAt) observations.push(
-    "Odbiór w aplikacji zapisano po planowanym początku najmu. Data w aplikacji może różnić się od faktycznej godziny przekazania.",
+  if (stage === "DELIVERY" && receivedDay && receivedDay > expectedDay) observations.push(
+    "Odbiór w aplikacji zapisano po pierwszym dniu najmu. Sprawdź, kiedy przesyłka była gotowa do odbioru — samo kliknięcie w aplikacji może nastąpić później.",
   );
   if (!receivedAt) observations.push("Brak zapisanej daty odbioru przedmiotu.");
   return observations;
