@@ -366,7 +366,8 @@ export default async function BookingPage({
     booking.paymentStatus === "PAID";
 
   const canOwnerEditShipping =
-    isOwner && logisticsEnabled && booking.shippingStatus !== "DELIVERED" &&
+    isOwner && logisticsEnabled && booking.status !== "CANCELLED" &&
+    !booking.shippedAt && ["PENDING", "READY"].includes(booking.shippingStatus) &&
     booking.deliveryConfirmationStatus !== "DISPUTED";
 
   const deliveryLocked =
@@ -878,6 +879,10 @@ export default async function BookingPage({
                       deliveredAt: booking.deliveredAt,
                     }}
                   />
+                )}
+
+                {isOwner && booking.shippingStatus === "SHIPPED" && (
+                  <p className="text-sm text-gray-600">Po oznaczeniu dostawy jako „Wysłano” nie można już zmienić przewoźnika, numeru śledzenia ani dodać zdjęć dostawy.</p>
                 )}
 
                 {deliveryLocked && (

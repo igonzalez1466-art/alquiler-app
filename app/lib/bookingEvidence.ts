@@ -8,6 +8,7 @@ type EvidenceBooking = {
   paymentStatus: string;
   settlementCompletedAt: Date | null;
   shippingStatus: string;
+  shippedAt: Date | null;
   deliveryConfirmationStatus: string;
   deliveryIssue: Prisma.JsonValue | null;
   returnStatus: string;
@@ -15,7 +16,6 @@ type EvidenceBooking = {
   returnIssue: Prisma.JsonValue | null;
 };
 
-const activeShipment = ["PENDING", "READY", "SHIPPED", "DELIVERED"];
 const awaitingReceipt = ["NOT_REQUESTED", "AWAITING_CONFIRMATION"];
 
 export function canUploadBookingEvidence(booking: EvidenceBooking, stage: "DELIVERY" | "RETURN", userId: string): boolean {
@@ -23,7 +23,8 @@ export function canUploadBookingEvidence(booking: EvidenceBooking, stage: "DELIV
 
   if (stage === "DELIVERY") {
     if (booking.ownerId === userId) {
-      return activeShipment.includes(booking.shippingStatus) && awaitingReceipt.includes(booking.deliveryConfirmationStatus);
+      return !booking.shippedAt && ["PENDING", "READY"].includes(booking.shippingStatus) &&
+        awaitingReceipt.includes(booking.deliveryConfirmationStatus);
     }
     const issue = readIssue(booking.deliveryIssue);
     return booking.renterId === userId && booking.deliveryConfirmationStatus === "DISPUTED" &&

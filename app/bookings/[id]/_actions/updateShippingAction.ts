@@ -99,6 +99,10 @@ export async function updateShippingAction(formData: FormData) {
   throw new Error("Wysyłkę można edytować dopiero po opłaceniu rezerwacji");
 }
 
+  if (booking.shippedAt || !["PENDING", "READY"].includes(booking.shippingStatus)) {
+    throw new Error("Po oznaczeniu dostawy jako „Wysłano” nie można już zmienić danych przesyłki.");
+  }
+
   // bloqueo total si ya se cerró la entrega
   if (
     booking.deliveryConfirmationStatus === "CONFIRMED" ||
@@ -106,11 +110,6 @@ export async function updateShippingAction(formData: FormData) {
     booking.deliveryConfirmationStatus === "DISPUTED"
   ) {
     throw new Error("Nie można edytować — odbiór został już potwierdzony");
-  }
-
-  // si ya estaba marcada como delivered, no permitir más edición
-  if (booking.shippingStatus === "DELIVERED") {
-    throw new Error("Nie można edytować — przesyłka została dostarczona");
   }
 
   if (carrier === "InPost" && !booking.deliveryInpostPointCode) {
@@ -124,9 +123,7 @@ export async function updateShippingAction(formData: FormData) {
     carrier: carrier || null,
     trackingNumber: trackingNumber || null,
 
-    ...(shippingStatus === "SHIPPED" && !booking.shippedAt
-      ? { shippedAt: now }
-      : {}),
+    shippedAt: now,
 
   };
 
@@ -147,6 +144,7 @@ export async function updateShippingAction(formData: FormData) {
       status: { not: "CANCELLED" },
       paymentStatus: "PAID",
       shippingStatus: booking.shippingStatus,
+      shippedAt: null,
       deliveryConfirmationStatus: booking.deliveryConfirmationStatus,
       ...(carrier === "InPost" ? { deliveryInpostPointCode: { not: null } } : {}),
     },
