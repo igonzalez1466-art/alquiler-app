@@ -31,11 +31,15 @@ export const depositLabels: Record<string, string> = { NONE: "Brak kaucji", PEND
 type FinancialBooking = Pick<Booking, "ownerId" | "renterId" | "rentAmountCents" | "depositCents" | "depositRetainedCents" | "depositRefundedCents" | "depositStatus" | "platformFeeCents" | "ownerPayoutCents" | "ownerTransferId" | "ownerTransferCents" | "depositTransferId" | "depositTransferredCents">;
 export function financialRows(b: FinancialBooking, userId: string): [string, number | null][] {
   if (b.ownerId !== userId && b.renterId !== userId) throw new Error("Brak dostępu");
-  const rows: [string, number | null][] = [["Koszt najmu", b.rentAmountCents], ["Kaucja w rezerwacji", b.depositCents], ["Zatrzymana kaucja", b.depositRetainedCents], [b.depositStatus === "REFUND_PENDING" ? "Zwrot kaucji — zlecony" : ["REFUNDED", "PARTIALLY_REFUNDED"].includes(b.depositStatus) ? "Zwrot kaucji — potwierdzony" : "Zwrot kaucji — zapisany", b.depositRefundedCents]];
+  const hasDeposit = (b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE";
+  const rows: [string, number | null][] = [["Koszt najmu", b.rentAmountCents]];
+  if (hasDeposit) rows.push(["Kaucja w rezerwacji", b.depositCents], ["Zatrzymana kaucja", b.depositRetainedCents], [b.depositStatus === "REFUND_PENDING" ? "Zwrot kaucji — zlecony" : ["REFUNDED", "PARTIALLY_REFUNDED"].includes(b.depositStatus) ? "Zwrot kaucji — potwierdzony" : "Zwrot kaucji — zapisany", b.depositRefundedCents]);
   if (b.ownerId === userId) {
     const rent = b.ownerTransferId ? b.ownerTransferCents : null;
     const compensation = b.depositTransferId ? b.depositTransferredCents : b.depositRetainedCents === 0 ? 0 : null;
-    rows.push(["Prowizja MojaSzafa", b.platformFeeCents], ["Najem netto — należny", b.ownerPayoutCents], ["Najem — przekazano", rent], ["Kaucja — przekazano", compensation], ["Łącznie przekazano na saldo Stripe", rent === null || compensation === null ? null : rent + compensation]);
+    rows.push(["Prowizja MojaSzafa", b.platformFeeCents], ["Najem netto — należny", b.ownerPayoutCents], ["Najem — przekazano", rent]);
+    if (hasDeposit) rows.push(["Kaucja — przekazano", compensation]);
+    rows.push(["Łącznie przekazano na saldo Stripe", rent === null || (hasDeposit && compensation === null) ? null : rent + (hasDeposit ? compensation ?? 0 : 0)]);
   }
   return rows;
 }

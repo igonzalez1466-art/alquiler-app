@@ -61,19 +61,16 @@ export default function PayBookingPage({
         <p>
           ✔ <strong>Wynajem:</strong> {formatMoney(data.rentAmountCents)} (płatność teraz)
         </p>
-        <p>
-          💳 <strong>Kaucja:</strong> {formatMoney(data.depositAmountCents)} (pobierana teraz)
-        </p>
-        <p className="text-gray-500 text-xs">
-          Kaucja zostanie zwrócona po prawidłowym zakończeniu wypożyczenia,
-          jeśli nie zostaną zgłoszone szkody.
-        </p>
+        {data.depositAmountCents > 0 && <>
+          <p>💳 <strong>Kaucja:</strong> {formatMoney(data.depositAmountCents)} (pobierana teraz)</p>
+          <p className="text-gray-500 text-xs">Kaucja zostanie zwrócona po prawidłowym zakończeniu wypożyczenia, jeśli nie zostaną zgłoszone szkody.</p>
+        </>}
         <p className="text-gray-700 font-medium">
           Do zapłaty teraz: {formatMoney(data.totalAmountCents)}
         </p>
       </div>
 
-      <PayForm clientSecret={data.clientSecret} />
+      <PayForm clientSecret={data.clientSecret} hasDeposit={data.depositAmountCents > 0} />
     </div>
   );
 }

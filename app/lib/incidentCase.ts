@@ -8,7 +8,7 @@ type IncidentBooking = Pick<Booking,
   "deliveryConfirmationStatus" | "returnConfirmationStatus" | "depositStatus" |
   "depositDecisionAt" | "settlementCompletedAt" | "shippedAt" | "returnShippedAt" |
   "deliveredAt" | "deliveryConfirmedAt" | "returnDeliveredAt" | "returnConfirmedAt" |
-  "depositRefundedAt" | "depositRetainedCents"
+  "depositRefundedAt" | "depositRetainedCents" | "depositCents"
 >;
 
 export type IncidentEvent = { at: Date; title: string; detail?: string };
@@ -52,7 +52,7 @@ export function incidentState(booking: IncidentBooking, userId: string) {
     needsAction: true,
   };
   if (booking.returnConfirmationStatus === "DISPUTED") return {
-    label: "Problem ze zwrotem", next: booking.ownerId === userId ? "Wyjaśnij problem albo zaproponuj rozliczenie kaucji." : "Sprawdź zgłoszenie i odpowiedz właścicielowi.",
+    label: "Problem ze zwrotem", next: booking.ownerId === userId ? (booking.depositCents ?? 0) > 0 ? "Wyjaśnij problem albo zaproponuj rozliczenie kaucji." : "Wyjaśnij problem ze zwrotem." : "Sprawdź zgłoszenie i odpowiedz właścicielowi.",
     needsAction: true,
   };
   if (booking.returnIssue !== null && booking.depositStatus === "PAID" && !booking.depositDecisionAt && !booking.settlementCompletedAt) {
@@ -104,7 +104,7 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
   add(claim?.proposedAt, "Właściciel zaproponował potrącenie z kaucji", claim ? claimReasons[claim.reasonCode] : undefined);
   if (claim?.respondedAt) add(claim.respondedAt, claim.renterResponse ? "Najemca zakwestionował propozycję" : "Najemca zaakceptował propozycję");
   if (claim?.resolutionSource === "SUPPORT") add(claim.approvedAt, "Obsługa rozstrzygnęła spór");
-  add(booking.settlementCompletedAt, "Rozliczenie kaucji zostało zapisane");
+  add(booking.settlementCompletedAt, (booking.depositCents ?? 0) > 0 ? "Rozliczenie kaucji zostało zapisane" : "Rozliczenie najmu zostało zapisane");
   add(booking.depositRefundedAt, "Zwrot kaucji został zlecony", (booking.depositRetainedCents ?? 0) > 0 ? "Część kaucji została zatrzymana." : undefined);
   return events.sort((a, b) => a.at.getTime() - b.at.getTime());
 }

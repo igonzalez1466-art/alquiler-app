@@ -6,6 +6,7 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { receiptWhere } from "@/app/lib/logistics";
 import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
+import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
 
 export async function confirmReturnAction(formData: FormData) {
   const session = await getServerSession(authConfig);
@@ -26,6 +27,7 @@ export async function confirmReturnAction(formData: FormData) {
     },
   });
   if (updated.count !== 1) throw new Error("Nie można potwierdzić odbioru. Odśwież stronę.");
+  await trySettleRentOnlyBooking(bookingId);
   await tryInviteBookingReview(bookingId);
   revalidatePath("/bookings/" + bookingId);
   revalidatePath("/bookings");

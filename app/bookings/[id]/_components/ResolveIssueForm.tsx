@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { resolveLogisticsProblemAction } from "../_actions/resolveLogisticsProblemAction";
 import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
-export default function ResolveIssueForm({ bookingId, stage }: { bookingId: string; stage: "DELIVERY" | "RETURN" }) {
+export default function ResolveIssueForm({ bookingId, stage, hasDeposit }: { bookingId: string; stage: "DELIVERY" | "RETURN"; hasDeposit: boolean }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [pending, setPending] = useState(false);
@@ -28,7 +28,7 @@ export default function ResolveIssueForm({ bookingId, stage }: { bookingId: stri
       <span>Potwierdzam, że przedmiot został odebrany i sprawdzony, a zgłoszony problem jest rozwiązany.</span>
     </label>
     <p className="text-sm">{stage === "RETURN"
-      ? "Zamknięcie zgłoszenia potwierdzi zwrot i umożliwi rozliczenie kaucji zgodnie z zasadami rezerwacji."
+      ? hasDeposit ? "Zamknięcie zgłoszenia potwierdzi zwrot i umożliwi rozliczenie kaucji zgodnie z zasadami rezerwacji." : "Zamknięcie zgłoszenia potwierdzi zwrot i umożliwi rozliczenie najmu."
       : "Zamknięcie zgłoszenia potwierdzi odbiór i pozwoli kontynuować rezerwację."}</p>
     <p className="text-sm">Jeśli nadal trwa spór lub oczekujesz rekompensaty, pozostaw zgłoszenie otwarte i skontaktuj się z obsługą serwisu.</p>
     <div className="flex flex-wrap gap-2">

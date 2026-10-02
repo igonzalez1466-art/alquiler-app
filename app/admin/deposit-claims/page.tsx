@@ -60,11 +60,10 @@ export default async function DepositClaimsPage({ searchParams }: { searchParams
           isOwner={b.ownerId === session.user.id} isRenter={b.renterId === session.user.id} isSupport={!involved}
           completed={!!b.settlementCompletedAt} settling={!!b.settlementDecision} /> : b.damageClaimStatus !== "NONE" && <p>Starsze zgłoszenie dotyczące kaucji: {b.damageClaimStatus}. Brak zapisanej propozycji kwotowej.</p>}
         <details className="text-sm"><summary className="cursor-pointer font-medium">Płatności i rozliczenie</summary><dl className="mt-2 space-y-1">
-          <div>Płatność: {paymentLabels[b.paymentStatus] ?? b.paymentStatus} · Kaucja: {depositLabels[b.depositStatus] ?? b.depositStatus}</div>
+          <div>Płatność: {paymentLabels[b.paymentStatus] ?? b.paymentStatus}{((b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE") && <> · Kaucja: {depositLabels[b.depositStatus] ?? b.depositStatus}</>}</div>
           <div>Najem: {money(b.rentAmountCents)} · Prowizja: {money(b.platformFeeCents)}</div>
-          <div>Kaucja w rezerwacji: {money(b.depositCents)} · Zatrzymano: {money(b.depositRetainedCents)}</div>
-          <div>Zwrot kaucji (status powyżej): {money(b.depositRefundedCents)} · {date(b.depositRefundedAt)}</div>
-          <div>Transfer najmu: {money(b.ownerTransferId ? b.ownerTransferCents : null)} · Transfer kaucji: {money(b.depositTransferId ? b.depositTransferredCents : b.depositRetainedCents === 0 ? 0 : null)}</div>
+          {((b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE") && <><div>Kaucja w rezerwacji: {money(b.depositCents)} · Zatrzymano: {money(b.depositRetainedCents)}</div><div>Zwrot kaucji (status powyżej): {money(b.depositRefundedCents)} · {date(b.depositRefundedAt)}</div></>}
+          <div>Transfer najmu: {money(b.ownerTransferId ? b.ownerTransferCents : null)}{((b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE") && <> · Transfer kaucji: {money(b.depositTransferId ? b.depositTransferredCents : b.depositRetainedCents === 0 ? 0 : null)}</>}</div>
           <div>Rozliczenie zapisano: {date(b.settlementCompletedAt)}</div>
         </dl></details>
       </section>;

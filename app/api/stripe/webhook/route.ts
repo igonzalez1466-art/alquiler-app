@@ -623,7 +623,7 @@ export async function POST(req: Request) {
     >
       Prowizja MojaSzafa jest naliczana
       wyłącznie od kosztu najmu.
-      Kaucja nie jest objęta prowizją.
+      ${depositAmountCents > 0 ? "Kaucja nie jest objęta prowizją." : ""}
     </p>
 
     <!-- ============================================

@@ -24,7 +24,7 @@ function PickupReadinessComparison({ result, rentalStartAt }: { result: Tracking
       : dayOffset === 0
         ? "Przesyłka była gotowa pierwszego dnia najmu. Sama godzina nie dowodzi spóźnienia, chyba że uzgodniono konkretną godzinę przekazania."
         : "Przesyłka była gotowa przed pierwszym dniem najmu. Późniejszy odbiór przez najemcę sam w sobie nie oznacza spóźnionej dostawy."}</p>
-    <p className="text-xs text-gray-600">To data udostępnienia przesyłki, nie jej faktycznego odbioru. Jeśli InPost nie udostępnił jej na czas, strony mogą uzgodnić przesunięcie najmu albo zwrot za niewykorzystane dni; bez zgody sprawę wyjaśnia obsługa. Ten status nie ustala winy, nie zmienia ceny automatycznie i nie daje podstawy do potrącenia kaucji.</p>
+    <p className="text-xs text-gray-600">To data udostępnienia przesyłki, nie jej faktycznego odbioru. Jeśli InPost nie udostępnił jej na czas, strony mogą uzgodnić przesunięcie najmu albo zwrot za niewykorzystane dni; bez zgody sprawę wyjaśnia obsługa. Ten status nie ustala winy ani nie zmienia ceny automatycznie.</p>
   </div>;
 }
 

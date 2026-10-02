@@ -32,13 +32,12 @@ export default async function TransactionHistoryPage({ searchParams }: { searchP
     {bookings.map(b => <article key={b.id} className="rounded border bg-white p-4 space-y-3">
       <div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold">#{b.bookingNumber} · {b.listing.title}</h2><Link className="underline" href={`/bookings/${b.id}`}>Szczegóły rezerwacji</Link></div>
       <p className="text-sm">{b.ownerId === userId ? "Właściciel" : "Najemca"} · {date(b.startDate)} — {date(b.endDate)}{b.status === "CANCELLED" ? " · Rezerwacja anulowana" : ""}</p>
-      <div className="flex flex-wrap gap-2 text-sm"><span className="rounded border px-2 py-1">Płatność: {paymentLabels[b.paymentStatus] ?? b.paymentStatus}</span><span className="rounded border px-2 py-1">Kaucja: {depositLabels[b.depositStatus] ?? b.depositStatus}</span></div>
+      <div className="flex flex-wrap gap-2 text-sm"><span className="rounded border px-2 py-1">Płatność: {paymentLabels[b.paymentStatus] ?? b.paymentStatus}</span>{((b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE") && <span className="rounded border px-2 py-1">Kaucja: {depositLabels[b.depositStatus] ?? b.depositStatus}</span>}</div>
       {(b.deliveryConfirmationStatus === "DISPUTED" || b.returnConfirmationStatus === "DISPUTED") && <p className="text-rose-800">Otwarta sprawa — sprawdź szczegóły rezerwacji.</p>}
       <dl className="grid gap-2 text-sm">{financialRows(b, userId).map(([label, value]) => <div key={label} className="flex justify-between gap-4 border-b pb-1"><dt>{label}</dt><dd className="font-medium whitespace-nowrap">{money(value)}</dd></div>)}</dl>
       <details className="text-sm"><summary className="cursor-pointer">Daty płatności i rozliczenia</summary><dl className="mt-2 space-y-1">
-        <div>Utworzono rezerwację: {date(b.createdAt)}</div><div>Płatność: {date(b.paidAt)}</div><div>Wpłata kaucji: {date(b.depositPaidAt)}</div>
-        <div>Zwrot kaucji: {date(b.depositRefundedAt)}</div>{b.refundedAt && <div>Zwrot płatności: {date(b.refundedAt)}</div>}
-        {b.ownerId === userId && <><div>Transfer za najem: {date(b.ownerTransferredAt)}</div><div>Transfer kaucji: {date(b.depositTransferredAt)}</div></>}
+        <div>Utworzono rezerwację: {date(b.createdAt)}</div><div>Płatność: {date(b.paidAt)}</div>{((b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE") && <><div>Wpłata kaucji: {date(b.depositPaidAt)}</div><div>Zwrot kaucji: {date(b.depositRefundedAt)}</div></>}{b.refundedAt && <div>Zwrot płatności: {date(b.refundedAt)}</div>}
+        {b.ownerId === userId && <><div>Transfer za najem: {date(b.ownerTransferredAt)}</div>{((b.depositCents ?? 0) > 0 || b.depositStatus !== "NONE") && <div>Transfer kaucji: {date(b.depositTransferredAt)}</div>}</>}
         <div>Zapisano rozliczenie: {date(b.settlementCompletedAt)}</div>
       </dl></details>
     </article>)}

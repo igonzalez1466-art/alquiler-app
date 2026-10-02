@@ -13,7 +13,7 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-function InnerPayForm() {
+function InnerPayForm({ hasDeposit }: { hasDeposit: boolean }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -50,7 +50,7 @@ function InnerPayForm() {
     <div className="max-w-md">
       <h2 className="text-lg font-semibold mb-2">Zapłać za rezerwację</h2>
       <p className="text-sm text-gray-600 mb-4">
-        Ta kwota obejmuje koszt wynajmu oraz kaucję zwrotną.
+        {hasDeposit ? "Ta kwota obejmuje koszt wynajmu oraz kaucję zwrotną." : "Ta kwota obejmuje koszt wynajmu."}
       </p>
 
       <PaymentElement />
@@ -69,10 +69,10 @@ function InnerPayForm() {
   );
 }
 
-export default function PayForm({ clientSecret }: { clientSecret: string }) {
+export default function PayForm({ clientSecret, hasDeposit }: { clientSecret: string; hasDeposit: boolean }) {
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
-      <InnerPayForm />
+      <InnerPayForm hasDeposit={hasDeposit} />
     </Elements>
   );
 }

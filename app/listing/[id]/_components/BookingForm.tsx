@@ -199,7 +199,7 @@ export default function BookingForm({
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between px-3 py-2 text-sm">
+                    {fianza > 0 && <div className="flex items-center justify-between px-3 py-2 text-sm">
                       <span className="text-gray-600">
                         Kaucja{" "}
                         <span className="text-xs text-gray-500">
@@ -209,7 +209,7 @@ export default function BookingForm({
                       <span className="font-medium">
                         {summary.deposit} zł
                       </span>
-                    </div>
+                    </div>}
                   </div>
                 </div>
 
@@ -223,10 +223,10 @@ export default function BookingForm({
                 </div>
 
                 <p className="text-xs text-gray-600">Wysyłka InPost nie jest wliczona w tę kwotę. Osoba nadająca przesyłkę opłaca etykietę bezpośrednio w InPost.</p>
-                <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
+                {fianza > 0 && <div className="rounded-lg bg-gray-50 border px-3 py-2 text-xs text-gray-700">
                   Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i
                   potwierdzeniu braku uszkodzeń).
-                </div>
+                </div>}
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
     const listing = await prisma.listing.create({
       data: {
         ...data,
+        fianza: DEPOSITS_ENABLED ? data.fianza : null,
         userId, // ✅ desde sesión, no desde body
       },
     });

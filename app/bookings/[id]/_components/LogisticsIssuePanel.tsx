@@ -41,7 +41,7 @@ export default function LogisticsIssuePanel({ bookingId, stage, stored, disputed
   const observations = logisticsTimeObservations(stage, facts.expectedAt, facts.sentAt, facts.receivedAt);
   const tracking = isInpost(facts.carrier) ? normalizeInpostNumber(facts.trackingNumber) : null;
   return <div className={`rounded border p-3 space-y-3 text-sm ${disputed ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
-    <p role="status">{disputed ? (stage === "RETURN" && hasDepositClaim ? (claimNotReturned ? "Przedmiot nie został zwrócony. Szczegóły rozliczenia kaucji znajdują się poniżej." : "Przedmiot został odebrany. Trwa uzgadnianie rozliczenia kaucji — szczegóły poniżej.") : (receiptConfirmed || issueConfirmsReceipt(issue)) ? (stage === "RETURN" ? "Przedmiot odebrany z zastrzeżeniami. Kaucja pozostaje zablokowana do rozwiązania sprawy." : "Przedmiot odebrany z zastrzeżeniami. Zgłoszony problem wymaga rozwiązania.") : "Problem został zgłoszony. Odbiór przedmiotu nie został potwierdzony.") : "Problem rozwiązany — odbiór potwierdzony."}</p>
+    <p role="status">{disputed ? (stage === "RETURN" && hasDepositClaim ? (claimNotReturned ? "Przedmiot nie został zwrócony. Szczegóły rozliczenia kaucji znajdują się poniżej." : "Przedmiot został odebrany. Trwa uzgadnianie rozliczenia kaucji — szczegóły poniżej.") : (receiptConfirmed || issueConfirmsReceipt(issue)) ? (stage === "RETURN" && (facts.depositCents ?? 0) > 0 ? "Przedmiot odebrany z zastrzeżeniami. Kaucja pozostaje zablokowana do rozwiązania sprawy." : "Przedmiot odebrany z zastrzeżeniami. Zgłoszony problem wymaga rozwiązania.") : "Problem został zgłoszony. Odbiór przedmiotu nie został potwierdzony.") : "Problem rozwiązany — odbiór potwierdzony."}</p>
     {issue && <>
       <p><strong>Powód:</strong> {issueReasonLabel(issue.reason)}</p>
       {issue.description && <p className="whitespace-pre-wrap break-words">{issue.description}</p>}
@@ -56,7 +56,7 @@ export default function LogisticsIssuePanel({ bookingId, stage, stored, disputed
         <div><dt className="font-medium">Odbiór zapisany w aplikacji</dt><dd>{datePL(facts.receivedAt)}</dd></div>
         <div><dt className="font-medium">Przewoźnik / numer</dt><dd>{facts.carrier ?? "—"}{facts.trackingNumber ? ` · ${facts.trackingNumber}` : ""}</dd></div>
         <div><dt className="font-medium">Zdjęcia w tym etapie</dt><dd>Właściciel: {facts.ownerPhotos}/3 · Najemca: {facts.renterPhotos}/3</dd></div>
-        <div><dt className="font-medium">Kwoty rezerwacji</dt><dd>Najem: {facts.rentCents === null ? "—" : moneyPL(facts.rentCents)} · Kaucja: {facts.depositCents === null ? "—" : moneyPL(facts.depositCents)}</dd></div>
+        <div><dt className="font-medium">Kwoty rezerwacji</dt><dd>Najem: {facts.rentCents === null ? "—" : moneyPL(facts.rentCents)}{(facts.depositCents ?? 0) > 0 && <> · Kaucja: {moneyPL(facts.depositCents!)}</>}</dd></div>
       </dl>
       {tracking && <a className="inline-block text-blue-700 underline" href={`https://inpost.pl/sledzenie-przesylek?number=${encodeURIComponent(tracking)}`} target="_blank" rel="noopener noreferrer">Sprawdź historię InPost ↗</a>}
       {stage === "DELIVERY" && tracking && <Suspense fallback={<p className="text-xs text-gray-600">Porównywanie dat InPost…</p>}>
@@ -65,11 +65,11 @@ export default function LogisticsIssuePanel({ bookingId, stage, stored, disputed
       {observations.length > 0 && <ul className="list-disc space-y-1 pl-5">{observations.map(value => <li key={value}>{value}</li>)}</ul>}
       <p><strong>Następny krok:</strong> {guidance.nextStep}</p>
       <p><strong>Cena najmu:</strong> {guidance.rent}</p>
-      <p><strong>Kaucja:</strong> {guidance.deposit}</p>
-      <p className="text-xs text-gray-600">Daty i status przewoźnika pomagają wyjaśnić sprawę, ale nie rozstrzygają automatycznie odpowiedzialności. To podpowiedzi; zgłoszenie nie zmienia płatności ani kaucji.</p>
+      {(facts.depositCents ?? 0) > 0 && <p><strong>Kaucja:</strong> {guidance.deposit}</p>}
+      <p className="text-xs text-gray-600">Daty i status przewoźnika pomagają wyjaśnić sprawę, ale nie rozstrzygają automatycznie odpowiedzialności. To podpowiedzi; zgłoszenie nie zmienia płatności{(facts.depositCents ?? 0) > 0 && " ani kaucji"}.</p>
     </div>
     {disputed && <p>Jeśli sprawa wymaga wyjaśnienia, skontaktuj się z obsługą serwisu.</p>}
     {disputed && canResolve && userId === recipientId && (stored === null || (issue?.reportedById === userId && issue.resolvedAt === null)) &&
-      <ResolveIssueForm bookingId={bookingId} stage={stage} />}
+      <ResolveIssueForm bookingId={bookingId} stage={stage} hasDeposit={(facts.depositCents ?? 0) > 0} />}
   </div>;
 }

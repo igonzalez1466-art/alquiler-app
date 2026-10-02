@@ -1,6 +1,7 @@
 // app/listing/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import { sportLabel } from "@/app/lib/listingAttributes";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -356,7 +357,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
             <h2 className="text-lg font-semibold mb-3">Cena</h2>
             <p className="mb-3 text-sm"><strong>Minimalny okres wynajmu:</strong> {listing.minimumRentalDays} {listing.minimumRentalDays === 1 ? "dzień" : "dni"}</p>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid grid-cols-1 ${DEPOSITS_ENABLED ? "sm:grid-cols-2" : ""} gap-3`}>
               <div className="rounded-lg border bg-gray-50 p-3">
                 <div className="text-xs text-gray-600">Cena za dzień</div>
                 <div className="text-2xl font-bold text-gray-900">
@@ -364,17 +365,17 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-gray-50 p-3">
+              {DEPOSITS_ENABLED && <div className="rounded-lg border bg-gray-50 p-3">
                 <div className="text-xs text-gray-600">Kaucja</div>
                 <div className="text-2xl font-bold text-gray-900">
                   {listing.fianza != null ? `${listing.fianza} zł` : "—"}
                 </div>
-              </div>
+              </div>}
             </div>
 
-            <p className="mt-3 text-xs text-gray-600">
+            {DEPOSITS_ENABLED && <p className="mt-3 text-xs text-gray-600">
               Kaucja jest zwrotna zgodnie z warunkami (po zwrocie produktu i potwierdzeniu braku uszkodzeń).
-            </p>
+            </p>}
             <p className="mt-2 text-xs text-gray-600">
               Jeśli wybierzecie wysyłkę InPost, koszt etykiety nie jest wliczony w cenę najmu. Osoba nadająca przesyłkę opłaca ją bezpośrednio w InPost.
             </p>
@@ -389,7 +390,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 isLoggedIn={!!session?.user?.id}
                 pricePerDay={listing.pricePerDay}
                 minimumRentalDays={listing.minimumRentalDays}
-                fianza={listing.fianza ?? 0}
+                fianza={DEPOSITS_ENABLED ? listing.fianza ?? 0 : 0}
                 phoneVerified={phoneVerified}
                 occupiedRanges={occupiedRanges}
               />

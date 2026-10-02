@@ -497,14 +497,12 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                               </span>
                             </span>
 
-                            <span className="rounded border bg-gray-50 px-2 py-1">
+                            {(b.depositCents ?? 0) > 0 && <span className="rounded border bg-gray-50 px-2 py-1">
                               Kaucja:{" "}
                               <span className="font-semibold">
-                                {b.listing.fianza != null
-                                  ? `${b.listing.fianza} zł`
-                                  : "Brak"}
+                                {new Intl.NumberFormat("pl-PL").format((b.depositCents ?? 0) / 100)} zł
                               </span>
-                            </span>
+                            </span>}
                           </div>
                         </div>
 
@@ -700,14 +698,12 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                               </span>
                             </span>
 
-                            <span className="rounded border bg-gray-50 px-2 py-1">
+                            {(b.depositCents ?? 0) > 0 && <span className="rounded border bg-gray-50 px-2 py-1">
                               Kaucja:{" "}
                               <span className="font-semibold">
-                                {b.listing.fianza != null
-                                  ? `${b.listing.fianza} zł`
-                                  : "Brak"}
+                                {new Intl.NumberFormat("pl-PL").format((b.depositCents ?? 0) / 100)} zł
                               </span>
-                            </span>
+                            </span>}
                           </div>
 
                           <div className="text-sm text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">

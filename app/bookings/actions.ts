@@ -7,6 +7,7 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 import { PAYMENT_WINDOW_MS } from "@/app/lib/paymentExpiry";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 import {
   APPROVAL_WINDOW_MS,
   getApprovalDeadline,
@@ -158,7 +159,7 @@ export async function createBookingAction(input: {
   const days = diffDaysInclusive(start, end);
   if (days < listing.minimumRentalDays) throw new Error(`Minimalny okres wynajmu: ${listing.minimumRentalDays} dni.`);
   const pricePerDay = listing.pricePerDay;
-  const deposit = listing.fianza ?? 0;
+  const deposit = DEPOSITS_ENABLED ? (listing.fianza ?? 0) : 0;
 
   if (!pricePerDay || pricePerDay <= 0) {
     throw new Error(
@@ -368,9 +369,9 @@ export async function approveBookingAction(
   const rentAmountCents =
     booking.rentAmountCents ?? days * pricePerDayCents;
 
-  const depositCents =
-    booking.depositCents ??
-    Math.round((booking.listing.fianza ?? 0) * 100);
+  const depositCents = DEPOSITS_ENABLED
+    ? booking.depositCents ?? Math.round((booking.listing.fianza ?? 0) * 100)
+    : 0;
 
   const platformFeeRate =
     booking.platformFeeRate ?? PLATFORM_FEE_RATE;

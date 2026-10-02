@@ -7,6 +7,7 @@ import { authConfig } from "@/auth.config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 // 1500 basis points = 15 %
 const PLATFORM_FEE_RATE = 1500;
@@ -248,6 +249,7 @@ export async function createBookingAction(
   }
 
   if (
+    DEPOSITS_ENABLED &&
     listing.fianza !== null &&
     listing.fianza < 0
   ) {
@@ -258,7 +260,7 @@ export async function createBookingAction(
 
   const pricePerDayCents = listing.pricePerDay * 100;
   const rentAmountCents = days * pricePerDayCents;
-  const depositCents = (listing.fianza ?? 0) * 100;
+  const depositCents = DEPOSITS_ENABLED ? (listing.fianza ?? 0) * 100 : 0;
 
   const platformFeeCents = Math.round(
     (rentAmountCents * PLATFORM_FEE_RATE) / 10_000
@@ -464,7 +466,7 @@ export async function createBookingAction(
 
                 <p style="margin:8px 0 4px;font-size:12px;color:#6b7280;">
                   Prowizja MojaSzafa jest naliczana wyłącznie
-                  od kosztu najmu. Kaucja nie jest objęta prowizją.
+                  od kosztu najmu.
                 </p>
 
                 <p style="margin:10px 0 4px;">

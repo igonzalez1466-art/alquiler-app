@@ -73,12 +73,12 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
       <BookingEvidencePhotos bookingId={id} stage="RETURN" userId={userId} ownerId={booking.ownerId} renterId={booking.renterId} canUpload={canUploadBookingEvidence(booking, "RETURN", userId)} photos={visiblePhotos.filter(photo => photo.stage === "RETURN").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))} />
     </section>}
 
-    {(booking.returnIssue !== null || booking.depositClaim !== null || booking.returnConfirmationStatus === "DISPUTED") && <section className="rounded-xl border bg-white p-5 space-y-4" aria-labelledby="incident-deposit">
+    {(booking.depositCents ?? 0) > 0 && (booking.returnIssue !== null || booking.depositClaim !== null || booking.returnConfirmationStatus === "DISPUTED") && <section className="rounded-xl border bg-white p-5 space-y-4" aria-labelledby="incident-deposit">
       <h2 id="incident-deposit" className="text-lg font-semibold">Kaucja i decyzja</h2>
       <p className="text-sm">Wpłacona kaucja: <strong>{money(booking.depositCents)}</strong> · Zwrócono: <strong>{money(booking.depositRefundedCents)}</strong> · Zatrzymano: <strong>{money(booking.depositRetainedCents)}</strong></p>
       <DepositClaimPanel bookingId={id} depositCents={booking.depositCents ?? 0} claim={claim} hasClaim={booking.depositClaim !== null} isOwner={isOwner} isRenter={isRenter} returnCompleted={returnCompleted} receiptKnown={hasReturnReceipt(booking)} canPropose={canPropose} canProposeNotReturned={canProposeNotReturned} initialReason={returnIssue?.description ?? ""} initialReasonCode={claimReasonFromReturnIssue(returnIssue?.reason)} completed={!!booking.settlementCompletedAt} settling={settlementPending} canRefund={canManageDeposit && !booking.settlementDecision} />
       {canManageDeposit && settlementPending && booking.depositClaim === null && <DepositActions settlementPending bookingId={id} depositZl={(booking.depositCents ?? 0) / 100} />}
     </section>}
-    <p className="text-xs text-gray-600">Daty pochodzą z zapisów aplikacji. Zgłoszenie problemu i propozycja potrącenia same nie przenoszą środków.</p>
+    <p className="text-xs text-gray-600">Daty pochodzą z zapisów aplikacji. Zgłoszenie problemu samo nie zmienia rozliczenia.{(booking.depositCents ?? 0) > 0 && " Propozycja potrącenia sama nie przenosi środków."}</p>
   </main>;
 }

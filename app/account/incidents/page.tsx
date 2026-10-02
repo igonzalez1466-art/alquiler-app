@@ -36,7 +36,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
       deliveryConfirmationStatus: true, returnConfirmationStatus: true, depositStatus: true,
       depositDecisionAt: true, settlementCompletedAt: true, shippedAt: true, deliveredAt: true, deliveryConfirmedAt: true,
       returnShippedAt: true, returnDeliveredAt: true, returnConfirmedAt: true,
-      depositRefundedAt: true, depositRetainedCents: true,
+      depositRefundedAt: true, depositRetainedCents: true, depositCents: true,
       listing: { select: { title: true } },
     },
   });
@@ -55,7 +55,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     <Link href="/account" className="text-sm underline">← Mój profil</Link>
     <div>
       <h1 className="text-2xl font-bold">Moje incydenty</h1>
-      <p className="mt-2 text-sm text-gray-600">Zgłoszenia dostawy, zwrotu i roszczenia dotyczące kaucji z Twoich rezerwacji. Daty podano w czasie polskim.</p>
+      <p className="mt-2 text-sm text-gray-600">Zgłoszenia dotyczące dostawy i zwrotu z Twoich rezerwacji. Historyczne roszczenia dotyczące kaucji również pozostają dostępne. Daty podano w czasie polskim.</p>
     </div>
     <nav aria-label="Filtruj incydenty" className="flex flex-wrap gap-2 text-sm">
       {([

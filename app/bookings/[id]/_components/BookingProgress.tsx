@@ -17,7 +17,7 @@ export default function BookingProgress({ booking }: { booking: ProgressBooking 
   const accepted = paid || ["AWAITING_PAYMENT", "CONFIRMED", "PAID"].includes(booking.status);
   const deliveryDone = booking.shippingStatus === "DELIVERED" && ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus);
   const returnDone = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);
-  const hasDeposit = (booking.depositCents ?? 0) > 0;
+  const hasDeposit = (booking.depositCents ?? 0) > 0 || booking.depositStatus !== "NONE";
   const settled = !!booking.settlementCompletedAt || ["REFUNDED", "PARTIALLY_REFUNDED", "RETAINED"].includes(booking.depositStatus);
   const steps: Step[] = [
     { label: "Prośba", done: true },
@@ -25,7 +25,7 @@ export default function BookingProgress({ booking }: { booking: ProgressBooking 
     { label: "Płatność", done: paid },
     { label: "Dostawa", done: deliveryDone, problem: booking.deliveryConfirmationStatus === "DISPUTED" || booking.shippingStatus === "LOST" },
     { label: "Zwrot", done: returnDone, problem: booking.returnConfirmationStatus === "DISPUTED" || booking.returnStatus === "LOST" },
-    { label: "Kaucja", done: returnDone && (!hasDeposit || settled), skipped: !hasDeposit },
+    ...(hasDeposit ? [{ label: "Kaucja", done: returnDone && settled }] : [{ label: "Rozliczenie", done: !!booking.settlementCompletedAt }]),
   ];
   const current = steps.findIndex(step => !step.done);
   return <section className="rounded border bg-white p-4 space-y-3" aria-labelledby="booking-progress-title">

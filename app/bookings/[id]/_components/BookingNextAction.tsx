@@ -4,6 +4,7 @@ import { readDepositClaim } from "@/app/lib/depositClaim";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 type Props = { booking: TaskBooking; userId: string; ownerPhoneVerified: boolean };
 
@@ -15,6 +16,7 @@ const destination: Record<string, { href: string; label: string }> = {
   receiveReturn: { href: "#return-section", label: "Sprawdź zwrot" },
   deposit: { href: "#deposit-section", label: "Rozlicz kaucję" },
   retry: { href: "#deposit-section", label: "Sprawdź rozliczenie" },
+  rentSettlement: { href: "#rent-settlement-section", label: "Rozlicz najem" },
 };
 
 function waitingMessage(booking: TaskBooking, userId: string) {
@@ -26,7 +28,7 @@ function waitingMessage(booking: TaskBooking, userId: string) {
   if (claim?.status === "DISPUTED") return "Spór o kaucję oczekuje na decyzję obsługi serwisu.";
   if (claim?.status === "APPROVED" && !booking.settlementCompletedAt) return "Rozliczenie kaucji zostało zatwierdzone. Oczekujemy na jego wykonanie.";
   if (booking.status === "PENDING") return getApprovalDeadline(booking.createdAt) <= new Date() ? "Termin akceptacji minął. Rezerwacja oczekuje na anulowanie." : "Czekamy na decyzję właściciela o rezerwacji.";
-  if (booking.status === "AWAITING_PAYMENT" && booking.paymentStatus === "PENDING") return isPaymentDeadlineExpired(booking) ? "Termin płatności minął. Rezerwacja oczekuje na sprawdzenie płatności." : "Czekamy na płatność najemcy.";
+  if (booking.status === "AWAITING_PAYMENT" && booking.paymentStatus === "PENDING") return !DEPOSITS_ENABLED && booking.depositCents !== 0 ? "Ta wcześniejsza rezerwacja zawiera kaucję i nie może być już opłacona. Poczekaj na jej anulowanie, a następnie złóż nową prośbę bez kaucji." : isPaymentDeadlineExpired(booking) ? "Termin płatności minął. Rezerwacja oczekuje na sprawdzenie płatności." : "Czekamy na płatność najemcy.";
   if (booking.paymentStatus !== "PAID") return "Czekamy na potwierdzenie płatności.";
   const delivered = booking.shippingStatus === "DELIVERED" && ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus);
   if (!delivered) return owner ? "Czekamy na potwierdzenie odbioru przez najemcę." : "Czekamy na wysłanie lub przekazanie przedmiotu przez właściciela.";
@@ -37,6 +39,7 @@ function waitingMessage(booking: TaskBooking, userId: string) {
     const deadline = getDepositDecisionDeadline(booking.returnConfirmedAt);
     return deadline && deadline <= new Date() ? "Termin decyzji o kaucji minął. Czekamy na automatyczny zwrot." : "Czekamy na rozliczenie kaucji przez właściciela.";
   }
+  if ((booking.depositCents ?? 0) === 0 && booking.depositStatus === "NONE") return owner ? "Zwrot potwierdzony. Rozlicz wynagrodzenie za najem." : "Zwrot potwierdzony. Oczekujemy na rozliczenie najmu z właścicielem.";
   return "Wszystkie kroki rezerwacji zostały zakończone.";
 }
 
@@ -50,7 +53,7 @@ export default function BookingNextAction({ booking, userId, ownerPhoneVerified 
     : destination[kind] : null;
   const returned = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);
   const finished = booking.status === "CANCELLED" || !!booking.settlementCompletedAt ||
-    (returned && ((booking.depositCents ?? 0) <= 0 || ["REFUNDED", "PARTIALLY_REFUNDED", "RETAINED"].includes(booking.depositStatus)));
+    (returned && (booking.depositCents ?? 0) > 0 && ["REFUNDED", "PARTIALLY_REFUNDED", "RETAINED"].includes(booking.depositStatus));
   return <section className={`rounded-xl border p-5 space-y-3 ${task ? "border-indigo-300 bg-indigo-50" : "border-slate-200 bg-slate-50"}`} aria-labelledby="booking-next-action">
     <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{finished ? "Stan rezerwacji" : "Następny krok"}</p>
     <h2 id="booking-next-action" className="text-xl font-semibold">{task ? task.title : finished ? booking.status === "CANCELLED" ? "Rezerwacja anulowana" : "Rezerwacja zakończona" : "Teraz czekamy"}</h2>

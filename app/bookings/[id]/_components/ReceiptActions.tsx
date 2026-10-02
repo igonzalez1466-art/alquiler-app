@@ -9,7 +9,7 @@ import { reportLogisticsProblemAction } from "../_actions/reportLogisticsProblem
 import { issueReasons, reportableIssueReasons } from "@/app/lib/logisticsIssue";
 import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
 
-export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { bookingId: string; stage: "DELIVERY" | "RETURN"; remainingPhotos: number }) {
+export default function ReceiptActions({ bookingId, stage, remainingPhotos, hasDeposit }: { bookingId: string; stage: "DELIVERY" | "RETURN"; remainingPhotos: number; hasDeposit: boolean }) {
   const router = useRouter();
   const photoInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
@@ -31,7 +31,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       announceBookingAction(bookingId, action === reportLogisticsProblemAction
         ? "Zgłoszenie problemu zostało zapisane. Dalsze kroki znajdziesz w sekcji Moje incydenty."
         : stage === "DELIVERY" ? "Odbiór został potwierdzony. Wynajem może być kontynuowany."
-        : "Zwrot został potwierdzony. Możesz teraz rozliczyć kaucję.");
+        : hasDeposit ? "Zwrot został potwierdzony. Możesz teraz rozliczyć kaucję." : "Zwrot został potwierdzony. Rozliczenie najmu jest w toku.");
       setReporting(false);
       setSelectedNames([]);
       router.refresh();
@@ -57,7 +57,7 @@ export default function ReceiptActions({ bookingId, stage, remainingPhotos }: { 
       <h3 className="font-medium">Zgłoś problem</h3>
       <p className="text-sm text-gray-600">Zgłoszenie uszkodzenia, zabrudzenia lub brakujących elementów zapisze odbiór z zastrzeżeniami. Nie oznacza to rozwiązania problemu ani zgody na rozliczenie.</p>
       {stage === "DELIVERY" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu także oznacza odbiór z zastrzeżeniami. Przy opóźnieniu dostawy wskaż, czy przedmiot już dotarł.</p>}
-      {stage === "RETURN" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu lub spóźniony zwrot zapisze odbiór z zastrzeżeniami. Samo zgłoszenie nie potrąca kaucji.</p>}
+      {stage === "RETURN" && <p className="text-sm text-gray-600">Inny przedmiot niż w ogłoszeniu lub spóźniony zwrot zapisze odbiór z zastrzeżeniami.{hasDeposit && " Samo zgłoszenie nie potrąca kaucji."}</p>}
       <label className="block text-sm">Powód
         <select name="reason" required value={reason} onChange={event => {
           setReason(event.target.value);

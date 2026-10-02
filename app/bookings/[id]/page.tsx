@@ -23,12 +23,14 @@ import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
+import RentOnlySettlementButton from "./_components/RentOnlySettlementButton";
 import { canClaimNotReturned, claimReasonFromReturnIssue, readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue, hasReturnReceipt } from "@/app/lib/logisticsIssue";
 
 import ReceiptActions from "./_components/ReceiptActions";
 import { canReceive } from "@/app/lib/logistics";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 /* ============================================================
    HELPERS
@@ -347,6 +349,7 @@ export default async function BookingPage({
   const canPay =
     isRenter &&
     awaitingPayment &&
+    (DEPOSITS_ENABLED || booking.depositCents === 0) &&
     booking.paymentDueAt !== null &&
     !paymentExpired;
 
@@ -411,7 +414,7 @@ export default async function BookingPage({
 
   const depositCents =
     booking.depositCents ??
-    (booking.listing?.fianza ?? 0) * 100;
+    (booking.depositStatus !== "NONE" ? (booking.listing?.fianza ?? 0) * 100 : 0);
 
   const platformFeeRate =
     booking.platformFeeRate ?? 1500;
@@ -624,6 +627,11 @@ export default async function BookingPage({
             </div>
 
             <div className="p-4 space-y-3">
+              {!DEPOSITS_ENABLED && awaitingPayment && booking.depositCents !== 0 && (
+                <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  Ta wcześniejsza rezerwacja zawiera kaucję i nie może być już opłacona. Po jej anulowaniu złóż nową prośbę bez kaucji.
+                </p>
+              )}
               {awaitingPayment && paymentDeadline && (
                 <div
                   className={
@@ -711,10 +719,10 @@ export default async function BookingPage({
                     </div>
                   )}
 
-                  <div className="flex justify-between px-3 py-2 text-sm">
+                  {depositCents > 0 && <div className="flex justify-between px-3 py-2 text-sm">
                     <span>Kaucja (zwrotna)</span>
                     <span>{moneyCents(depositCents)}</span>
-                  </div>
+                  </div>}
                 </div>
               </div>
 
@@ -732,7 +740,7 @@ export default async function BookingPage({
 
                   <p className="text-xs text-gray-500 mt-1">
                     Kwota za najem po odliczeniu prowizji MojaSzafa.
-                    Kaucja nie jest objęta prowizją.
+                    {depositCents > 0 && " Kaucja nie jest objęta prowizją."}
                   </p>
                 </div>
               )}
@@ -865,7 +873,7 @@ export default async function BookingPage({
                 )}
 
                 {renterCanConfirmDelivery && (
-                  <ReceiptActions bookingId={id} stage="DELIVERY" remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === userId).length)} />
+                  <ReceiptActions bookingId={id} stage="DELIVERY" hasDeposit={depositCents > 0} remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === userId).length)} />
                 )}
 
                 {canOwnerEditShipping && !deliveryLocked && (
@@ -991,7 +999,7 @@ export default async function BookingPage({
                 )}
 
                 {ownerCanConfirmReturn && (
-                  <ReceiptActions bookingId={id} stage="RETURN" remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === userId).length)} />
+                  <ReceiptActions bookingId={id} stage="RETURN" hasDeposit={depositCents > 0} remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === userId).length)} />
                 )}
 
                 {canRenterEditReturn && (
@@ -1029,7 +1037,7 @@ export default async function BookingPage({
 
               {/* FIANZA */}
 
-              <section id="deposit-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
+              {depositCents > 0 && <section id="deposit-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold">
                   Kaucja
                 </h2>
@@ -1094,13 +1102,24 @@ export default async function BookingPage({
                 {canOwnerManageDeposit && settlementPending && booking.depositClaim === null && (
                   <DepositActions settlementPending bookingId={id} depositZl={(booking.depositCents ?? 0) / 100} />
                 )}
-              </section>
+              </section>}
             </>
           )}
         </>
       )}
 
-      {(isOwner || isRenter) && booking.settlementCompletedAt && (
+      {(isOwner || isRenter) && depositCents === 0 && booking.paymentStatus === "PAID" && returnCompleted && (
+        <section id="rent-settlement-section" className="rounded border bg-white p-4 space-y-2 scroll-mt-24">
+          <h2 className="text-lg font-semibold">Rozliczenie najmu</h2>
+          {booking.settlementCompletedAt
+            ? <p className="text-sm text-emerald-800">Wynagrodzenie właściciela zostało przekazane: {moneyCents(booking.ownerTransferCents)}.</p>
+            : isOwner
+              ? <><p className="text-sm text-gray-700">Po potwierdzeniu zwrotu dokończ wypłatę za najem.</p><RentOnlySettlementButton bookingId={id} /></>
+              : <p className="text-sm text-gray-700">Zwrot potwierdzony. Oczekujemy na rozliczenie najmu z właścicielem.</p>}
+        </section>
+      )}
+
+      {(isOwner || isRenter) && depositCents > 0 && booking.settlementCompletedAt && (
         <FinalSettlementSummary
           isOwner={isOwner}
           rentCents={booking.rentAmountCents}

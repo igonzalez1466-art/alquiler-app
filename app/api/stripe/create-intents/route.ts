@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 export const runtime = "nodejs";
 
@@ -87,6 +88,13 @@ export async function POST(request: Request) {
           booking.rentAmountCents ?? booking.amountCents ?? 0;
 
         const deposit = booking.depositCents ?? 0;
+
+        if (!DEPOSITS_ENABLED && (booking.depositCents === null || deposit > 0)) {
+          return {
+            error: "Ta rezerwacja została utworzona z kaucją przed zmianą zasad. Nie można jej już opłacić; złóż nową prośbę o rezerwację bez kaucji.",
+            status: 409,
+          };
+        }
 
         if (rent <= 0 || deposit < 0) {
           return {

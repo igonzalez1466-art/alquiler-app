@@ -53,6 +53,7 @@ export async function updateReturnAction(formData: FormData) {
       bookingNumber: true,
       status: true,
       paymentStatus: true,
+      depositCents: true,
       renterId: true,
       startDate: true,
       endDate: true,
@@ -256,7 +257,7 @@ export async function updateReturnAction(formData: FormData) {
   <div style="margin-top:18px; padding:14px; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px; color:#1e3a8a;">
     <strong>Ważne:</strong><br/>
     Potwierdź zwrot dopiero po faktycznym otrzymaniu przedmiotu.<br/>
-    Po potwierdzeniu zwrotu będzie można rozliczyć kaucję.
+    ${(booking.depositCents ?? 0) > 0 ? "Po potwierdzeniu zwrotu będzie można rozliczyć kaucję." : "Po potwierdzeniu zwrotu będzie można rozliczyć najem."}
   </div>
 
   ${emailSignature()}

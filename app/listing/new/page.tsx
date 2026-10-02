@@ -12,6 +12,7 @@ import { sendMail } from "@/app/lib/mailer";
 import type { Gender, GarmentType, Color, Estado, MetodoEnvio } from "@prisma/client";
 import { put } from "@vercel/blob";
 import { isSportCode } from "@/app/lib/listingAttributes";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 /* ===================== CONSTANTES ===================== */
 
@@ -152,7 +153,7 @@ export default async function NewListingPage({
     if (!Number.isInteger(minimumRentalDays) || minimumRentalDays < 1 || minimumRentalDays > 2147483647) redirect(err("Minimalny okres wynajmu musi być dodatnią liczbą całkowitą."));
 
     // ✅ Deposit (kaucja / fianza) opcjonalna
-    const fianzaRaw = String(formData.get("fianza") || "").trim();
+    const fianzaRaw = DEPOSITS_ENABLED ? String(formData.get("fianza") || "").trim() : "";
     const fianza = fianzaRaw === "" ? null : Number(fianzaRaw);
 
     const city = String(formData.get("city") || "").trim();
@@ -326,9 +327,9 @@ export default async function NewListingPage({
       <strong>Szacowane wynagrodzenie za dzień:</strong>
       <span style="font-weight:700; color:#047857; font-size:15px;">${moneyPLN(dailyOwnerCents / 100)}</span>
     </p>
-    <p style="margin:8px 0 4px 0;"><strong>Kaucja (zwrotna):</strong> ${(fianza ?? 0) > 0 ? moneyPLN(fianza ?? 0) : "Brak kaucji"}</p>
+    ${DEPOSITS_ENABLED ? `<p style="margin:8px 0 4px 0;"><strong>Kaucja (zwrotna):</strong> ${(fianza ?? 0) > 0 ? moneyPLN(fianza ?? 0) : "Brak kaucji"}</p>` : ""}
     <p style="margin:8px 0 4px 0; font-size:12px; color:#6b7280;">
-      Prowizja MojaSzafa jest naliczana wyłącznie od kosztu najmu. Kaucja nie jest objęta prowizją i nie stanowi wynagrodzenia.
+      Prowizja MojaSzafa jest naliczana wyłącznie od kosztu najmu.
       Podane wynagrodzenie jest szacunkowe — ostateczna kwota zależy od długości rezerwacji.
     </p>
   </div>
@@ -420,7 +421,7 @@ export default async function NewListingPage({
         <div className="p-6 border-b">
           <div className={sectionTitle}>Cennik</div>
           <div className={sectionHint}>
-            Cena za dzień jest obowiązkowa, kaucja opcjonalna.
+            Cena za dzień jest obowiązkowa.
           </div>
 
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -445,7 +446,7 @@ export default async function NewListingPage({
               <input id="minimumRentalDays" name="minimumRentalDays" type="number" min={1} max={2147483647} step={1} defaultValue={1} required className={`${inputBase} mt-1`} />
               <p className="mt-1 text-xs text-gray-500">Najemca nie będzie mógł zarezerwować krótszego okresu. Liczymy dzień rozpoczęcia i zakończenia.</p>
             </div>
-            <div>
+            {DEPOSITS_ENABLED && <div>
               <label className={labelBase} htmlFor="fianza">
                 Kaucja (zł)
               </label>
@@ -458,7 +459,7 @@ export default async function NewListingPage({
                 placeholder="Np. 30 (opcjonalnie)"
                 className={`${inputBase} mt-1`}
               />
-            </div>
+            </div>}
           </div>
         </div>
 

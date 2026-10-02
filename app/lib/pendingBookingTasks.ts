@@ -5,6 +5,7 @@ import { readIssue } from "@/app/lib/logisticsIssue";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
+import { DEPOSITS_ENABLED } from "@/app/lib/features";
 export type PendingTask = { id: string; bookingNumber: number | null; listing: string | null; title: string; description: string; href: string; deadline: string | null; priority: number };
 export type TaskBooking = Pick<Booking, "id" | "bookingNumber" | "ownerId" | "renterId" | "status" | "paymentStatus" | "paymentDueAt" | "createdAt" | "startDate" | "endDate" | "cancelledAt" | "shippingStatus" | "deliveryConfirmationStatus" | "returnStatus" | "returnConfirmationStatus" | "returnConfirmedAt" | "depositStatus" | "depositCents" | "depositClaim" | "settlementDecision" | "settlementCompletedAt" | "deliveryIssue" | "returnIssue" | "settlementLegacyReview" | "depositDecisionAt"> & { listing: { title: string } };
 export function bookingTask(b: TaskBooking, userId: string, now = new Date()): PendingTask | null {
@@ -21,7 +22,7 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
     const deadline = getApprovalDeadline(b.createdAt);
     return owner && deadline > now ? task("approve", "Odpowiedz na prośbę o wynajem", "Zaakceptuj lub odrzuć rezerwację.", 0, deadline) : null;
   }
-  if (b.status === "AWAITING_PAYMENT" && b.paymentStatus === "PENDING") return renter && b.paymentDueAt !== null && !isPaymentDeadlineExpired(b, now) ? task("pay", "Opłać rezerwację", "Właściciel zaakceptował prośbę. Dokończ płatność.", 0, b.paymentDueAt) : null;
+  if (b.status === "AWAITING_PAYMENT" && b.paymentStatus === "PENDING") return renter && b.paymentDueAt !== null && !isPaymentDeadlineExpired(b, now) && (DEPOSITS_ENABLED || b.depositCents === 0) ? task("pay", "Opłać rezerwację", "Właściciel zaakceptował prośbę. Dokończ płatność.", 0, b.paymentDueAt) : null;
   if (b.paymentStatus !== "PAID") return null;
   const claim = readDepositClaim(b.depositClaim);
   if (b.depositClaim !== null) {
@@ -43,10 +44,10 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
   if (b.returnConfirmationStatus === "DISPUTED") {
     const issue = readIssue(b.returnIssue);
     if (owner && (b.returnIssue === null || (issue?.reportedById === userId && !issue.resolvedAt))) {
-      return task("returnIssue", "Wyjaśnij problem ze zwrotem", "Sprawdź zgłoszenie: zaproponuj rozliczenie kaucji lub potwierdź rozwiązanie problemu.", 1);
+      return task("returnIssue", "Wyjaśnij problem ze zwrotem", (b.depositCents ?? 0) > 0 ? "Sprawdź zgłoszenie: zaproponuj rozliczenie kaucji lub potwierdź rozwiązanie problemu." : "Sprawdź zgłoszenie i potwierdź rozwiązanie problemu.", 1);
     }
     return renter && (b.returnIssue === null || (issue?.reportedById === b.ownerId && !issue.resolvedAt))
-      ? task("returnIssueRenter", "Odpowiedz na zgłoszenie zwrotu", "Właściciel zgłosił problem. Sprawdź zdjęcia, daty i śledzenie; odpowiedz przez czat lub na propozycję rozliczenia kaucji.", 1)
+      ? task("returnIssueRenter", "Odpowiedz na zgłoszenie zwrotu", (b.depositCents ?? 0) > 0 ? "Właściciel zgłosił problem. Sprawdź zdjęcia, daty i śledzenie; odpowiedz przez czat lub na propozycję rozliczenia kaucji." : "Właściciel zgłosił problem. Sprawdź zdjęcia, daty i śledzenie; odpowiedz przez czat.", 1)
       : null;
   }
   if (renter && canReceive(b, "DELIVERY")) return task("receive", "Sprawdź odbiór przedmiotu", "Po otrzymaniu przedmiotu potwierdź odbiór lub zgłoś problem.");
@@ -57,6 +58,7 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
     const deadline = getDepositDecisionDeadline(b.returnConfirmedAt);
     return !deadline || deadline > now ? task("deposit", "Rozlicz kaucję", "Zwrot został potwierdzony. Zwróć kaucję lub zaproponuj uzasadnione potrącenie.", 1, deadline) : null;
   }
+  if (owner && returned && (b.depositCents ?? 0) === 0 && b.depositStatus === "NONE") return task("rentSettlement", "Rozlicz najem", "Zwrot został potwierdzony. Dokończ wypłatę wynagrodzenia za najem.", 1);
   if (owner && !delivered && !["SHIPPED", "DELIVERED", "CANCELLED"].includes(b.shippingStatus) && !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus)) return task("ship", "Przekaż lub wyślij przedmiot", `Początek najmu: ${b.startDate.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" })}. Zapisz wysyłkę po przekazaniu przedmiotu.`);
   if (renter && delivered && !returned && !["SHIPPED", "DELIVERED", "CANCELLED"].includes(b.returnStatus) && b.endDate <= now) return task("return", "Zorganizuj zwrot przedmiotu", "Nadszedł termin zwrotu. Po nadaniu lub przekazaniu przedmiotu zapisz zwrot.");
   return null;

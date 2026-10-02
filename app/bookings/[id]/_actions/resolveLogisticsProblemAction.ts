@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { receiptWhere } from "@/app/lib/logistics";
 import { readIssue, type IssueDetails } from "@/app/lib/logisticsIssue";
 import { tryInviteBookingReview } from "@/app/lib/reviewInvitations";
+import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
 
 export async function resolveLogisticsProblemAction(formData: FormData) {
   const session = await getServerSession(authConfig);
@@ -61,6 +62,7 @@ export async function resolveLogisticsProblemAction(formData: FormData) {
     },
   });
   if (updated.count !== 1) throw new Error("Stan rezerwacji uległ zmianie. Odśwież stronę.");
+  if (stage === "RETURN" || stage === "DELIVERY") await trySettleRentOnlyBooking(bookingId);
   if (stage === "RETURN") await tryInviteBookingReview(bookingId);
   revalidatePath("/bookings/" + bookingId);
   revalidatePath("/bookings");

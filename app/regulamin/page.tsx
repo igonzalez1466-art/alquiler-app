@@ -31,15 +31,14 @@ export default function RegulaminPage() {
           Kontakt: <a className="underline" href="mailto:kontakt@mojaszafa.com">kontakt@mojaszafa.com</a>
           {" "}lub <Link className="underline" href="/contact">formularz kontaktowy</Link>.
         </p>
-        <p>Regulamin określa warunki korzystania z serwisu oraz zasady rezerwacji, płatności i rozliczania kaucji.</p>
+        <p>Regulamin określa warunki korzystania z serwisu oraz zasady rezerwacji i płatności za najem.</p>
       </Section>
 
       <Section title="§ 2. Pojęcia i rola serwisu">
         <ul className={listClass}>
           <li><strong>Właściciel</strong> — użytkownik udostępniający przedmiot do najmu.</li>
           <li><strong>Najemca</strong> — użytkownik składający prośbę o rezerwację.</li>
-          <li><strong>Rezerwacja</strong> — zapis przedmiotu, terminu, ceny najmu i ewentualnej kaucji.</li>
-          <li><strong>Kaucja</strong> — kwota pobierana wraz z ceną najmu i rozliczana po zwrocie przedmiotu.</li>
+          <li><strong>Rezerwacja</strong> — zapis przedmiotu, terminu i ceny najmu.</li>
         </ul>
         <p>
           Umowa najmu przedmiotu jest zawierana między właścicielem a najemcą.
@@ -68,11 +67,11 @@ export default function RegulaminPage() {
         <p>
           Właściciel odpowiada za zgodność opisu, zdjęć, stanu, kompletności
           i dostępności przedmiotu z ogłoszeniem. Najemca widzi cenę najmu
-          i kwotę kaucji przed potwierdzeniem płatności.
+          przed potwierdzeniem płatności.
         </p>
         <p>
           Standardowa prowizja MojaSzafa wynosi 15% ceny najmu i jest potrącana
-          z kwoty należnej właścicielowi. Nie jest naliczana od kaucji. Kwoty
+          z kwoty należnej właścicielowi. Kwoty
           konkretnej rezerwacji są zapisywane przy jej utworzeniu.
         </p>
       </Section>
@@ -94,11 +93,10 @@ export default function RegulaminPage() {
 
       <Section title="§ 6. Płatność i wypłata">
         <p>
-          Najemca opłaca w serwisie jedną kwotę obejmującą cenę najmu i kaucję.
-          Płatność przetwarza Stripe. Operator obsługuje rozliczenie tej płatności:
-          zleca zwroty najemcy oraz transfery na rzecz właściciela za pośrednictwem
-          Stripe. Kaucja jest częścią pobranej płatności; nie stanowi odrębnego
-          rachunku powierniczego ani gwarancji bankowej.
+          Najemca opłaca w serwisie cenę najmu. Serwis nie pobiera kaucji
+          przy nowych rezerwacjach. Płatność przetwarza Stripe. Operator obsługuje
+          rozliczenie tej płatności: zleca ewentualne zwroty najemcy oraz transfer
+          należnej ceny najmu na rzecz właściciela za pośrednictwem Stripe.
         </p>
         <p>
           Wypłata należnej części ceny najmu właścicielowi, pomniejszona o
@@ -140,41 +138,24 @@ export default function RegulaminPage() {
           historię przesyłki i korespondencję.
         </p>
         <p>
-          Samo zgłoszenie nie obniża automatycznie ceny najmu ani nie powoduje
-          potrącenia kaucji. Rozwiązanie wymaga wyjaśnienia okoliczności,
-          uzgodnienia stron lub zatwierdzonej decyzji dotyczącej kaucji.
+          Samo zgłoszenie nie obniża automatycznie ceny najmu. Rozwiązanie
+          wymaga wyjaśnienia okoliczności lub uzgodnienia stron.
         </p>
       </Section>
 
-      <Section title="§ 9. Kaucja i roszczenia">
+      <Section title="§ 9. Problemy ze stanem przedmiotu i wcześniejsze kaucje">
         <p>
-          Po potwierdzeniu zwrotu właściciel może zlecić zwrot całej kaucji
-          albo zaproponować uzasadnione potrącenie. Kwota roszczenia w serwisie
-          nie może przekroczyć pobranej kaucji. Jeśli wcześniej zgłoszono
-          problem ze zwrotem, powód roszczenia musi odpowiadać zgłoszonemu
-          problemowi. Zwykłe ślady prawidłowego używania nie stanowią same
-          w sobie podstawy potrącenia.
+          Właściciel i najemca mogą zgłosić problem ze stanem przedmiotu w
+          odpowiednim etapie rezerwacji. Zgłoszenie i zdjęcia pomagają wyjaśnić
+          okoliczności, ale nie są automatyczną decyzją o odpowiedzialności ani
+          podstawą do pobrania dodatkowej kwoty przez serwis. Strony mogą
+          uzgodnić rozwiązanie lub dochodzić swoich praw zgodnie z prawem.
         </p>
         <p>
-          Roszczenie dotyczące potwierdzonego zwrotu można zgłosić w ciągu
-          48 godzin od potwierdzenia odbioru. Gdy przedmiot nie został zwrócony,
-          serwis umożliwia zgłoszenie tego faktu po upływie 24 godzin od końca
-          okresu najmu, zgodnie z warunkami widocznymi w rezerwacji. Samo
-          zgłoszenie roszczenia nie przekazuje pieniędzy właścicielowi.
-        </p>
-        <p>
-          Najemca może wyraźnie zaakceptować potrącenie albo je zakwestionować
-          z uzasadnieniem. Brak odpowiedzi nie oznacza zgody. Do czasu wyjaśnienia
-          sporu kaucja pozostaje nierozliczona. Obsługa może po ocenie dostępnych
-          materiałów zatwierdzić potrącenie w całości lub części albo je odrzucić.
-          Zatwierdzona decyzja jest wykonywana przez odpowiedni zwrot najemcy
-          i, jeśli dotyczy, transfer na rzecz właściciela.
-        </p>
-        <p>
-          Po bezskutecznym upływie terminu na roszczenie kaucja powinna zostać
-          zwrócona w całości. Jeśli rozliczenie nie nastąpi, użytkownik może
-          zgłosić sprawę Operatorowi. Decyzja obsługi dotyczy środków w serwisie
-          i nie odbiera stronom prawa do dochodzenia roszczeń przed sądem.
+          Rezerwacje, w których kaucja została pobrana przed wyłączeniem tej
+          funkcji, zachowują zapisane kwoty i dostęp do ich dotychczasowego
+          rozliczenia. Zmiana dotycząca nowych rezerwacji nie usuwa historii
+          ani nie zmienia rozliczeń już pobranych środków.
         </p>
       </Section>
 
