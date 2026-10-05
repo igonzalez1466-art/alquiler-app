@@ -1,4 +1,5 @@
 import type { Booking } from "@prisma/client";
+import { canActOnIncident } from "@/app/lib/incidentPolicy";
 import { claimReasons, readDepositClaim } from "@/app/lib/depositClaim";
 import { issueReasonLabel, readIssue } from "@/app/lib/logisticsIssue";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
@@ -38,7 +39,7 @@ export function incidentTopics(booking: IncidentBooking) {
 export function incidentState(booking: IncidentBooking, userId: string) {
   const current = booking.incidents?.find(i => i.status !== "RESOLVED");
   if (current) {
-    const needsAction = ["AWAITING_OWNER", "AWAITING_RENTER"].includes(current.status) && (current.status === "AWAITING_OWNER" ? booking.ownerId === userId : booking.renterId === userId);
+    const needsAction = [booking.ownerId, booking.renterId].includes(userId) && canActOnIncident(current, booking.ownerId === userId);
     return { label: current.status === "AGREEMENT_REACHED" ? "Uzgodnione — rozliczenie w toku" : current.status === "ESCALATED" ? "Wymaga wyjaśnienia" : "Czeka na odpowiedź", next: current.stage === "DELIVERY" ? "Uzgodnij rozwiązanie dostawy. Wypłata pozostaje wstrzymana." : "Wyjaśnij zwrot. Należny najem pozostaje bez zmian.", needsAction };
   }
   if (booking.incidents?.length) return { label: "Zakończona", next: "Zobacz rozwiązanie i dowody.", needsAction: false };

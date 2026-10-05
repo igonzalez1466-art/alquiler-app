@@ -1,4 +1,5 @@
 import type { Booking } from "@prisma/client";
+import { canActOnIncident } from "@/app/lib/incidentPolicy";
 import { canReceive } from "@/app/lib/logistics";
 import { readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue } from "@/app/lib/logisticsIssue";
@@ -27,7 +28,7 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
   if (b.paymentStatus !== "PAID") return null;
   const activeIncident = b.incidents?.find(i => i.status !== "RESOLVED");
   if (activeIncident) {
-    const mine = activeIncident.status === "AWAITING_OWNER" ? owner : activeIncident.status === "AWAITING_RENTER" ? renter : false;
+    const mine = canActOnIncident(activeIncident, owner);
     return mine || activeIncident.status === "AGREEMENT_REACHED" && owner ? task("deliveryIssue", "Sprawdź zgłoszenie i uzgodnienie", activeIncident.stage === "DELIVERY" ? "Wypłata oczekuje na uzgodnienie i rozliczenie dostawy." : "Wyjaśnij zwrot. Należny najem pozostaje bez zmian.", 1) : null;
   }
   const claim = readDepositClaim(b.depositClaim);

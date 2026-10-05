@@ -6,4 +6,21 @@ check({status:'AWAITING_PAYMENT',paymentStatus:'PENDING',paymentDueAt:null},'ren
 const delivered={shippingStatus:'DELIVERED',deliveryConfirmationStatus:'CONFIRMED'};check(delivered,'renter','return');check({...delivered,endDate:new Date(+now+86400000)},'renter',null);check({...delivered,returnStatus:'SHIPPED',returnConfirmationStatus:'AWAITING_CONFIRMATION'},'owner','receiveReturn');check({...delivered,returnStatus:'SHIPPED'},'renter',null);check({...delivered,depositCents:2000,returnConfirmationStatus:'CONFIRMED',returnStatus:'DELIVERED',returnConfirmedAt:now},'owner','deposit');check({...delivered,returnConfirmationStatus:'CONFIRMED',returnStatus:'DELIVERED',returnConfirmedAt:new Date(now-49*3600000)},'owner',null);
 check({deliveryConfirmationStatus:'DISPUTED'},'renter','deliveryIssue');check({returnConfirmationStatus:'DISPUTED'},'owner','returnIssue');check({returnConfirmationStatus:'DISPUTED'},'renter','returnIssueRenter');
 const claim={id:'c',status:'PENDING',proposedById:'owner',proposedAt:now.toISOString(),retainedCents:500,reasonCode:'DAMAGE',reason:'damage'};check({depositCents:2000,depositClaim:claim},'renter','claim');check({depositClaim:claim},'owner',null);check({depositClaim:{...claim,status:'DISPUTED'}},'owner',null);check({depositClaim:{...claim,status:'DISPUTED'}},'renter',null);const approved={...claim,status:'APPROVED',approvedRetainedCents:500,approvedById:'renter',approvedAt:now.toISOString(),resolutionSource:'RENTER'};check({depositClaim:approved},'owner','settle');check({depositClaim:approved},'renter','settle');check({depositClaim:{invalid:true}},'owner',null);check({settlementDecision:{kind:'full'}},'owner','retry');check({settlementDecision:{kind:'full'}},'renter',null);assert.equal(pendingTasks([{...base,status:'PENDING'},{...base,id:'c'}],'owner',now)[0].id,'b:approve');n++;
-(async()=>{const {GET}=load('app/api/bookings/pending-tasks/route.ts');user=null;let res=await GET();assert.equal(res.status,401);assert.equal(lastWhere,undefined);user='owner';rows=[base,{...base,id:'other',ownerId:'other',renterId:'other'}];res=await GET();assert.equal(res.body.total,1);assert.equal(lastWhere.OR[0].ownerId,'owner');assert.equal(lastWhere.OR[1].renterId,'owner');assert.match(res.headers['Cache-Control'],/no-store/);n+=6;console.log(n+' checks passed: task states, roles, deadlines, completed/disputed exclusions, API isolation and cache policy.');})().catch(e=>{console.error(e);process.exitCode=1;});
+for (const [stage, status, who] of [
+  ['DELIVERY','ESCALATED','owner'], ['RETURN','ESCALATED','renter'],
+  ['DELIVERY','OPEN','owner'], ['RETURN','OPEN','renter'],
+  ['DELIVERY','AWAITING_OWNER','owner'], ['DELIVERY','AWAITING_RENTER','renter']
+]) {
+  const b = { incidents: [{ stage, status }] };
+  check(b, who, 'deliveryIssue'); check(b, who === 'owner' ? 'renter' : 'owner', null);
+  assert.equal(task({...base,...b}, who, now).href, '/account/incidents/b');
+}
+const incidentCase = load('app/lib/incidentCase.ts');
+for (const stage of ['DELIVERY','RETURN']) {
+  const who = stage === 'DELIVERY' ? 'owner' : 'renter';
+  const b = {...base, incidents:[{stage,status:'ESCALATED'}]};
+  assert.equal(incidentCase.incidentBucket(b,who), 'action');
+  assert.equal(incidentCase.incidentBucket(b,who === 'owner' ? 'renter' : 'owner'), 'waiting');
+  assert.equal(incidentCase.incidentState(b,'stranger').needsAction, false);
+}
+(async()=>{const {GET}=load('app/api/bookings/pending-tasks/route.ts');user=null;let res=await GET();assert.equal(res.status,401);assert.equal(lastWhere,undefined);user='owner';rows=[{...base,incidents:[{stage:'DELIVERY',status:'ESCALATED'}]},{...base,id:'other',ownerId:'other',renterId:'other'}];res=await GET();assert.equal(res.body.total,1);assert.equal(res.body.tasks[0].href,'/account/incidents/b');assert.equal(lastWhere.OR[0].ownerId,'owner');assert.equal(lastWhere.OR[1].renterId,'owner');assert.match(res.headers['Cache-Control'],/no-store/);n+=6;console.log(n+' checks passed: task states, roles, deadlines, completed/disputed exclusions, API isolation and cache policy.');})().catch(e=>{console.error(e);process.exitCode=1;});
