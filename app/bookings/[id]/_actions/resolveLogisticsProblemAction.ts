@@ -21,13 +21,16 @@ export async function resolveLogisticsProblemAction(formData: FormData) {
     throw new Error("Potwierdź, że przedmiot został odebrany, a problem rozwiązany.");
   }
 
+  await prisma.$transaction(async tx => {
+  await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
+  if (await tx.incident.findFirst({ where: { bookingId, stage } })) throw new Error("Uzgodnij rozwiązanie w panelu incydentu.");
   const where = {
     ...receiptWhere(bookingId, userId, stage),
     ...(stage === "RETURN" ? { depositClaim: { equals: Prisma.DbNull } } : {}),
     ...(stage === "DELIVERY" ? { deliveryConfirmationStatus: "DISPUTED" as const } :
       { returnConfirmationStatus: "DISPUTED" as const }),
   };
-  const booking = await prisma.booking.findFirst({
+  const booking = await tx.booking.findFirst({
     where,
     select: { deliveryIssue: true, returnIssue: true },
   });
@@ -47,7 +50,7 @@ export async function resolveLogisticsProblemAction(formData: FormData) {
     resolvedById: userId,
     resolvedAt: now.toISOString(),
   };
-  const updated = await prisma.booking.updateMany({
+  const updated = await tx.booking.updateMany({
     where,
     data: stage === "DELIVERY" ? {
       deliveryIssue: issue,
@@ -62,6 +65,7 @@ export async function resolveLogisticsProblemAction(formData: FormData) {
     },
   });
   if (updated.count !== 1) throw new Error("Stan rezerwacji uległ zmianie. Odśwież stronę.");
+  });
   if (stage === "RETURN" || stage === "DELIVERY") await trySettleRentOnlyBooking(bookingId);
   if (stage === "RETURN") await tryInviteBookingReview(bookingId);
   revalidatePath("/bookings/" + bookingId);

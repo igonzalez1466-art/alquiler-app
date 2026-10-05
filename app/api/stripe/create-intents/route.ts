@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
           };
         }
 
+        await assertBookingAccountsAvailable(booking.ownerId, booking.renterId);
         if (
           booking.status !== "AWAITING_PAYMENT" ||
           booking.paymentStatus !== "PENDING" ||
@@ -109,7 +111,7 @@ export async function POST(request: Request) {
           ? await stripe.paymentIntents.retrieve(booking.paymentRef)
           : await stripe.paymentIntents.create(
               {
-                amount: rent + deposit,
+                amount: rent,
                 currency: "pln",
                 automatic_payment_methods: {
                   enabled: true,
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
                 },
               },
               {
-                idempotencyKey: `booking-payment-${booking.id}`,
+                idempotencyKey: `booking-rent-v2-${booking.id}`,
               }
             );
 
@@ -139,7 +141,7 @@ export async function POST(request: Request) {
         }
 
         if (
-          paymentIntent.amount !== rent + deposit ||
+          paymentIntent.amount !== rent ||
           paymentIntent.currency !== "pln" ||
           paymentIntent.metadata.bookingId !== id
         ) {
@@ -178,7 +180,7 @@ export async function POST(request: Request) {
           currency: "pln",
           rentAmountCents: rent,
           depositAmountCents: deposit,
-          totalAmountCents: rent + deposit,
+          totalAmountCents: rent,
         };
       },
       {

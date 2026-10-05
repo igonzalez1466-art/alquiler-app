@@ -113,7 +113,7 @@ export async function updateReturnAction(formData: FormData) {
   if (
     booking.returnConfirmationStatus === "CONFIRMED" ||
     booking.returnConfirmationStatus === "AUTO_CONFIRMED" ||
-    booking.returnConfirmationStatus === "DISPUTED"
+    (booking.returnConfirmationStatus === "DISPUTED" && booking.depositCents !== 0)
   ) {
     throw new Error("Nie można edytować — zwrot został zakończony");
   }

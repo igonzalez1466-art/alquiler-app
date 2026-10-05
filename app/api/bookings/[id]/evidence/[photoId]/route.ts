@@ -7,15 +7,17 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; photoId: string }> }) {
   const userId = (await getSession())?.user?.id;
   if (!userId) return new Response("Not found", { status: 404 });
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  const admin = account?.role === "ADMIN";
   const { id, photoId } = await params;
   const photo = await prisma.bookingEvidencePhoto.findFirst({
-    where: { id: photoId, bookingId: id, booking: { OR: [{ ownerId: userId }, { renterId: userId }] } },
+    where: { id: photoId, bookingId: id, ...(admin ? {} : { booking: { OR: [{ ownerId: userId }, { renterId: userId }] } }) },
     select: {
       data: true, mimeType: true, stage: true, uploaderId: true,
-      booking: { select: { ownerId: true, renterId: true, shippedAt: true, returnShippedAt: true } },
+      booking: { select: { ownerId: true, renterId: true, shippedAt: true, returnShippedAt: true, deliveryIssue: true, returnIssue: true } },
     },
   });
-  if (!photo || !canViewBookingEvidencePhoto(photo.booking, photo, userId)) {
+  if (!photo || !admin && !canViewBookingEvidencePhoto(photo.booking, photo, userId)) {
     return new Response("Not found", { status: 404 });
   }
   return new Response(Uint8Array.from(photo.data), {

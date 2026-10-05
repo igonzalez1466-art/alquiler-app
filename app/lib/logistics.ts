@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 type ReceiptState = {
+  depositCents?: number | null;
   status: string;
   paymentStatus: string;
   shippingStatus: string;
@@ -16,7 +17,7 @@ export function canReceive(booking: ReceiptState, stage: "DELIVERY" | "RETURN") 
   const status = stage === "DELIVERY" ? booking.shippingStatus : booking.returnStatus;
   const confirmation = stage === "DELIVERY" ? booking.deliveryConfirmationStatus : booking.returnConfirmationStatus;
   return ["SHIPPED", "DELIVERED"].includes(status) &&
-    ["NOT_REQUESTED", "AWAITING_CONFIRMATION"].includes(confirmation);
+    (["NOT_REQUESTED", "AWAITING_CONFIRMATION"].includes(confirmation) || stage === "RETURN" && booking.depositCents === 0 && confirmation === "DISPUTED");
 }
 
 // Atomic predicates keep confirmation and problem reporting mutually exclusive.
@@ -32,6 +33,6 @@ export function receiptWhere(id: string, userId: string, stage: "DELIVERY" | "RE
     shippingStatus: "DELIVERED",
     deliveryConfirmationStatus: { in: ["CONFIRMED", "AUTO_CONFIRMED"] },
     returnStatus: { in: ["SHIPPED", "DELIVERED"] },
-    returnConfirmationStatus: { in: ["NOT_REQUESTED", "AWAITING_CONFIRMATION"] },
+    OR: [{ returnConfirmationStatus: { in: ["NOT_REQUESTED", "AWAITING_CONFIRMATION"] } }, { depositCents: 0, returnConfirmationStatus: "DISPUTED" }],
   };
 }

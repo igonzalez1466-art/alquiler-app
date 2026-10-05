@@ -4,6 +4,7 @@ import InpostTracking from "./_components/InpostTracking";
 import { isInpost, normalizeInpostNumber } from "@/app/lib/inpostTracking";
 import { prisma } from "@/app/lib/prisma";
 import { notFound, redirect } from "next/navigation";
+import BookingIncidents from "@/app/bookings/[id]/_components/BookingIncidents";
 import Link from "next/link";
 import { getSession } from "@/app/lib/auth";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
@@ -21,7 +22,6 @@ import BookingEvidencePhotos from "./_components/BookingEvidencePhotos";
 import InpostDestination from "./_components/InpostDestination";
 import ReturnForm from "./_components/ReturnForm";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
-import DepositActions from "./_components/DepositActions";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
 import RentOnlySettlementButton from "./_components/RentOnlySettlementButton";
 import { canClaimNotReturned, claimReasonFromReturnIssue, readDepositClaim } from "@/app/lib/depositClaim";
@@ -222,6 +222,7 @@ export default async function BookingPage({
       settlementDecision: true,
       settlementCompletedAt: true,
       settlementLegacyReview: true,
+      incidents: true,
       ownerTransferId: true,
       ownerTransferCents: true,
       depositTransferId: true,
@@ -393,7 +394,7 @@ export default async function BookingPage({
     logisticsEnabled &&
     deliveryCompleted && !returnLocked &&
     !["SHIPPED", "DELIVERED"].includes(booking.returnStatus) &&
-    booking.returnConfirmationStatus !== "DISPUTED";
+    (booking.returnConfirmationStatus !== "DISPUTED" || booking.depositCents === 0);
 
   /* ==========================================================
      IMPORTES
@@ -1099,23 +1100,21 @@ export default async function BookingPage({
                     canRefund={canOwnerManageDeposit && !booking.settlementDecision}
                   />
                 )}
-                {canOwnerManageDeposit && settlementPending && booking.depositClaim === null && (
-                  <DepositActions settlementPending bookingId={id} depositZl={(booking.depositCents ?? 0) / 100} />
-                )}
+
               </section>}
             </>
           )}
         </>
       )}
 
-      {(isOwner || isRenter) && depositCents === 0 && booking.paymentStatus === "PAID" && returnCompleted && (
+      {(isOwner || isRenter) && depositCents === 0 && booking.paymentStatus === "PAID" && deliveryCompleted && (
         <section id="rent-settlement-section" className="rounded border bg-white p-4 space-y-2 scroll-mt-24">
           <h2 className="text-lg font-semibold">Rozliczenie najmu</h2>
           {booking.settlementCompletedAt
             ? <p className="text-sm text-emerald-800">Wynagrodzenie właściciela zostało przekazane: {moneyCents(booking.ownerTransferCents)}.</p>
             : isOwner
-              ? <><p className="text-sm text-gray-700">Po potwierdzeniu zwrotu dokończ wypłatę za najem.</p><RentOnlySettlementButton bookingId={id} /></>
-              : <p className="text-sm text-gray-700">Zwrot potwierdzony. Oczekujemy na rozliczenie najmu z właścicielem.</p>}
+              ? <><p className="text-sm text-gray-700">Po potwierdzeniu odbioru dokończ wypłatę za najem.</p><RentOnlySettlementButton bookingId={id} /></>
+              : <p className="text-sm text-gray-700">Odbiór potwierdzony. Oczekujemy na wypłatę dla właściciela.</p>}
         </section>
       )}
 
@@ -1134,6 +1133,7 @@ export default async function BookingPage({
         />
       )}
 
+      <BookingIncidents bookingId={id} userId={userId} />
       {/* ACCIONES DEL PROPIETARIO */}
 
            {isOwner && awaitingApproval && !approvalExpired && (

@@ -1,3 +1,4 @@
+import { prisma } from "@/app/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { Suspense } from "react";
 import { readIssue, issueReasonLabel, issueConfirmsReceipt } from "@/app/lib/logisticsIssue";
@@ -22,7 +23,7 @@ type IssueFacts = {
 const datePL = (date: Date | null) => date?.toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" }) ?? "—";
 const moneyPL = (cents: number) => new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(cents / 100);
 
-export default function LogisticsIssuePanel({ bookingId, stage, stored, disputed, recipientId, userId, canResolve, facts, receiptConfirmed = false, hasDepositClaim = false, claimNotReturned = false }: {
+export default async function LogisticsIssuePanel({ bookingId, stage, stored, disputed, recipientId, userId, canResolve, facts, receiptConfirmed = false, hasDepositClaim = false, claimNotReturned = false }: {
   bookingId: string;
   stage: "DELIVERY" | "RETURN";
   stored: Prisma.JsonValue | null;
@@ -35,6 +36,8 @@ export default function LogisticsIssuePanel({ bookingId, stage, stored, disputed
   hasDepositClaim?: boolean;
   claimNotReturned?: boolean;
 }) {
+  const structured = await prisma.incident.findUnique({ where: { bookingId_stage: { bookingId, stage } } });
+  if (structured) return null;
   const issue = readIssue(stored);
   if (!issue && !disputed) return null;
   const guidance = logisticsIssueGuidance(stage, issue?.reason ?? "LEGACY");

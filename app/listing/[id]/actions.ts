@@ -1,5 +1,6 @@
 "use server";
 
+import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -148,6 +149,7 @@ export async function createBookingAction(
     redirect("/login");
   }
 
+  await assertBookingAccountsAvailable(renterId);
   const renterContact = await prisma.user.findUnique({ where: { id: renterId }, select: { phoneVerifiedAt: true } });
   if (!renterContact?.phoneVerifiedAt) {
     redirect(`/account?returnTo=${encodeURIComponent(`/listing/${formData.get("listingId")?.toString() ?? ""}`)}#telefon`);
@@ -214,6 +216,7 @@ export async function createBookingAction(
     );
   }
 
+  await assertBookingAccountsAvailable(listing.userId);
   if (listing.userId === renterId) {
     redirect(
       `/listing/${listingId}?blad=wlasne-ogloszenie`

@@ -1,5 +1,6 @@
 "use server";
 
+import { openIncidentAction } from "./incidentActions";
 import { notifyLogisticsIssue } from "@/app/lib/logisticsIssueEmail";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -16,6 +17,13 @@ export async function reportLogisticsProblemAction(formData: FormData) {
   const bookingId = String(formData.get("bookingId") || "");
   const stage = String(formData.get("stage") || "");
   if (!bookingId || (stage !== "DELIVERY" && stage !== "RETURN")) throw new Error("Nieprawidłowe zgłoszenie");
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  if ((b.depositCents ?? 0) === 0) {
+    const oldReason = String(formData.get("reason"));
+    const mapped = oldReason === "DAMAGED" || oldReason === "DIRTY" ? (stage === "DELIVERY" ? "DAMAGED_ON_ARRIVAL" : "DAMAGED_ON_RETURN") : oldReason === "WRONG_ITEM" || oldReason === "MISSING_ITEMS" ? (stage === "DELIVERY" ? "NOT_AS_DESCRIBED" : "DAMAGED_ON_RETURN") : oldReason === "NOT_RECEIVED" && stage === "RETURN" ? "RETURN_NOT_RECEIVED" : oldReason;
+    formData.set("reason", mapped);
+    return openIncidentAction(formData);
+  }
   const input = validateIssueInput(formData, stage);
   if (input.reason === "LATE_DELIVERY" && !["yes", "no"].includes(String(formData.get("received")))) throw new Error("Wskaż, czy przedmiot został odebrany.");
   const files = formData.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0);

@@ -1,4 +1,6 @@
 type Booking = {
+  deliveryIssue?: unknown;
+  returnIssue?: unknown;
   ownerId: string;
   renterId: string;
   shippedAt: Date | null;
@@ -15,5 +17,5 @@ export function canViewBookingEvidencePhoto(booking: Booking, photo: Photo, view
     ![booking.ownerId, booking.renterId].includes(photo.uploaderId)) return false;
 
   if (photo.uploaderId === viewerId) return true;
-  return photo.stage === "DELIVERY" ? booking.shippedAt !== null : booking.returnShippedAt !== null;
+  return photo.stage === "DELIVERY" ? booking.shippedAt !== null || !!booking.deliveryIssue : booking.returnShippedAt !== null || !!booking.returnIssue;
 }

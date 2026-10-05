@@ -20,6 +20,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     AND: [
       { OR: [{ ownerId: userId }, { renterId: userId }] },
       { OR: [
+        { incidents: { some: {} } },
         { deliveryIssue: { not: Prisma.DbNull } },
         { returnIssue: { not: Prisma.DbNull } },
         { depositClaim: { not: Prisma.DbNull } },
@@ -37,6 +38,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
       depositDecisionAt: true, settlementCompletedAt: true, shippedAt: true, deliveredAt: true, deliveryConfirmedAt: true,
       returnShippedAt: true, returnDeliveredAt: true, returnConfirmedAt: true,
       depositRefundedAt: true, depositRetainedCents: true, depositCents: true,
+      incidents: true,
       listing: { select: { title: true } },
     },
   });

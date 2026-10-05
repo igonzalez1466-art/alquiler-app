@@ -28,6 +28,8 @@ model User {
   // Stripe Connect account del usuario cuando actúa como owner.
   stripeAccountId String? @unique
 
+  bookingRestrictedAt DateTime?
+  bookingRestrictionReason String?
   role Role @default(USER)
 
   accounts            Account[]
@@ -39,6 +41,9 @@ model User {
   messages            Message[]
   reviewsReceived     Review[]       @relation("UserReviewsReceived")
   reviewsAuthored     Review[]       @relation("UserReviewsAuthored")
+  openedIncidents Incident[] @relation("IncidentOpenedBy")
+  receivedIncidents Incident[] @relation("IncidentAgainst")
+  incidentEvidence IncidentEvidence[]
   sessions            Session[]
 }
 
@@ -189,6 +194,9 @@ model SettlementOperation {
 }
 
 model Booking {
+  incidents Incident[]
+  rentSettlement Json?
+  rentRefundedCents Int @default(0)
   reviewInvitationsEnabled Boolean @default(true)
   reviewInvitations ReviewInvitation[]
   depositClaim Json?
@@ -573,4 +581,66 @@ model ReviewInvitation {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   @@id([bookingId, recipientId])
   @@index([status, nextAttemptAt])
+}
+
+
+enum IncidentStage {
+  DELIVERY
+  RETURN
+}
+enum IncidentReason {
+  NOT_SHIPPED
+  NOT_RECEIVED
+  NOT_AS_DESCRIBED
+  DAMAGED_ON_ARRIVAL
+  LATE_DELIVERY
+  RETURN_NOT_RECEIVED
+  DAMAGED_ON_RETURN
+  LATE_RETURN
+  NOT_RETURNED
+  OTHER
+}
+enum IncidentStatus {
+  OPEN
+  AWAITING_OWNER
+  AWAITING_RENTER
+  AGREEMENT_REACHED
+  ESCALATED
+  RESOLVED
+}
+model Incident {
+  id String @id @default(cuid())
+  bookingId String
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  openedById String
+  openedBy User @relation("IncidentOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  againstUserId String
+  againstUser User @relation("IncidentAgainst", fields: [againstUserId], references: [id], onDelete: Restrict)
+  stage IncidentStage
+  reason IncidentReason
+  status IncidentStatus @default(OPEN)
+  description String
+  createdAt DateTime @default(now())
+  responseDueAt DateTime?
+  resolvedAt DateTime?
+  resolution String?
+  refundCents Int?
+  proposedById String?
+  proposedAt DateTime?
+  acceptedAt DateTime?
+  refundId String? @unique
+  evidence IncidentEvidence[]
+  @@unique([bookingId, stage])
+  @@index([againstUserId, status])
+  @@index([openedById, status])
+}
+model IncidentEvidence {
+  id String @id @default(cuid())
+  incidentId String
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  uploaderId String
+  uploader User @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  text String
+  createdAt DateTime @default(now())
+  @@index([incidentId, createdAt])
 }

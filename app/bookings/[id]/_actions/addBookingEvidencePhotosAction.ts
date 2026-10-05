@@ -22,7 +22,7 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
       shippingStatus: true, shippedAt: true, deliveryConfirmationStatus: true, deliveryIssue: true,
       returnStatus: true, returnConfirmationStatus: true, returnIssue: true },
   });
-  if (!booking || (booking.ownerId !== userId && booking.renterId !== userId) || booking.status === "CANCELLED" || booking.paymentStatus !== "PAID" || booking.settlementCompletedAt) {
+  if (!booking || (booking.ownerId !== userId && booking.renterId !== userId) || booking.status === "CANCELLED" || booking.paymentStatus !== "PAID") {
     throw new Error("Nie możesz dodać zdjęć do tej rezerwacji.");
   }
   if (!canUploadBookingEvidence(booking, stage, userId)) {

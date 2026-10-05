@@ -184,6 +184,9 @@ export async function POST(req: Request) {
         //
         // ====================================================
 
+        if (existingBooking.paymentRef !== pi.id || pi.currency !== "pln" || pi.amount !== stripeRentAmountCents + stripeDepositAmountCents || pi.amount_received !== pi.amount) throw new Error("Payment does not match booking");
+        if (existingBooking.paidAt || existingBooking.settlementCompletedAt || existingBooking.paymentStatus === "REFUNDED") break;
+        if (existingBooking.cancelledAt || existingBooking.status === "CANCELLED") throw new Error("Payment for cancelled reservation requires review");
         const rentAmountCents =
           existingBooking.rentAmountCents ??
           stripeRentAmountCents;
@@ -297,9 +300,9 @@ export async function POST(req: Request) {
         // UPDATE BOOKING
         // ====================================================
 
-        await prisma.booking.update({
+        const confirmedPayment = await prisma.booking.updateMany({
           where: {
-            id: bookingId,
+            id: bookingId, paymentRef: pi.id, paidAt: null, paymentStatus: "PENDING", status: "AWAITING_PAYMENT", cancelledAt: null,
           },
 
           data: {
@@ -352,6 +355,7 @@ export async function POST(req: Request) {
           },
         });
 
+        if (confirmedPayment.count !== 1) break;
         console.log(
           "✅ Booking PAID:",
           bookingId

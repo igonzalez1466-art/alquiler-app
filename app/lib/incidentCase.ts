@@ -9,7 +9,7 @@ type IncidentBooking = Pick<Booking,
   "depositDecisionAt" | "settlementCompletedAt" | "shippedAt" | "returnShippedAt" |
   "deliveredAt" | "deliveryConfirmedAt" | "returnDeliveredAt" | "returnConfirmedAt" |
   "depositRefundedAt" | "depositRetainedCents" | "depositCents"
->;
+> & { incidents?: { stage: string; status: string; proposedById: string | null; reason: string }[] };
 
 export type IncidentEvent = { at: Date; title: string; detail?: string };
 
@@ -36,6 +36,12 @@ export function incidentTopics(booking: IncidentBooking) {
 }
 
 export function incidentState(booking: IncidentBooking, userId: string) {
+  const current = booking.incidents?.find(i => i.status !== "RESOLVED");
+  if (current) {
+    const needsAction = ["AWAITING_OWNER", "AWAITING_RENTER"].includes(current.status) && (current.status === "AWAITING_OWNER" ? booking.ownerId === userId : booking.renterId === userId);
+    return { label: current.status === "AGREEMENT_REACHED" ? "Uzgodnione — rozliczenie w toku" : current.status === "ESCALATED" ? "Wymaga wyjaśnienia" : "Czeka na odpowiedź", next: current.stage === "DELIVERY" ? "Uzgodnij rozwiązanie dostawy. Wypłata pozostaje wstrzymana." : "Wyjaśnij zwrot. Należny najem pozostaje bez zmian.", needsAction };
+  }
+  if (booking.incidents?.length) return { label: "Zakończona", next: "Zobacz rozwiązanie i dowody.", needsAction: false };
   const claim = readDepositClaim(booking.depositClaim);
   if (booking.status === "CANCELLED") return { label: "Rezerwacja anulowana", next: "Sprawdź rozliczenie rezerwacji.", needsAction: false };
   if (booking.depositClaim !== null && !claim) return { label: "Wymaga weryfikacji", next: "Skontaktuj się z obsługą serwisu.", needsAction: false };

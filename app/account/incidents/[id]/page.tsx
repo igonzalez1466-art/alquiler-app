@@ -1,3 +1,4 @@
+import BookingIncidents from "@/app/bookings/[id]/_components/BookingIncidents";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/app/lib/auth";
@@ -11,7 +12,6 @@ import { canReceive } from "@/app/lib/logistics";
 import LogisticsIssuePanel from "@/app/bookings/[id]/_components/LogisticsIssuePanel";
 import BookingEvidencePhotos from "@/app/bookings/[id]/_components/BookingEvidencePhotos";
 import DepositClaimPanel from "@/app/bookings/[id]/_components/DepositClaimPanel";
-import DepositActions from "@/app/bookings/[id]/_components/DepositActions";
 import BookingActionFeedback from "@/app/bookings/[id]/_components/BookingActionFeedback";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +23,8 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
   const session = await getSession();
   if (!session?.user?.id) redirect(`/login?callbackUrl=${encodeURIComponent(`/account/incidents/${id}`)}`);
   const userId = session.user.id;
-  const booking = await prisma.booking.findUnique({ where: { id }, include: { listing: { select: { title: true } } } });
-  if (!booking || ![booking.ownerId, booking.renterId].includes(userId) || !hasIncident(booking)) notFound();
+  const booking = await prisma.booking.findUnique({ where: { id }, include: { incidents: true, listing: { select: { title: true } } } });
+  if (!booking || ![booking.ownerId, booking.renterId].includes(userId) || (!hasIncident(booking) && booking.incidents.length === 0)) notFound();
   const isOwner = booking.ownerId === userId;
   const isRenter = booking.renterId === userId;
   const claim = readDepositClaim(booking.depositClaim);
@@ -41,7 +41,7 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
   const deliveryCompleted = booking.shippingStatus === "DELIVERED" && ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus);
   const returnCompleted = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);
   const settlementPending = !!booking.settlementDecision && !booking.settlementCompletedAt;
-  const canManageDeposit = isOwner && booking.paymentStatus === "PAID" && returnCompleted && (booking.depositCents ?? 0) > 0 && (booking.depositStatus === "PAID" || settlementPending);
+  const canManageDeposit = isOwner && booking.paymentStatus === "PAID" && deliveryCompleted && (booking.depositCents ?? 0) > 0 && (booking.depositStatus === "PAID" || settlementPending);
   const canPropose = isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && deliveryCompleted && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) && returnIssue?.reason !== "NOT_RECEIVED";
   const canProposeNotReturned = isOwner && booking.paymentStatus === "PAID" && booking.depositStatus === "PAID" && !booking.settlementDecision && !booking.settlementCompletedAt && canClaimNotReturned(booking);
 
@@ -77,8 +77,9 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
       <h2 id="incident-deposit" className="text-lg font-semibold">Kaucja i decyzja</h2>
       <p className="text-sm">Wpłacona kaucja: <strong>{money(booking.depositCents)}</strong> · Zwrócono: <strong>{money(booking.depositRefundedCents)}</strong> · Zatrzymano: <strong>{money(booking.depositRetainedCents)}</strong></p>
       <DepositClaimPanel bookingId={id} depositCents={booking.depositCents ?? 0} claim={claim} hasClaim={booking.depositClaim !== null} isOwner={isOwner} isRenter={isRenter} returnCompleted={returnCompleted} receiptKnown={hasReturnReceipt(booking)} canPropose={canPropose} canProposeNotReturned={canProposeNotReturned} initialReason={returnIssue?.description ?? ""} initialReasonCode={claimReasonFromReturnIssue(returnIssue?.reason)} completed={!!booking.settlementCompletedAt} settling={settlementPending} canRefund={canManageDeposit && !booking.settlementDecision} />
-      {canManageDeposit && settlementPending && booking.depositClaim === null && <DepositActions settlementPending bookingId={id} depositZl={(booking.depositCents ?? 0) / 100} />}
+
     </section>}
-    <p className="text-xs text-gray-600">Daty pochodzą z zapisów aplikacji. Zgłoszenie problemu samo nie zmienia rozliczenia.{(booking.depositCents ?? 0) > 0 && " Propozycja potrącenia sama nie przenosi środków."}</p>
+    <BookingIncidents bookingId={id} userId={userId} />
+    <p className="text-xs text-gray-600">Daty pochodzą z zapisów aplikacji. Zgłoszenie dostawy wstrzymuje wypłatę; zmiana ceny wymaga zgody obu stron. Zgłoszenie zwrotu nie zmienia należnego najmu.{(booking.depositCents ?? 0) > 0 && " Propozycja potrącenia sama nie przenosi środków."}</p>
   </main>;
 }

@@ -202,6 +202,7 @@ export default async function AdminDashboard({
         />
       </div>
 
+      <Link href="/admin/incidents" className="underline">Incydenty i ograniczenia kont</Link>
       <DisputeOverview />
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -19,7 +19,7 @@ type EvidenceBooking = {
 const awaitingReceipt = ["NOT_REQUESTED", "AWAITING_CONFIRMATION"];
 
 export function canUploadBookingEvidence(booking: EvidenceBooking, stage: "DELIVERY" | "RETURN", userId: string): boolean {
-  if (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID" || booking.settlementCompletedAt) return false;
+  if (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID") return false;
 
   if (stage === "DELIVERY") {
     if (booking.ownerId === userId) {
@@ -33,7 +33,7 @@ export function canUploadBookingEvidence(booking: EvidenceBooking, stage: "DELIV
 
   if (booking.renterId === userId) {
     return ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus) &&
-      ["PENDING", "READY"].includes(booking.returnStatus) && awaitingReceipt.includes(booking.returnConfirmationStatus);
+      ["PENDING", "READY"].includes(booking.returnStatus) && [...awaitingReceipt, "DISPUTED"].includes(booking.returnConfirmationStatus);
   }
   const issue = readIssue(booking.returnIssue);
   return booking.ownerId === userId && booking.returnConfirmationStatus === "DISPUTED" &&

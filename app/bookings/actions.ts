@@ -1,5 +1,6 @@
 "use server";
 
+import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -94,6 +95,7 @@ export async function createBookingAction(input: {
     throw new Error("No autenticado");
   }
 
+  await assertBookingAccountsAvailable(renterId);
   const renterContact = await prisma.user.findUnique({ where: { id: renterId }, select: { phoneVerifiedAt: true } });
   if (!renterContact?.phoneVerifiedAt) throw new Error("Przed rezerwacją zweryfikuj numer telefonu w sekcji „Moje konto”.");
 
@@ -110,6 +112,7 @@ export async function createBookingAction(input: {
     throw new Error("Anuncio no encontrado");
   }
 
+  await assertBookingAccountsAvailable(listing.userId);
   if (listing.userId === renterId) {
     throw new Error("No puedes reservar tu propio artículo");
   }
@@ -342,6 +345,7 @@ export async function approveBookingAction(
     throw new Error("No autorizado");
   }
 
+  await assertBookingAccountsAvailable(userId, booking.renterId);
   if (!booking.listing.user.phoneVerifiedAt) {
     throw new Error("Przed zaakceptowaniem rezerwacji zweryfikuj numer telefonu w sekcji „Moje konto”.");
   }
