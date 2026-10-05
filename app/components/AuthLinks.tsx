@@ -18,12 +18,7 @@ export default async function AuthLinks() {
           Moje konto
         </Link>
 
-        {/* NextAuth v4: logout por endpoint */}
-        <form action="/api/auth/signout" method="post">
-          <button type="submit" className="underline">
-            Wyloguj się
-          </button>
-        </form>
+        <Link href="/logout" className="underline">Wyloguj się</Link>
       </div>
     );
   }
