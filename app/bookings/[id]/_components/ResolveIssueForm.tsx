@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { resolveLogisticsProblemAction } from "../_actions/resolveLogisticsProblemAction";
 import { announceBookingAction } from "@/app/lib/bookingActionFeedback";
@@ -32,7 +33,7 @@ export default function ResolveIssueForm({ bookingId, stage, hasDeposit }: { boo
       : "Zamknięcie zgłoszenia potwierdzi odbiór i pozwoli kontynuować rezerwację."}</p>
     <p className="text-sm">Jeśli nadal trwa spór lub oczekujesz rekompensaty, pozostaw zgłoszenie otwarte i skontaktuj się z obsługą serwisu.</p>
     <div className="flex flex-wrap gap-2">
-      <button type="submit" disabled={pending} className="bg-emerald-700 text-white rounded px-4 py-2 disabled:opacity-60">{pending ? "Zapisywanie…" : "Potwierdź odbiór i zamknij zgłoszenie"}</button>
+      <ClaimActionButton loading={pending} type="submit" disabled={pending} className="bg-emerald-700 text-white rounded px-4 py-2 disabled:opacity-60">Potwierdź odbiór i zamknij zgłoszenie</ClaimActionButton>
       <button type="button" disabled={pending} onClick={() => { setExpanded(false); setError(""); }} className="border rounded px-4 py-2">Anuluj</button>
     </div>
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}

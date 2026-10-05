@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
@@ -12,10 +13,13 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
   bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode;
 }) {
   const router = useRouter();
+  const busy = useRef(false);
   const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: reasonsForStage.DELIVERY[0], RETURN: reasonsForStage.RETURN[0] });
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   async function run(data: FormData, open = false) {
+    if (busy.current) return;
+    busy.current = true;
     setPending(true); setError(""); data.set("bookingId", bookingId);
     try {
       if (data.has("refundZl")) {
@@ -32,7 +36,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       }
       await (open ? openIncidentAction(data) : incidentAction(data)); router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Nie udało się zapisać."); }
-    finally { setPending(false); }
+    finally { busy.current = false; setPending(false); }
   }
   const button = "rounded border px-3 py-2 text-sm disabled:opacity-50";
   return <section id="incident-section" className="space-y-4 rounded border bg-white p-4">
@@ -49,13 +53,13 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="propose" />
           <label className="block text-sm">Uzgodnione rozwiązanie<textarea name="resolution" required maxLength={2000} className="block w-full rounded border p-2" /></label>
           {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {(rentCents / 100).toFixed(2)} zł)<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
-          <button disabled={pending} className={button}>Zaproponuj rozwiązanie</button>
+          <ClaimActionButton disabled={pending} className={button}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
-        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex gap-2">{["accept", "reject"].map(operation => <form key={operation} action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={operation} />{operation === "accept" && c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}<button disabled={pending} className={button}>{operation === "accept" ? "Akceptuję rozwiązanie" : "Odrzucam propozycję"}</button></form>)}</div>}
-        <form action={d => run(d)} className="space-y-2"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="evidence" /><label className="block text-sm">Komentarz / tracking / opis dokumentu<textarea required name="evidence" maxLength={2000} className="block w-full rounded border p-2" /></label><button disabled={pending} className={button}>Dodaj dowód / komentarz</button></form>
-        {c.status !== "ESCALATED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><button disabled={pending} className={button}>Poproś o wyjaśnienie sprawy</button></form>}
+        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex gap-2">{["accept", "reject"].map(operation => <form key={operation} action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={operation} />{operation === "accept" && c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}<ClaimActionButton disabled={pending} className={button}>{operation === "accept" ? "Akceptuję rozwiązanie" : "Odrzucam propozycję"}</ClaimActionButton></form>)}</div>}
+        <form action={d => run(d)} className="space-y-2"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="evidence" /><label className="block text-sm">Komentarz / tracking / opis dokumentu<textarea required name="evidence" maxLength={2000} className="block w-full rounded border p-2" /></label><ClaimActionButton disabled={pending} className={button}>Dodaj dowód / komentarz</ClaimActionButton></form>
+        {c.status !== "ESCALATED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>}
       </>}
-      {c.status === "AGREEMENT_REACHED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="retry" /><p className="text-sm">Oczekujemy na rozliczenie Stripe. W razie opóźnienia można ponowić tę samą operację.</p><button disabled={pending} className={button}>Sprawdź / ponów rozliczenie</button></form>}
+      {c.status === "AGREEMENT_REACHED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="retry" /><p className="text-sm">Oczekujemy na rozliczenie Stripe. W razie opóźnienia można ponowić tę samą operację.</p><ClaimActionButton disabled={pending} className={button}>Sprawdź / ponów rozliczenie</ClaimActionButton></form>}
       {c.stage === "RETURN" && <p className="text-xs text-gray-600">MojaSzafa zachowuje zgłoszenie i dowody do analizy historii konta. Nie ustala odszkodowania ani winy. Roszczenia dotyczące przedmiotu strony kierują poza platformą; dane mogą być udostępnione właściwym organom na podstawie ważnego żądania i obowiązujących zasad.</p>}
     </article>)}
     {(["DELIVERY", "RETURN"] as const).map(stage => (stage === "DELIVERY" ? canOpenDelivery : canOpenReturn) && !cases.some(c => c.stage === stage) && <details id={`incident-${stage.toLowerCase()}`} key={stage} className="rounded border p-3 scroll-mt-24">
@@ -65,7 +69,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded border p-2">{reasonsForStage[stage].map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded border p-2" /></label>
         <label className="block text-sm">{incidentRequiresPhotos(stage, selectedReasons[stage]) ? "Zdjęcia (wymagane, od 1 do 3)" : "Zdjęcia (opcjonalnie, do 3)"}<input required={incidentRequiresPhotos(stage, selectedReasons[stage])} type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" className="block" /></label>
-        <button disabled={pending} className={button}>Wyślij zgłoszenie</button>
+        <ClaimActionButton disabled={pending} className={button}>Wyślij zgłoszenie</ClaimActionButton>
       </form>
     </details>)}
     {deliveryPhotos}

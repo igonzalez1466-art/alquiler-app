@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { claimReasonOptions, claimReasons, type DepositClaim } from "@/app/lib/depositClaim";
 import { proposeDepositClaimAction, respondDepositClaimAction, resolveDepositClaimBySupportAction } from "../_actions/depositClaimActions";
@@ -65,7 +66,7 @@ export default function DepositClaimPanel(p: Props) {
         <p>Potrącenie: <strong>{money(claim.approvedRetainedCents ?? 0)}</strong> · Zwrot najemcy: <strong>{money(p.depositCents - (claim.approvedRetainedCents ?? 0))}</strong></p>
         <p>Zatwierdzenie: {claim.resolutionSource === "RENTER" ? "zgoda najemcy" : "decyzja obsługi"}{claim.approvedAt ? " · " + date(claim.approvedAt) : ""}</p>
         {!p.completed && <form onSubmit={submit(executeApprovedClaimAction)}>
-          <button disabled={pending} className={button}>{pending ? "Przetwarzanie…" : p.settling ? "Ponów zatwierdzone rozliczenie" : "Wykonaj zatwierdzone rozliczenie"}</button>
+          <ClaimActionButton loading={pending} disabled={pending} className={button}>{pending ? "Przetwarzanie…" : p.settling ? "Ponów zatwierdzone rozliczenie" : "Wykonaj zatwierdzone rozliczenie"}</ClaimActionButton>
           <p className="mt-2 text-xs text-gray-600">Ten przycisk uruchomi operacje finansowe. Kwoty zatwierdzonej decyzji nie mogą zostać zmienione.</p>
         </form>}
       </>}
@@ -73,12 +74,12 @@ export default function DepositClaimPanel(p: Props) {
         <form onSubmit={submit(respondDepositClaimAction)} className="space-y-3">
           <input type="hidden" name="response" value="ACCEPT" />
           <label className="flex items-start gap-2"><input type="checkbox" required name="consent" value="yes" disabled={pending} /><span>Zgadzam się na potrącenie {money(claim.retainedCents)} i zwrot pozostałych {money(p.depositCents - claim.retainedCents)}.</span></label>
-          <button disabled={pending} className={button}>Akceptuję propozycję</button>
+          <ClaimActionButton loading={pending} disabled={pending} className={button}>Akceptuję propozycję</ClaimActionButton>
         </form>
         {!disputing ? <button disabled={pending} className={button} onClick={() => setDisputing(true)}>Nie zgadzam się</button> : <form onSubmit={submit(respondDepositClaimAction)} className="space-y-3">
           <input type="hidden" name="response" value="DISPUTE" />
           <label className="block">Dlaczego nie zgadzasz się z propozycją?<textarea name="note" required maxLength={2000} rows={3} disabled={pending} className={input} /></label>
-          <button disabled={pending} className={button}>Przekaż spór do obsługi</button>
+          <ClaimActionButton loading={pending} disabled={pending} className={button}>Przekaż spór do obsługi</ClaimActionButton>
         </form>}
       </>}
       {claim.status === "DISPUTED" && p.isSupport && <form onSubmit={submit(resolveDepositClaimBySupportAction)} className="space-y-3 border-t pt-3">
@@ -87,7 +88,7 @@ export default function DepositClaimPanel(p: Props) {
         </label>
         <label className="block">Uzasadnienie decyzji<textarea name="note" required maxLength={2000} rows={3} disabled={pending} className={input} /></label>
         <label className="flex gap-2"><input type="checkbox" name="consent" value="yes" required disabled={pending} />Potwierdzam decyzję po sprawdzeniu sprawy.</label>
-        <button disabled={pending} className={button}>Zatwierdź rozstrzygnięcie</button>
+        <ClaimActionButton loading={pending} disabled={pending} className={button}>Zatwierdź rozstrzygnięcie</ClaimActionButton>
       </form>}
     </div> : <>
       {p.completed ? <p>Kaucja została rozliczona.</p> : p.settling ? <p>Rozliczenie zostało rozpoczęte.</p> : <>
@@ -97,7 +98,7 @@ export default function DepositClaimPanel(p: Props) {
           : "Rozliczenie kaucji będzie dostępne po odbiorze zwrotu. W przypadku uszkodzeń właściciel może zaproponować potrącenie bez zamykania zgłoszonego problemu jako rozwiązanego."}</p>}
         {p.isOwner && p.canRefund && <form onSubmit={submit(releaseDepositAction)} className="space-y-2">
           <p>Zwrot pełnej kaucji: {money(p.depositCents)}</p>
-          <button disabled={pending} className={button}>Zwróć całą kaucję</button>
+          <ClaimActionButton loading={pending} disabled={pending} className={button}>Zwróć całą kaucję</ClaimActionButton>
         </form>}
         {p.isOwner && (p.canPropose || p.canProposeNotReturned) && (!proposing ? <button disabled={pending} className={button} onClick={() => setProposing(true)}>Zaproponuj potrącenie z kaucji</button> : <form onSubmit={submit(proposeDepositClaimAction)} className="rounded border p-3 space-y-3">
           <p>Propozycja nie przenosi pieniędzy. Najemca może ją zaakceptować lub przekazać spór do obsługi. Brak odpowiedzi nie oznacza zgody.</p>
@@ -110,7 +111,7 @@ export default function DepositClaimPanel(p: Props) {
           {p.initialReasonCode && !p.canProposeNotReturned && <p className="text-xs text-gray-600">Powód potrącenia odpowiada zgłoszonemu problemowi ze zwrotem.</p>}
           <label className="block">Opis i uzasadnienie kwoty<textarea name="reason" defaultValue={p.initialReason ?? ""} required maxLength={2000} rows={3} disabled={pending} className={input} /></label>
           {!p.canProposeNotReturned && !p.receiptKnown && <label className="flex items-start gap-2"><input type="checkbox" name="received" value="yes" required disabled={pending} /><span>Potwierdzam faktyczny odbiór zwracanego przedmiotu. Zgłoszony problem nadal wymaga rozliczenia.</span></label>}
-          <div className="flex gap-2"><button disabled={pending} className={button}>Wyślij propozycję najemcy</button><button type="button" disabled={pending} onClick={() => setProposing(false)} className={button}>Anuluj</button></div>
+          <div className="flex gap-2"><ClaimActionButton loading={pending} disabled={pending} className={button}>Wyślij propozycję najemcy</ClaimActionButton><button type="button" disabled={pending} onClick={() => setProposing(false)} className={button}>Anuluj</button></div>
         </form>)}
       </>}
     </>}
