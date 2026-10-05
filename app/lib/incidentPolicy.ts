@@ -32,3 +32,12 @@ export function incidentRequiresPhotos(stage: string, reason: string): boolean {
   return stage === "DELIVERY" && ["NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL"].includes(reason);
 }
 export const REQUIRED_INCIDENT_PHOTOS_MESSAGE = "Dodaj co najmniej jedno zdjęcie przedmiotu, aby zgłosić niezgodność z opisem lub uszkodzenie.";
+export function canActOnIncident(incident: { stage: string; status: string }, isOwner: boolean): boolean {
+  if (incident.status === "AWAITING_OWNER") return isOwner;
+  if (incident.status === "AWAITING_RENTER") return !isOwner;
+  // An unresolved case can be resumed by the party responsible for proposing a solution.
+  if (["OPEN", "ESCALATED"].includes(incident.status)) return incident.stage === "DELIVERY" ? isOwner : !isOwner;
+  return false;
+}
+export const INCIDENT_WAIT_MESSAGE = "Teraz czekamy na działanie drugiej strony. Dostępne działania są zablokowane.";
+export const INCIDENT_PHOTOS_LOCKED_MESSAGE = "Zdjęcia zostały już zapisane. Nie można dodać kolejnych zdjęć do tego zgłoszenia.";

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
 import { MAX_PHOTOS_PER_PERSON_AND_STAGE, prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import type { BookingEvidenceStage } from "@prisma/client";
@@ -18,7 +19,7 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { ownerId: true, renterId: true, status: true, paymentStatus: true, settlementCompletedAt: true,
+    select: { incidents: { select: { stage: true, status: true } }, ownerId: true, renterId: true, status: true, paymentStatus: true, settlementCompletedAt: true,
       shippingStatus: true, shippedAt: true, deliveryConfirmationStatus: true, deliveryIssue: true,
       returnStatus: true, returnConfirmationStatus: true, returnIssue: true },
   });
@@ -41,7 +42,7 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
     await tx.$queryRaw`SELECT "id" FROM "Booking" WHERE "id" = ${bookingId} FOR UPDATE`;
     const current = await tx.booking.findUnique({
       where: { id: bookingId },
-      select: { ownerId: true, renterId: true, status: true, paymentStatus: true, settlementCompletedAt: true,
+      select: { incidents: { select: { stage: true, status: true } }, ownerId: true, renterId: true, status: true, paymentStatus: true, settlementCompletedAt: true,
         shippingStatus: true, shippedAt: true, deliveryConfirmationStatus: true, deliveryIssue: true,
         returnStatus: true, returnConfirmationStatus: true, returnIssue: true },
     });
@@ -53,6 +54,8 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
           : "Zdjęcia można dodać przed potwierdzeniem odbioru albo po zgłoszeniu problemu przez osobę odbierającą.");
     }
     const existing = await tx.bookingEvidencePhoto.findMany({ where: { bookingId, stage, uploaderId: userId }, select: { slot: true } });
+    const isClaim = current.incidents.some(incident => incident.stage === stage) || (stage === "DELIVERY" ? current.deliveryIssue : current.returnIssue) !== null;
+    if (isClaim && existing.length) throw new Error(INCIDENT_PHOTOS_LOCKED_MESSAGE);
     const freeSlots = [1, 2, 3].filter(slot => !existing.some(photo => photo.slot === slot));
     if (freeSlots.length < prepared.length) throw new Error("Możesz dodać najwyżej 3 zdjęcia na tym etapie.");
     try {

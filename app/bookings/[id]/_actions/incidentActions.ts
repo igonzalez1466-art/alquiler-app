@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
-import { reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE } from "@/app/lib/incidentPolicy";
+import { reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
 
@@ -59,6 +59,7 @@ export async function openIncidentAction(data: FormData) {
     const tracking = stage === "DELIVERY" ? b.trackingNumber : b.returnTrackingNumber;
     if (tracking) await tx.incidentEvidence.create({ data: { incidentId: incident.id, uploaderId: userId, text: `Numer przesyłki przy zgłoszeniu: ${tracking}` } });
     const existing = await tx.bookingEvidencePhoto.findMany({ where: { bookingId, stage, uploaderId: userId }, select: { slot: true } });
+    if (photos.length && existing.length) throw new Error(INCIDENT_PHOTOS_LOCKED_MESSAGE);
     const slots = [1, 2, 3].filter(slot => !existing.some(p => p.slot === slot));
     if (slots.length < photos.length) throw new Error("Limit zdjęć dla tego etapu został wykorzystany.");
     if (photos.length) await tx.bookingEvidencePhoto.createMany({ data: photos.map((p, i) => ({ ...p, bookingId, stage, uploaderId: userId, slot: slots[i] })) });
@@ -75,6 +76,7 @@ export async function incidentAction(data: FormData) {
     const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId } });
     const inc = await tx.incident.findUniqueOrThrow({ where: { id: incidentId } });
     if (inc.bookingId !== bookingId || ![b.ownerId, b.renterId].includes(userId)) throw new Error("Brak dostępu.");
+    if (operation !== "retry" && !canActOnIncident(inc, userId === b.ownerId)) throw new Error(INCIDENT_WAIT_MESSAGE);
     if (operation === "evidence") {
       if (inc.status === "RESOLVED") throw new Error("Sprawa zakończona.");
       await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: description(data, "evidence") } });

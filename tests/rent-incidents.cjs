@@ -1,12 +1,13 @@
 const fs = require('fs'), path = require('path'), vm = require('vm'), assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const ts = require(root + '/node_modules/typescript');
+let photoRecords = [];
 let b, inc, user, refunds, transfers, refundStatus, refunded, stripeCalls, operations, serial = Promise.resolve();
 const tx = {
   $queryRaw: async () => [],
   booking: {
     findUniqueOrThrow: async () => structuredClone(b),
-    findUnique: async () => structuredClone(b),
+    findUnique: async () => structuredClone({ ...b, incidents: inc ? [inc] : [] }),
     update: async ({ data }) => { Object.assign(b, data); return structuredClone(b); },
   },
   incident: {
@@ -16,12 +17,15 @@ const tx = {
     update: async ({ data }) => { Object.assign(inc, data); return structuredClone(inc); },
   },
   incidentEvidence: { create: async () => ({}) },
-  bookingEvidencePhoto: { findMany: async () => [], createMany: async () => ({ count: 0 }) },
+  bookingEvidencePhoto: {
+    findMany: async ({ where }) => photoRecords.filter(p => p.bookingId === where.bookingId && p.stage === where.stage && p.uploaderId === where.uploaderId),
+    createMany: async ({ data }) => { photoRecords.push(...data); return { count: data.length }; },
+  },
   settlementOperation: { findFirst: async () => operations.size ? {} : null, findUnique: async ({ where }) => operations.get(where.bookingId_kind.kind) ?? null },
   user: { findUniqueOrThrow: async () => ({ stripeAccountId: 'acct' }) },
 };
 const prisma = { ...tx, $transaction: fn => {
-  const run = serial.then(async () => { const before = structuredClone({ b, inc }); try { return await fn(tx); } catch (e) { b = before.b; inc = before.inc; throw e; } });
+  const run = serial.then(async () => { const before = structuredClone({ b, inc, photoRecords }); try { return await fn(tx); } catch (e) { b = before.b; inc = before.inc; photoRecords = before.photoRecords; throw e; } });
   serial = run.catch(() => {}); return run;
 } };
 class Stripe {
@@ -37,6 +41,7 @@ function load(file) {
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   function req(id) {
+    if (id === '@/app/lib/auth') return { getSession: async () => user ? { user: { id: user } } : null };
     if (id === '@/app/lib/prisma') return { prisma };
     if (id === 'stripe') return Stripe;
     if (id === '@prisma/client') return { Prisma: { DbNull: null } };
@@ -59,12 +64,13 @@ function load(file) {
 }
 function reset() {
   b = { id: 'b', ownerId: 'owner', renterId: 'renter', status: 'CONFIRMED', paymentStatus: 'PAID', paymentRef: 'pi', cancelledAt: null, depositCents: 0, depositStatus: 'NONE', depositClaim: null, settlementDecision: null, settlementLegacyReview: false, settlementCompletedAt: null, deliveryConfirmedAt: new Date(), deliveryConfirmationStatus: 'CONFIRMED', shippingStatus: 'DELIVERED', deliveryIssue: null, returnIssue: null, returnConfirmationStatus: 'NOT_REQUESTED', returnStatus: 'PENDING', rentSettlement: null, ownerTransferId: null, owner: { stripeAccountId: 'acct' }, rentAmountCents: 18000, platformFeeCents: 2700, ownerPayoutCents: 15300, endDate: new Date('2020-01-01') };
-  inc = null; user = 'renter'; refunds = transfers = stripeCalls = refunded = 0; refundStatus = 'succeeded'; operations = new Map();
+  photoRecords = []; inc = null; user = 'renter'; refunds = transfers = stripeCalls = refunded = 0; refundStatus = 'succeeded'; operations = new Map();
 }
 function form(extra) { const f = new FormData(); for (const [k, v] of Object.entries({ bookingId: 'b', incidentId: 'i', ...extra })) f.set(k, String(v)); return f; }
 const policy = load('app/lib/incidentPolicy.ts');
 const settle = load('app/lib/rentOnlySettlement.ts').settleRentOnlyBooking;
 const actions = load('app/bookings/[id]/_actions/incidentActions.ts');
+const addPhotos = load('app/bookings/[id]/_actions/addBookingEvidencePhotosAction.ts').addBookingEvidencePhotosAction;
 let checks = 0;
 async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS', name); }
 (async () => {
@@ -119,6 +125,53 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     for (const [stage, reasons] of Object.entries(policy.reasonsForStage)) for (const reason of reasons) {
       assert.equal(policy.incidentRequiresPhotos(stage, reason), stage === 'DELIVERY' && ['NOT_AS_DESCRIBED', 'DAMAGED_ON_ARRIVAL'].includes(reason));
     }
+  });
+  await test('delivery actions follow the active party and stale proposals cannot overwrite', async () => {
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    for (const operation of ['evidence', 'escalate', 'propose']) await assert.rejects(actions.incidentAction(form({ operation, evidence: 'Komentarz', resolution: 'Propozycja', refundCents: 0 })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
+    user = 'owner';
+    await actions.incidentAction(form({ operation: 'evidence', evidence: 'Komentarz właściciela' }));
+    await actions.incidentAction(form({ operation: 'propose', resolution: 'Pierwsza propozycja', refundCents: 1000 }));
+    for (const operation of ['evidence', 'escalate', 'propose']) await assert.rejects(actions.incidentAction(form({ operation, evidence: 'Zmiana', resolution: 'Nadpisanie', refundCents: 2000 })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
+    assert.equal(inc.refundCents, 1000);
+    user = 'renter'; await actions.incidentAction(form({ operation: 'reject' }));
+    assert.equal(policy.canActOnIncident(inc, false), false); assert.equal(policy.canActOnIncident(inc, true), true);
+  });
+  await test('return actions follow renter then owner; closed decisions block comments', async () => {
+    user = 'owner'; await actions.openIncidentAction(form({ stage: 'RETURN', reason: 'OTHER', description: 'Zwrot' }));
+    await assert.rejects(actions.incidentAction(form({ operation: 'evidence', evidence: 'Komentarz' })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
+    user = 'renter'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Wyjaśniono', refundCents: 0 }));
+    await assert.rejects(actions.incidentAction(form({ operation: 'escalate' })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
+    user = 'owner'; await actions.incidentAction(form({ operation: 'accept' }));
+    for (user of ['owner', 'renter']) await assert.rejects(actions.incidentAction(form({ operation: 'evidence', evidence: 'Po zamknięciu' })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
+  });
+  function photoForm(stage, count = 1) {
+    const data = form({ stage });
+    for (let i = 0; i < count; i++) data.append('photos', new File(['mock photo'], `photo-${i}.jpg`, { type: 'image/jpeg' }));
+    return data;
+  }
+  await test('initial complaint photos lock all later uploads even when turn returns', async () => {
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+    const data = photoForm('DELIVERY'); data.set('reason', 'DAMAGED_ON_ARRIVAL'); data.set('description', 'Uszkodzenie');
+    await actions.openIncidentAction(data); assert.equal(photoRecords.length, 1);
+    await assert.rejects(addPhotos(photoForm('DELIVERY')));
+    user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 1000 }));
+    user = 'renter'; await assert.rejects(addPhotos(photoForm('DELIVERY')), e => e.message === policy.INCIDENT_PHOTOS_LOCKED_MESSAGE);
+    assert.equal(photoRecords.length, 1);
+  });
+  await test('concurrent photo batches save exactly one batch under booking lock', async () => {
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 1000 }));
+    user = 'renter'; const result = await Promise.allSettled([addPhotos(photoForm('DELIVERY', 2)), addPhotos(photoForm('DELIVERY'))]);
+    assert.equal(result.filter(r => r.status === 'fulfilled').length, 1); assert.equal(photoRecords.length, 2);
+  });
+  await test('owner return complaint photos are also locked after one batch', async () => {
+    user = 'owner'; const data = photoForm('RETURN'); data.set('reason', 'DAMAGED_ON_RETURN'); data.set('description', 'Uszkodzenie zwrotu');
+    await actions.openIncidentAction(data);
+    user = 'renter'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Wyjaśniono', refundCents: 0 }));
+    user = 'owner'; await assert.rejects(addPhotos(photoForm('RETURN')), e => e.message === policy.INCIDENT_PHOTOS_LOCKED_MESSAGE); assert.equal(photoRecords.length, 1);
   });
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

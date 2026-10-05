@@ -13,7 +13,7 @@ export default async function BookingIncidents({ bookingId, userId }: { bookingI
     ? await prisma.bookingEvidencePhoto.findMany({ where: { bookingId, stage: "DELIVERY" }, orderBy: { createdAt: "asc" } }) : [];
   const visiblePhotos = photos.filter(photo => canViewBookingEvidencePhoto(b, photo, userId));
   const deliveryPhotos = (b.deliveryIssue !== null || b.incidents.some(i => i.stage === "DELIVERY"))
-    ? <BookingEvidencePhotos bookingId={bookingId} stage="DELIVERY" userId={userId} ownerId={b.ownerId} renterId={b.renterId}
+    ? <BookingEvidencePhotos oneBatch bookingId={bookingId} stage="DELIVERY" userId={userId} ownerId={b.ownerId} renterId={b.renterId}
       canUpload={canUploadBookingEvidence(b, "DELIVERY", userId)}
       photos={visiblePhotos.map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))} /> : null;
   return <IncidentPanel deliveryPhotos={deliveryPhotos} bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}

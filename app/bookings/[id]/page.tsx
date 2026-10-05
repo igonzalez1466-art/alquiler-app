@@ -972,6 +972,7 @@ export default async function BookingPage({
                 {userId && <BookingEvidencePhotos
                   bookingId={id}
                   stage="RETURN"
+                  oneBatch={booking.returnIssue !== null || booking.incidents.some(incident => incident.stage === "RETURN")}
                   userId={userId}
                   ownerId={booking.ownerId}
                   renterId={booking.renterId}

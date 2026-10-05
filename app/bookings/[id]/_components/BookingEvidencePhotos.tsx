@@ -3,13 +3,14 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
 import { addBookingEvidencePhotosAction } from "../_actions/addBookingEvidencePhotosAction";
 
 type Photo = { id: string; uploaderId: string; createdAt: string };
-type Props = { bookingId: string; stage: "DELIVERY" | "RETURN"; userId: string; ownerId: string; renterId: string; canUpload: boolean; photos: Photo[] };
+type Props = { bookingId: string; stage: "DELIVERY" | "RETURN"; userId: string; ownerId: string; renterId: string; canUpload: boolean; oneBatch?: boolean; photos: Photo[] };
 
-export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerId, renterId, canUpload, photos }: Props) {
+export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerId, renterId, canUpload, oneBatch = false, photos }: Props) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -17,7 +18,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const mine = photos.filter(photo => photo.uploaderId === userId).length;
-  const remaining = Math.max(0, 3 - mine);
+  const remaining = oneBatch && mine > 0 ? 0 : Math.max(0, 3 - mine);
   const buckets = stage === "DELIVERY" ? [
     { uploaderId: ownerId, title: "Zdjęcia właściciela — przekazanie przedmiotu", role: "właściciel", reportOnly: false },
     { uploaderId: renterId, title: "Zdjęcia najemcy — odbiór przedmiotu", role: "najemca", reportOnly: true },
@@ -75,7 +76,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
           <h4 className="text-sm font-semibold">{bucket.title}</h4>
           <span className="text-xs text-gray-600">{bucketPhotos.length}/3</span>
         </div>
-        {bucket.reportOnly && <p className="text-xs text-gray-600">Przy uszkodzeniu, zabrudzeniu lub brakujących elementach zdjęcia można dołączyć do zgłoszenia problemu. Po wysłaniu zgłoszenia można dodać pozostałe zdjęcia. Potwierdzenie odbioru bez zastrzeżeń zamyka tę możliwość.</p>}
+        {bucket.reportOnly && <p className="text-xs text-gray-600">Przy uszkodzeniu, zabrudzeniu lub brakujących elementach zdjęcia można dołączyć do zgłoszenia problemu. Wybierz wszystkie zdjęcia przed zapisaniem. Po zapisaniu nie można dodać kolejnych zdjęć do zgłoszenia. Potwierdzenie odbioru bez zastrzeżeń zamyka tę możliwość.</p>}
         {bucketPhotos.length > 0 ? <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">{bucketPhotos.map(photo => {
       const href = `/api/bookings/${bookingId}/evidence/${photo.id}`;
       return <li key={photo.id} className="overflow-hidden rounded border bg-white">
@@ -100,6 +101,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
     </form>}
       </div>;
     })}
+    {oneBatch && mine > 0 && <p role="status" className="text-sm text-gray-600">{INCIDENT_PHOTOS_LOCKED_MESSAGE}</p>}
     {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
   </section>;
