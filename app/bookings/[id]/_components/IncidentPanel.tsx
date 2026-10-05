@@ -38,7 +38,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
   return <section id="incident-section" className="space-y-4 rounded border bg-white p-4">
     <h2 className="text-lg font-semibold">Zgłoszenia i uzgodnienia</h2>
     <p className="text-sm">Przed potwierdzeniem odbioru problem z dostawą wstrzymuje wypłatę. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia. Problemy ze zwrotem nie zmniejszają należnego wynagrodzenia.</p>
-    {cases.map(c => <article key={c.id} className="space-y-3 rounded border p-3">
+    {cases.map(c => <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-3 rounded border p-3 scroll-mt-24">
       <h3 className="font-semibold">{c.stage === "DELIVERY" ? "Dostawa" : "Zwrot"}: {incidentReasons[c.reason]}</h3>
       <p className="text-sm">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
       <p className="whitespace-pre-wrap text-sm">{c.description}</p>
@@ -58,7 +58,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       {c.status === "AGREEMENT_REACHED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="retry" /><p className="text-sm">Oczekujemy na rozliczenie Stripe. W razie opóźnienia można ponowić tę samą operację.</p><button disabled={pending} className={button}>Sprawdź / ponów rozliczenie</button></form>}
       {c.stage === "RETURN" && <p className="text-xs text-gray-600">MojaSzafa zachowuje zgłoszenie i dowody do analizy historii konta. Nie ustala odszkodowania ani winy. Roszczenia dotyczące przedmiotu strony kierują poza platformą; dane mogą być udostępnione właściwym organom na podstawie ważnego żądania i obowiązujących zasad.</p>}
     </article>)}
-    {(["DELIVERY", "RETURN"] as const).map(stage => (stage === "DELIVERY" ? canOpenDelivery : canOpenReturn) && !cases.some(c => c.stage === stage) && <details key={stage} className="rounded border p-3">
+    {(["DELIVERY", "RETURN"] as const).map(stage => (stage === "DELIVERY" ? canOpenDelivery : canOpenReturn) && !cases.some(c => c.stage === stage) && <details id={`incident-${stage.toLowerCase()}`} key={stage} className="rounded border p-3 scroll-mt-24">
       <summary className="cursor-pointer font-medium">Zgłoś problem — {stage === "DELIVERY" ? "dostawa" : "zwrot"}</summary>
       <form action={d => run(d, true)} className="mt-3 space-y-3">
         <input type="hidden" name="stage" value={stage} />
