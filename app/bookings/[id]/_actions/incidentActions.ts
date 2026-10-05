@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
-import { reasonsForStage, validateIncidentReason } from "@/app/lib/incidentPolicy";
+import { reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
 
@@ -30,7 +30,9 @@ export async function openIncidentAction(data: FormData) {
   const text = description(data, "description");
   const files = data.getAll("photos").filter((v): v is File => v instanceof File && v.size > 0);
   if (files.length > 3) throw new Error("Maksymalnie 3 zdjęcia.");
+  if (incidentRequiresPhotos(stage, reason) && files.length === 0) throw new Error(REQUIRED_INCIDENT_PHOTOS_MESSAGE);
   const photos = await prepareBookingEvidencePhotoFiles(files);
+  if (incidentRequiresPhotos(stage, reason) && photos.length === 0) throw new Error(REQUIRED_INCIDENT_PHOTOS_MESSAGE);
   await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
     const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId } });

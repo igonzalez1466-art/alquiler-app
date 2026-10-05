@@ -27,3 +27,8 @@ export function validateIncidentReason(stage: IncidentStage, reason: string): In
   if (!reasonsForStage[stage].includes(reason as IncidentReason)) throw new Error("Nieprawidłowy powód zgłoszenia.");
   return reason as IncidentReason;
 }
+
+export function incidentRequiresPhotos(stage: string, reason: string): boolean {
+  return stage === "DELIVERY" && ["NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL"].includes(reason);
+}
+export const REQUIRED_INCIDENT_PHOTOS_MESSAGE = "Dodaj co najmniej jedno zdjęcie przedmiotu, aby zgłosić niezgodność z opisem lub uszkodzenie.";

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
-import { incidentReasons, reasonsForStage } from "@/app/lib/incidentPolicy";
+import { incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE } from "@/app/lib/incidentPolicy";
 
 type Case = { id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
@@ -12,6 +12,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
   bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode;
 }) {
   const router = useRouter();
+  const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: reasonsForStage.DELIVERY[0], RETURN: reasonsForStage.RETURN[0] });
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   async function run(data: FormData, open = false) {
@@ -24,6 +25,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       }
       if (open) {
         const files = data.getAll("photos").filter((v): v is File => v instanceof File && v.size > 0);
+        if (incidentRequiresPhotos(String(data.get("stage")), String(data.get("reason"))) && files.length === 0) throw new Error(REQUIRED_INCIDENT_PHOTOS_MESSAGE);
         if (files.length > 3) throw new Error("Maksymalnie 3 zdjęcia.");
         data.delete("photos");
         for (const f of files) data.append("photos", await prepareBookingPhoto(f));
@@ -60,9 +62,9 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <summary className="cursor-pointer font-medium">Zgłoś problem — {stage === "DELIVERY" ? "dostawa" : "zwrot"}</summary>
       <form action={d => run(d, true)} className="mt-3 space-y-3">
         <input type="hidden" name="stage" value={stage} />
-        <label className="block text-sm">Powód<select required name="reason" className="block rounded border p-2">{reasonsForStage[stage].map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
+        <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded border p-2">{reasonsForStage[stage].map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded border p-2" /></label>
-        <label className="block text-sm">Zdjęcia (opcjonalnie, do 3)<input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" className="block" /></label>
+        <label className="block text-sm">{incidentRequiresPhotos(stage, selectedReasons[stage]) ? "Zdjęcia (wymagane, od 1 do 3)" : "Zdjęcia (opcjonalnie, do 3)"}<input required={incidentRequiresPhotos(stage, selectedReasons[stage])} type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" className="block" /></label>
         <button disabled={pending} className={button}>Wyślij zgłoszenie</button>
       </form>
     </details>)}

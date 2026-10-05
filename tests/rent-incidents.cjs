@@ -43,7 +43,7 @@ function load(file) {
     if (id === 'next-auth') return { getServerSession: async () => user ? { user: { id: user } } : null };
     if (id === '@/auth.config') return { authConfig: {} };
     if (id === 'next/cache') return { revalidatePath() {} };
-    if (id === '@/app/lib/bookingEvidencePhotoFiles') return { prepareBookingEvidencePhotoFiles: async files => { assert.equal(files.length, 0); return []; } };
+    if (id === '@/app/lib/bookingEvidencePhotoFiles') return { prepareBookingEvidencePhotoFiles: async files => { return files.map(() => ({ mimeType: "image/jpeg", data: new Uint8Array([1]), width: 1, height: 1 })); } };
     if (id === '@/app/lib/settlement') return { settlementOperation: async (_stripe, _bookingId, kind, params) => {
       const saved = operations.get(kind);
       if (saved) { assert.deepEqual(JSON.stringify(saved.params), JSON.stringify(params)); return { id: saved.stripeId, amount: saved.amount }; }
@@ -100,6 +100,25 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     await assert.rejects(actions.incidentAction(form({ operation: 'accept' })));
     user = 'renter'; await assert.rejects(actions.incidentAction(form({ operation: 'accept' })));
     await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' })); assert.equal(inc.status, 'RESOLVED'); assert.equal(refunds, 1);
+  });
+  for (const reason of ['NOT_AS_DESCRIBED', 'DAMAGED_ON_ARRIVAL']) {
+    await test(`${reason} requires a nonempty photo on server`, async () => {
+      b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+      const data = form({ stage: 'DELIVERY', reason, description: 'Problem' });
+      await assert.rejects(actions.openIncidentAction(data), e => e.message === policy.REQUIRED_INCIDENT_PHOTOS_MESSAGE);
+      assert.equal(inc, null); assert.equal(b.deliveryIssue, null);
+      data.append('photos', new File([], 'empty.jpg', { type: 'image/jpeg' }));
+      await assert.rejects(actions.openIncidentAction(data), e => e.message === policy.REQUIRED_INCIDENT_PHOTOS_MESSAGE);
+      assert.equal(inc, null);
+      data.append('photos', new File(['mock photo'], 'photo.jpg', { type: 'image/jpeg' }));
+      await actions.openIncidentAction(data);
+      assert.equal(inc.reason, reason); assert.equal(b.deliveryConfirmationStatus, 'DISPUTED');
+    });
+  }
+  await test('other incident reasons keep photos optional', () => {
+    for (const [stage, reasons] of Object.entries(policy.reasonsForStage)) for (const reason of reasons) {
+      assert.equal(policy.incidentRequiresPhotos(stage, reason), stage === 'DELIVERY' && ['NOT_AS_DESCRIBED', 'DAMAGED_ON_ARRIVAL'].includes(reason));
+    }
   });
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });
