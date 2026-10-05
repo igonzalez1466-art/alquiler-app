@@ -7,7 +7,7 @@ import { authConfig } from "@/auth.config";
 import { redirect } from "next/navigation";
 import ListingFilters from "./ListingFilters";
 import ListingResults from "./ListingResults";
-import { isSportCode } from "@/app/lib/listingAttributes";
+import { isSportCode, isAccessoryCode } from "@/app/lib/listingAttributes";
 
 /* ===================== LABELS ===================== */
 const enumLabels: Record<string, string> = {
@@ -71,6 +71,7 @@ type Search = {
   tab?: "all" | "my";
   q?: string;
   category?: string;
+  accessoryType?: string;
   city?: string;
   marca?: string;
   gender?: "WOMAN" | "MAN" | "UNISEX" | "KIDS";
@@ -156,6 +157,7 @@ export default async function ListingPage({
   const garmentType =
     p.garmentType ?? (category ? categoryToGarmentType[category] : undefined);
 
+  const accessoryType = garmentType === "ACCESORIO" && isAccessoryCode(p.accessoryType ?? "") ? p.accessoryType : undefined;
   const min = parseNum(p.min);
   const max = parseNum(p.max);
 
@@ -196,6 +198,7 @@ export default async function ListingPage({
   else if (sport) AND.push({ sport });
   if (pregnancy) AND.push({ pregnancy: true });
   if (garmentType) AND.push({ garmentType });
+  if (accessoryType) AND.push({ accessoryType });
   if (size) AND.push({ size });
   if (color) AND.push({ color });
 
@@ -295,6 +298,7 @@ export default async function ListingPage({
         sport={sport}
         pregnancy={pregnancy}
         garmentType={garmentType}
+        accessoryType={accessoryType}
         size={size}
         color={color ?? ""}
         materials={material ?? ""}

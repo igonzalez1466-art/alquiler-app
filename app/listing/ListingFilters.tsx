@@ -1,5 +1,6 @@
 "use client";
 
+import GarmentTypeFields from "@/app/components/GarmentTypeFields";
 import { useState } from "react";
 import Link from "next/link";
 import { SPORT_OPTIONS } from "@/app/lib/listingAttributes";
@@ -12,6 +13,7 @@ type Props = {
   sport: string;
   pregnancy: boolean;
   garmentType?: string;
+  accessoryType?: string;
   size: string;
   color: string;
   materials: string;
@@ -90,6 +92,7 @@ export default function ListingFilters({
   sport,
   pregnancy,
   garmentType,
+  accessoryType,
   size,
   color,
   materials,
@@ -177,37 +180,7 @@ export default function ListingFilters({
           </label>
 
           {/* Garment */}
-          <label className="text-sm">
-            <span className="block text-xs text-gray-600 mb-1">
-              Rodzaj ubrania
-            </span>
-            <select
-              name="garmentType"
-              defaultValue={garmentType ?? ""}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Wszystkie</option>
-
-              <option value="TRAJE">Garnitur</option>
-              <option value="VESTIDO">Sukienka</option>
-              <option value="MARYNARKA">Marynarka</option>
-              <option value="CAMISA">Koszula</option>
-              <option value="BLUSA">Bluzka</option>
-              <option value="PANTALON">Spodnie</option>
-              <option value="FALDA">Spódnica</option>
-
-              <option value="ABRIGO">Płaszcz</option>
-              <option value="CHAQUETA">Kurtka</option>
-
-              <option value="SUDADERA">Bluza</option>
-              <option value="JERSEY">Sweter</option>
-              <option value="MONO">Kombinezon</option>
-
-              <option value="ACCESORIO">Akcesoria</option>
-              <option value="ZAPATO">Buty</option>
-              <option value="OTRO">Inne</option>
-            </select>
-          </label>
+          <GarmentTypeFields key={`${garmentType ?? ""}:${accessoryType ?? ""}`} garmentType={garmentType} accessoryType={accessoryType} className="md:col-span-2" />
 
           {/* Size */}
           <label className="text-sm">

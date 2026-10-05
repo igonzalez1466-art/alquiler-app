@@ -1,3 +1,4 @@
+import GarmentTypeFields from "@/app/components/GarmentTypeFields";
 
 // app/listing/new/page.tsx
 import { prisma } from "@/app/lib/prisma";
@@ -12,7 +13,7 @@ import ListingAttributesFields from "./ListingAttributesFields";
 import { sendMail } from "@/app/lib/mailer";
 import type { Gender, GarmentType, Color, Estado, MetodoEnvio } from "@prisma/client";
 import { put } from "@vercel/blob";
-import { isSportCode } from "@/app/lib/listingAttributes";
+import { isSportCode, isAccessoryCode } from "@/app/lib/listingAttributes";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
 /* ===================== CONSTANTES ===================== */
@@ -217,6 +218,9 @@ export default async function NewListingPage({
     if (sportEnabled && !isSportCode(sportRaw)) return { error: "Wybierz dyscyplinę sportu." };
     if (pregnancy && gender !== "WOMAN") return { error: "Odzież ciążowa jest dostępna tylko dla kategorii Kobieta." };
     if (!garmentType) return { error: "Nieprawidłowy typ ubrania" };
+    const accessoryRaw = String(formData.get("accessoryType") || "").trim();
+    if (garmentType === "ACCESORIO" && !isAccessoryCode(accessoryRaw)) return { error: "Wybierz rodzaj akcesorium." };
+    const accessoryType = garmentType === "ACCESORIO" ? accessoryRaw : null;
     const sport = sportEnabled ? sportRaw : null;
 
     if (!size) return { error: "Rozmiar jest obowiązkowy" };
@@ -271,6 +275,7 @@ export default async function NewListingPage({
         size,
         color,
         garmentType,
+        accessoryType,
         materials: [material],
         estado,
         metodoEnvio,
@@ -583,37 +588,7 @@ export default async function NewListingPage({
               </select>
             </div>
 
-            <div className="md:col-span-2">
-              <label className={labelBase} htmlFor="garmentType">
-                Typ ubrania
-              </label>
-              <select
-                id="garmentType"
-                name="garmentType"
-                required
-                className={`${inputBase} mt-1`}
-              >
-                <option value="">Wybierz</option>
-                <option value="TRAJE">Garnitur</option>
-                <option value="VESTIDO">Sukienka</option>
-                <option value="MARYNARKA">Marynarka</option>
-                <option value="CAMISA">Koszula</option>
-                <option value="BLUSA">Bluzka</option>
-                <option value="PANTALON">Spodnie</option>
-                <option value="FALDA">Spódnica</option>
-
-                <option value="ABRIGO">Płaszcz</option>
-                <option value="CHAQUETA">Kurtka</option>
-
-                <option value="SUDADERA">Bluza</option>
-                <option value="JERSEY">Sweter</option>
-                <option value="MONO">Kombinezon</option>
-
-                <option value="ACCESORIO">Akcesoria</option>
-                <option value="ZAPATO">Buty</option>
-                <option value="OTRO">Inne</option>
-              </select>
-            </div>
+            <GarmentTypeFields required className="md:col-span-4" inputClassName={`${inputBase} mt-1`} />
 
             <div className="md:col-span-2">
               <label className={labelBase} htmlFor="material">

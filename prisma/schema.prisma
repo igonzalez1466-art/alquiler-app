@@ -67,6 +67,7 @@ model Listing {
   postalCode  String?
   color       Color?
   garmentType GarmentType?
+  accessoryType String?
   gender      Gender?
   sport       String?
   pregnancy   Boolean @default(false)
@@ -90,6 +91,7 @@ model Listing {
   @@index([size])
   @@index([color])
   @@index([garmentType])
+  @@index([accessoryType])
 }
 
 model Image {

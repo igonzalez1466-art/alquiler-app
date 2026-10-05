@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
-import { Estado, Gender, MetodoEnvio } from "@prisma/client";
-import { isSportCode } from "@/app/lib/listingAttributes";
+import { Estado, Gender, MetodoEnvio, GarmentType } from "@prisma/client";
+import { isSportCode, isAccessoryCode } from "@/app/lib/listingAttributes";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -20,9 +20,13 @@ const listingSchema = z.object({
   fianza: z.coerce.number().int().min(0).optional(),
   metodoEnvio: z.nativeEnum(MetodoEnvio),
   gender: z.nativeEnum(Gender).optional(),
+  garmentType: z.nativeEnum(GarmentType).optional(),
+  accessoryType: z.string().refine(isAccessoryCode, "Wybierz rodzaj akcesorium").optional(),
   sport: z.string().refine(isSportCode, "Wybierz sport").optional(),
   pregnancy: z.boolean().optional().default(false),
 }).superRefine((data, context) => {
+  if (data.garmentType === "ACCESORIO" && !data.accessoryType) context.addIssue({ code: "custom", path: ["accessoryType"], message: "Wybierz rodzaj akcesorium." });
+  if (data.garmentType !== "ACCESORIO" && data.accessoryType) context.addIssue({ code: "custom", path: ["accessoryType"], message: "Rodzaj akcesorium wymaga kategorii Akcesoria." });
   if (data.pregnancy && data.gender !== "WOMAN") {
     context.addIssue({ code: "custom", path: ["pregnancy"], message: "Odzież ciążowa jest dostępna tylko dla kategorii Kobieta." });
   }

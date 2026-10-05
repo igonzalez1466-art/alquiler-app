@@ -29,7 +29,8 @@ function load(file) {
     if (id === '@/app/lib/prisma') return { prisma };
     if (id === '@/app/lib/auth') return { getSession: async () => ({ user: { id: 'owner' } }) };
     if (id === '@/app/lib/mailer') return { sendMail: async () => { throw Error('Unexpected email'); } };
-    if (id === '@/app/lib/listingAttributes') return { isSportCode: () => true };
+    if (id === '@/app/lib/listingAttributes') return load('app/lib/listingAttributes.ts');
+    if (id === '@/app/components/GarmentTypeFields') return 'GarmentTypeFields';
     if (id === '@/app/lib/features') return { DEPOSITS_ENABLED: false };
     if (id === '@vercel/blob') return { put: async () => { uploads++; return { url: 'https://example.test/photo.jpg' }; } };
     if (id === 'node:crypto') return require(id);

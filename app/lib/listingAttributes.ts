@@ -26,3 +26,23 @@ export function isSportCode(value: string): value is SportCode {
 export function sportLabel(value: string | null | undefined): string | null {
   return SPORT_OPTIONS.find((option) => option.value === value)?.label ?? null;
 }
+
+export const ACCESSORY_OPTIONS = [
+  { value: "PASEK", label: "Pasek" },
+  { value: "TOREBKA", label: "Torebka" },
+  { value: "PLECAK", label: "Plecak" },
+  { value: "PORTFEL", label: "Portfel" },
+  { value: "BIZUTERIA", label: "Biżuteria" },
+  { value: "ZEGAREK", label: "Zegarek" },
+  { value: "OKULARY", label: "Okulary przeciwsłoneczne" },
+  { value: "SZAL", label: "Szal / chusta" },
+  { value: "KAPELUSZ", label: "Kapelusz / czapka" },
+  { value: "REKAWICZKI", label: "Rękawiczki" },
+  { value: "KRAWAT", label: "Krawat" },
+  { value: "MUCHA", label: "Muszka" },
+  { value: "SPINKI", label: "Spinki do mankietów" },
+  { value: "WLOSY", label: "Ozdoby do włosów" },
+  { value: "INNE", label: "Inne akcesoria" },
+] as const;
+export function isAccessoryCode(value: string): boolean { return ACCESSORY_OPTIONS.some(o => o.value === value); }
+export function accessoryLabel(value: string | null | undefined): string | null { return ACCESSORY_OPTIONS.find(o => o.value === value)?.label ?? null; }

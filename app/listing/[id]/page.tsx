@@ -1,6 +1,6 @@
 // app/listing/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
-import { sportLabel } from "@/app/lib/listingAttributes";
+import { sportLabel, accessoryLabel } from "@/app/lib/listingAttributes";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
 import Image from "next/image";
 import Link from "next/link";
@@ -132,6 +132,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         size: true,
         color: true,
         garmentType: true,
+        accessoryType: true,
         materials: true,
       },
     }),
@@ -281,6 +282,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
             <div className="flex flex-wrap gap-2">
               {pill(`Marka: ${listing.marca ?? "—"}`)}
               {pill(`Kategoria: ${labelEnum(listing.garmentType)}`)}
+              {accessoryLabel(listing.accessoryType) && pill(`Akcesorium: ${accessoryLabel(listing.accessoryType)}`)}
               {pill(`Płeć: ${labelEnum(listing.gender)}`)}
               {listing.sport && pill(`Sport: ${sportLabel(listing.sport) ?? listing.sport}`)}
               {listing.pregnancy && pill("Odzież ciążowa")}
