@@ -1,4 +1,7 @@
 import { prisma } from "@/app/lib/prisma";
+import BookingEvidencePhotos from "./BookingEvidencePhotos";
+import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
+import { canViewBookingEvidencePhoto } from "@/app/lib/bookingEvidenceVisibility";
 import IncidentPanel from "./IncidentPanel";
 
 export default async function BookingIncidents({ bookingId, userId }: { bookingId: string; userId: string }) {
@@ -6,7 +9,14 @@ export default async function BookingIncidents({ bookingId, userId }: { bookingI
   if (!b || ![b.ownerId, b.renterId].includes(userId)) return null;
   const paid = b.paymentStatus === "PAID" && !b.cancelledAt && b.status !== "CANCELLED";
   const received = !!b.deliveryConfirmedAt || ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus);
-  return <IncidentPanel bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}
+  const photos = b.deliveryIssue !== null || b.incidents.some(i => i.stage === "DELIVERY")
+    ? await prisma.bookingEvidencePhoto.findMany({ where: { bookingId, stage: "DELIVERY" }, orderBy: { createdAt: "asc" } }) : [];
+  const visiblePhotos = photos.filter(photo => canViewBookingEvidencePhoto(b, photo, userId));
+  const deliveryPhotos = (b.deliveryIssue !== null || b.incidents.some(i => i.stage === "DELIVERY"))
+    ? <BookingEvidencePhotos bookingId={bookingId} stage="DELIVERY" userId={userId} ownerId={b.ownerId} renterId={b.renterId}
+      canUpload={canUploadBookingEvidence(b, "DELIVERY", userId)}
+      photos={visiblePhotos.map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))} /> : null;
+  return <IncidentPanel deliveryPhotos={deliveryPhotos} bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}
     canOpenDelivery={paid && b.renterId === userId && !received && !b.rentSettlement && !b.ownerTransferId && b.deliveryIssue === null}
     canOpenReturn={paid && b.ownerId === userId && received && b.returnIssue === null}
     cases={b.incidents.map(i => ({ ...i, createdAt: i.createdAt.toISOString(), resolvedAt: i.resolvedAt?.toISOString() ?? null, evidence: i.evidence.map(e => ({ ...e, createdAt: e.createdAt.toISOString() })) }))} />;

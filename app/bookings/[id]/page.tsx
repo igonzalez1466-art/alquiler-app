@@ -858,15 +858,7 @@ export default async function BookingPage({
                   recipient={{ name: booking.renter.name, email: booking.renter.email, phone: booking.renter.phoneVerifiedAt ? booking.renter.phone : null }}
                 />}
 
-                {userId && <BookingEvidencePhotos
-                  bookingId={id}
-                  stage="DELIVERY"
-                  userId={userId}
-                  ownerId={booking.ownerId}
-                  renterId={booking.renterId}
-                  canUpload={canUploadBookingEvidence(booking, "DELIVERY", userId)}
-                  photos={visibleEvidencePhotos.filter(photo => photo.stage === "DELIVERY").map(photo => ({ ...photo, createdAt: photo.createdAt.toISOString() }))}
-                />}
+
 
                 {(isOwner || isRenter) && isInpost(booking.carrier) && booking.trackingNumber && (
                   deliveryTracking ? <Suspense key={deliveryTracking} fallback={<p className="text-sm text-gray-500">Pobieranie statusu InPost…</p>}>

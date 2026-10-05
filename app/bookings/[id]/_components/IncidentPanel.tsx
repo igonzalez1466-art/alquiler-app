@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
@@ -8,8 +8,8 @@ import { incidentReasons, reasonsForStage } from "@/app/lib/incidentPolicy";
 
 type Case = { id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
-export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases }: {
-  bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[];
+export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos }: {
+  bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -66,6 +66,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         <button disabled={pending} className={button}>Wyślij zgłoszenie</button>
       </form>
     </details>)}
+    {deliveryPhotos}
     {pending && <p role="status" className="text-sm">Zapisywanie…</p>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
   </section>;

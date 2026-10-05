@@ -13,7 +13,7 @@ for (const shippingStatus of ['PENDING', 'READY', 'SHIPPED', 'DELIVERED']) {
   }
 }
 const received = { ...booking, shippingStatus: 'SHIPPED', shippedAt: new Date(), deliveryConfirmationStatus: 'AWAITING_CONFIRMATION' };
-assert.equal(canUpload(received, 'DELIVERY', 'renter'), true);
+assert.equal(canUpload(received, 'DELIVERY', 'renter'), false, 'Delivery photos require reporting a problem');
 assert.equal(canUpload(booking, 'DELIVERY', 'renter'), false);
 assert.equal(canUpload(received, 'DELIVERY', 'stranger'), false);
 assert.equal(canUpload({ ...received, deliveryConfirmationStatus: 'CONFIRMED' }, 'DELIVERY', 'renter'), false);
