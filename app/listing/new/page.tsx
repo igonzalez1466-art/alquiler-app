@@ -5,6 +5,7 @@ import { getSession } from "@/app/lib/auth";
 import { redirect } from "next/navigation";
 import crypto from "node:crypto";
 import LocationField from "./LocationField";
+import { readListingLocation, LOCATION_MESSAGE } from "./locationValidation";
 import PhotosField from "./PhotosField";
 import PublishForm, { PublishButton } from "./PublishForm";
 import ListingAttributesFields from "./ListingAttributesFields";
@@ -92,7 +93,6 @@ const ALLOWED_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set([
   "ZAPATO",
 ]);
 
-const err = (msg: string) => `/listing/new?error=${encodeURIComponent(msg)}`;
 
 /* ===================== FIRMA EMAIL (NUEVO) ===================== */
 
@@ -150,16 +150,13 @@ export default async function NewListingPage({
     const pricePerDayRaw = String(formData.get("pricePerDay") || "").trim();
     const pricePerDay = Number(pricePerDayRaw);
     const minimumRentalDays = Number(formData.get("minimumRentalDays") ?? 1);
-    if (!Number.isInteger(minimumRentalDays) || minimumRentalDays < 1 || minimumRentalDays > 2147483647) redirect(err("Minimalny okres wynajmu musi być dodatnią liczbą całkowitą."));
+    if (!Number.isInteger(minimumRentalDays) || minimumRentalDays < 1 || minimumRentalDays > 2147483647) return { error: "Minimalny okres wynajmu musi być dodatnią liczbą całkowitą." };
 
     // ✅ Deposit (kaucja / fianza) opcjonalna
     const fianzaRaw = DEPOSITS_ENABLED ? String(formData.get("fianza") || "").trim() : "";
     const fianza = fianzaRaw === "" ? null : Number(fianzaRaw);
 
-    const city = String(formData.get("city") || "").trim();
-    const postalCode = String(formData.get("postalCode") || "").trim();
-    const lat = Number(formData.get("lat"));
-    const lng = Number(formData.get("lng"));
+    const location = readListingLocation(formData);
 
     const marca = String(formData.get("marca") || "").trim();
 
@@ -175,36 +172,35 @@ export default async function NewListingPage({
 
     /* ===== VALIDACIONES ===== */
 
-    if (!title) redirect(err("Tytuł jest obowiązkowy"));
+    if (!title) return { error: "Tytuł jest obowiązkowy" };
 
     if (
       !Number.isFinite(pricePerDay) ||
       !Number.isInteger(pricePerDay) ||
       pricePerDay <= 0
     ) {
-      redirect(err("Cena za dzień musi być liczbą całkowitą > 0"));
+      return { error: "Cena za dzień musi być liczbą całkowitą > 0" };
     }
 
     if (fianza !== null) {
       if (!Number.isFinite(fianza) || !Number.isInteger(fianza) || fianza < 0) {
-        redirect(err("Kaucja musi być liczbą całkowitą ≥ 0"));
+        return { error: "Kaucja musi być liczbą całkowitą ≥ 0" };
       }
     }
 
-    if (!city || Number.isNaN(lat) || Number.isNaN(lng)) {
-      redirect(err("Wybierz lokalizację z listy"));
-    }
+    if (!location) return { error: LOCATION_MESSAGE };
+    const { city, postalCode, lat, lng } = location;
 
     // ✅ Color (enum Prisma Color)
     const color: Color | null = ALLOWED_COLORS.has(colorRaw as Color)
       ? (colorRaw as Color)
       : null;
-    if (!color) redirect(err("Nieprawidłowy kolor"));
+    if (!color) return { error: "Nieprawidłowy kolor" };
 
     if (
       !ALLOWED_MATERIALS.has(material as (typeof MATERIALS)[number]["value"])
     ) {
-      redirect(err("Nieprawidłowy materiał"));
+      return { error: "Nieprawidłowy materiał" };
     }
 
     const gender: Gender | null = ALLOWED_GENDERS.has(genderRaw as Gender)
@@ -217,21 +213,21 @@ export default async function NewListingPage({
       ? (garmentTypeRaw as GarmentType)
       : null;
 
-    if (!gender) redirect(err("Nieprawidłowa płeć"));
-    if (sportEnabled && !isSportCode(sportRaw)) redirect(err("Wybierz dyscyplinę sportu."));
-    if (pregnancy && gender !== "WOMAN") redirect(err("Odzież ciążowa jest dostępna tylko dla kategorii Kobieta."));
-    if (!garmentType) redirect(err("Nieprawidłowy typ ubrania"));
+    if (!gender) return { error: "Nieprawidłowa płeć" };
+    if (sportEnabled && !isSportCode(sportRaw)) return { error: "Wybierz dyscyplinę sportu." };
+    if (pregnancy && gender !== "WOMAN") return { error: "Odzież ciążowa jest dostępna tylko dla kategorii Kobieta." };
+    if (!garmentType) return { error: "Nieprawidłowy typ ubrania" };
     const sport = sportEnabled ? sportRaw : null;
 
-    if (!size) redirect(err("Rozmiar jest obowiązkowy"));
+    if (!size) return { error: "Rozmiar jest obowiązkowy" };
     const estado = CONDITION_OPTIONS.find(
       (option) => option.value === formData.get("estado")
     )?.value;
     const metodoEnvio = DELIVERY_OPTIONS.find(
       (option) => option.value === formData.get("metodoEnvio")
     )?.value;
-    if (!estado) redirect(err("Wybierz aktualny stan przedmiotu."));
-    if (!metodoEnvio) redirect(err("Wybierz preferowaną formę dostawy."));
+    if (!estado) return { error: "Wybierz aktualny stan przedmiotu." };
+    if (!metodoEnvio) return { error: "Wybierz preferowaną formę dostawy." };
 
 
 
@@ -239,10 +235,10 @@ export default async function NewListingPage({
     const files = formData.getAll("photos")
       .filter((value): value is File => value instanceof File && value.size > 0);
     if (files.length < 3) {
-      redirect(err("Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie."));
+      return { error: "Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie." };
     }
     if (files.some((file) => !file.type.startsWith("image/"))) {
-      redirect(err("Wybierz wyłącznie pliki ze zdjęciami."));
+      return { error: "Wybierz wyłącznie pliki ze zdjęciami." };
     }
 
     // Finish uploads first; a failed upload must not publish an incomplete listing.
