@@ -22,11 +22,10 @@ export function canUploadBookingEvidence(booking: EvidenceBooking, stage: "DELIV
   if (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID") return false;
 
   if (stage === "DELIVERY") {
-    if (booking.ownerId === userId) {
-      return !booking.shippedAt && ["PENDING", "READY"].includes(booking.shippingStatus) &&
-        awaitingReceipt.includes(booking.deliveryConfirmationStatus);
-    }
+    if (booking.ownerId === userId) return false;
     const issue = readIssue(booking.deliveryIssue);
+    if (booking.renterId === userId && awaitingReceipt.includes(booking.deliveryConfirmationStatus) &&
+      ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus)) return true;
     return booking.renterId === userId && booking.deliveryConfirmationStatus === "DISPUTED" &&
       issue?.reportedById === userId && issue.resolvedAt === null;
   }

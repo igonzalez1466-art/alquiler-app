@@ -21,6 +21,7 @@ import BookingActionFeedback from "./_components/BookingActionFeedback";
 import BookingEvidencePhotos from "./_components/BookingEvidencePhotos";
 import InpostDestination from "./_components/InpostDestination";
 import ReturnForm from "./_components/ReturnForm";
+import ReturnSection from "./_components/ReturnSection";
 import FinalSettlementSummary from "./_components/FinalSettlementSummary";
 import DepositClaimPanel from "./_components/DepositClaimPanel";
 import RentOnlySettlementButton from "./_components/RentOnlySettlementButton";
@@ -891,7 +892,7 @@ export default async function BookingPage({
                 )}
 
                 {isOwner && booking.shippingStatus === "SHIPPED" && (
-                  <p className="text-sm text-gray-600">Po oznaczeniu dostawy jako „Wysłano” nie można już zmienić przewoźnika, numeru śledzenia ani dodać zdjęć dostawy.</p>
+                  <p className="text-sm text-gray-600">Po oznaczeniu dostawy jako „Wysłano” nie można już zmienić przewoźnika ani numeru śledzenia.</p>
                 )}
 
                 {deliveryLocked && (
@@ -904,14 +905,7 @@ export default async function BookingPage({
 
               {/* DEVOLUCIÓN */}
 
-              <section id="return-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  Zwrot
-
-                  <span className="text-xs text-gray-400 font-normal">
-                    (uzupełnia najemca)
-                  </span>
-                </h2>
+              <ReturnSection>
 
                 <div className="flex flex-wrap items-center gap-2">
                   {booking.returnConfirmationStatus !==
@@ -1034,7 +1028,7 @@ export default async function BookingPage({
                     Zwrot został potwierdzony — edycja zablokowana.
                   </p>
                 )}
-              </section>
+              </ReturnSection>
 
               {/* FIANZA */}
 

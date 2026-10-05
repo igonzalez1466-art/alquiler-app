@@ -20,7 +20,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
   const remaining = Math.max(0, 3 - mine);
   const buckets = stage === "DELIVERY" ? [
     { uploaderId: ownerId, title: "Zdjęcia właściciela — przekazanie przedmiotu", role: "właściciel", reportOnly: false },
-    { uploaderId: renterId, title: "Zdjęcia najemcy — zgłoszony problem przy odbiorze", role: "najemca", reportOnly: true },
+    { uploaderId: renterId, title: "Zdjęcia najemcy — odbiór przedmiotu", role: "najemca", reportOnly: true },
   ] : [
     { uploaderId: renterId, title: "Zdjęcia najemcy — zwrot przedmiotu", role: "najemca", reportOnly: false },
     { uploaderId: ownerId, title: "Zdjęcia właściciela — zgłoszony problem przy zwrocie", role: "właściciel", reportOnly: true },
@@ -65,11 +65,10 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
   return <section className="rounded-lg border bg-gray-50 p-3 space-y-3" aria-label={stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}>
     <div>
       <h3 className="font-semibold">{stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}</h3>
-      <p className="text-xs text-gray-600">Każda strona może dodać maksymalnie 3 zdjęcia na tym etapie. Druga strona zobaczy zdjęcia dopiero po oznaczeniu przesyłki jako „Wysłano”. Zapisanych zdjęć nie można zmienić.</p>
-      {stage === "DELIVERY" && <p className="text-xs text-gray-600">Właściciel może dodać zdjęcia tylko przed oznaczeniem dostawy jako „Wysłano”.</p>}
+      <p className="text-xs text-gray-600">{stage === "DELIVERY" ? "Zdjęcia dostawy dodaje wyłącznie najemca przy odbiorze lub zgłoszeniu problemu." : "Najemca może dodać zdjęcia przed wysłaniem zwrotu. Właściciel może dołączyć zdjęcia do zgłoszenia problemu przy odbiorze zwrotu."} Maksymalnie 3 zdjęcia na osobę. Zapisanych zdjęć nie można zmienić.</p>
       {stage === "RETURN" && <p className="text-xs text-gray-600">Najemca może dodać zdjęcia zwrotu tylko przed oznaczeniem go jako „Wysłano”.</p>}
     </div>
-    {buckets.map(bucket => {
+    {buckets.filter(bucket => stage !== "DELIVERY" || bucket.uploaderId !== ownerId || photos.some(photo => photo.uploaderId === ownerId)).map(bucket => {
       const bucketPhotos = photos.filter(photo => photo.uploaderId === bucket.uploaderId);
       return <div key={bucket.uploaderId} className="space-y-2 rounded border bg-white p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
