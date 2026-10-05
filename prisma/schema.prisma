@@ -631,6 +631,7 @@ model Incident {
   acceptedAt DateTime?
   refundId String? @unique
   evidence IncidentEvidence[]
+  notifications IncidentNotification[]
   @@unique([bookingId, stage])
   @@index([againstUserId, status])
   @@index([openedById, status])
@@ -643,5 +644,25 @@ model IncidentEvidence {
   uploader User @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
   text String
   createdAt DateTime @default(now())
+  @@index([incidentId, createdAt])
+}
+
+model IncidentNotification {
+  id String @id @default(cuid())
+  incidentId String
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  recipientId String
+  eventKey String @unique
+  to String
+  subject String
+  text String
+  html String
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+  leaseUntil DateTime?
+  nextAttemptAt DateTime @default(now())
+  attempts Int @default(0)
+  lastError String?
+  @@index([sentAt, nextAttemptAt])
   @@index([incidentId, createdAt])
 }

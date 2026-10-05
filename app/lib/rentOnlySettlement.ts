@@ -1,3 +1,4 @@
+import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import Stripe from "stripe";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
@@ -76,8 +77,12 @@ export async function settleRentOnlyBooking(bookingId: string) {
       ...(decision.incidentId && decision.refund < (b.rentAmountCents ?? 0) ? { shippingStatus: "DELIVERED", deliveryConfirmationStatus: "CONFIRMED", deliveryConfirmedAt: new Date(), deliveryConfirmedBy: "RENTER" } : {}),
       ...(decision.incidentId && b.deliveryIssue && typeof b.deliveryIssue === "object" && !Array.isArray(b.deliveryIssue) ? { deliveryIssue: { ...b.deliveryIssue, resolvedAt: new Date().toISOString(), resolvedById: b.renterId } } : {}),
     } });
-    if (decision.incidentId) await tx.incident.update({ where: { id: decision.incidentId }, data: { status: "RESOLVED", resolvedAt: new Date(), refundId } });
+    if (decision.incidentId) {
+      const incident = await tx.incident.update({ where: { id: decision.incidentId }, data: { status: "RESOLVED", resolvedAt: new Date(), refundId } });
+      await queueIncidentEmail(tx, incident, "resolved", null, `resolved:${incident.id}`);
+    }
   });
+  await sendPendingIncidentEmails(bookingId);
   return true;
 }
 export async function trySettleRentOnlyBooking(bookingId: string) {

@@ -1,5 +1,6 @@
 "use server";
 
+import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
@@ -63,6 +64,11 @@ export async function addBookingEvidencePhotosAction(formData: FormData) {
     } catch {
       throw new Error("Nie udało się zapisać zdjęć. Odśwież rezerwację i spróbuj ponownie.");
     }
+    if (current.incidents.some(item => item.stage === stage)) {
+      const incident = await tx.incident.findUniqueOrThrow({ where: { bookingId_stage: { bookingId, stage } } });
+      await queueIncidentEmail(tx, incident, "photos", userId, `photos:${incident.id}:${userId}`, `Dodano ${prepared.length} zdjęcia do zgłoszenia.`);
+    }
   });
+  await sendPendingIncidentEmails(bookingId);
   revalidatePath(`/bookings/${bookingId}`);
 }

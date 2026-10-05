@@ -1,6 +1,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm'), assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const ts = require(root + '/node_modules/typescript');
+let notificationEvents = [];
 let photoRecords = [];
 let b, inc, user, refunds, transfers, refundStatus, refunded, stripeCalls, operations, serial = Promise.resolve();
 const tx = {
@@ -16,7 +17,7 @@ const tx = {
     create: async ({ data }) => { if (inc) throw Error('Duplicate stage'); inc = { id: 'i', acceptedAt: null, refundCents: null, proposedById: null, ...data }; return structuredClone(inc); },
     update: async ({ data }) => { Object.assign(inc, data); return structuredClone(inc); },
   },
-  incidentEvidence: { create: async () => ({}) },
+  incidentEvidence: { create: async ({ data }) => ({ id: `e${notificationEvents.length}`, ...data }) },
   bookingEvidencePhoto: {
     findMany: async ({ where }) => photoRecords.filter(p => p.bookingId === where.bookingId && p.stage === where.stage && p.uploaderId === where.uploaderId),
     createMany: async ({ data }) => { photoRecords.push(...data); return { count: data.length }; },
@@ -25,7 +26,7 @@ const tx = {
   user: { findUniqueOrThrow: async () => ({ stripeAccountId: 'acct' }) },
 };
 const prisma = { ...tx, $transaction: fn => {
-  const run = serial.then(async () => { const before = structuredClone({ b, inc, photoRecords }); try { return await fn(tx); } catch (e) { b = before.b; inc = before.inc; photoRecords = before.photoRecords; throw e; } });
+  const run = serial.then(async () => { const before = structuredClone({ b, inc, photoRecords, notificationEvents }); try { return await fn(tx); } catch (e) { b = before.b; inc = before.inc; photoRecords = before.photoRecords; notificationEvents = before.notificationEvents; throw e; } });
   serial = run.catch(() => {}); return run;
 } };
 class Stripe {
@@ -41,6 +42,7 @@ function load(file) {
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   function req(id) {
+    if (id === '@/app/lib/incidentNotification') return { queueIncidentEmail: async (_tx, incident, event, actor, key, detail) => notificationEvents.push({ incident: structuredClone(incident), event, actor, key, detail }), sendPendingIncidentEmails: async () => {} };
     if (id === '@/app/lib/auth') return { getSession: async () => user ? { user: { id: user } } : null };
     if (id === '@/app/lib/prisma') return { prisma };
     if (id === 'stripe') return Stripe;
@@ -64,7 +66,7 @@ function load(file) {
 }
 function reset() {
   b = { id: 'b', ownerId: 'owner', renterId: 'renter', status: 'CONFIRMED', paymentStatus: 'PAID', paymentRef: 'pi', cancelledAt: null, depositCents: 0, depositStatus: 'NONE', depositClaim: null, settlementDecision: null, settlementLegacyReview: false, settlementCompletedAt: null, deliveryConfirmedAt: new Date(), deliveryConfirmationStatus: 'CONFIRMED', shippingStatus: 'DELIVERED', deliveryIssue: null, returnIssue: null, returnConfirmationStatus: 'NOT_REQUESTED', returnStatus: 'PENDING', rentSettlement: null, ownerTransferId: null, owner: { stripeAccountId: 'acct' }, rentAmountCents: 18000, platformFeeCents: 2700, ownerPayoutCents: 15300, endDate: new Date('2020-01-01') };
-  photoRecords = []; inc = null; user = 'renter'; refunds = transfers = stripeCalls = refunded = 0; refundStatus = 'succeeded'; operations = new Map();
+  notificationEvents = []; photoRecords = []; inc = null; user = 'renter'; refunds = transfers = stripeCalls = refunded = 0; refundStatus = 'succeeded'; operations = new Map();
 }
 function form(extra) { const f = new FormData(); for (const [k, v] of Object.entries({ bookingId: 'b', incidentId: 'i', ...extra })) f.set(k, String(v)); return f; }
 const policy = load('app/lib/incidentPolicy.ts');
@@ -172,6 +174,21 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     await actions.openIncidentAction(data);
     user = 'renter'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Wyjaśniono', refundCents: 0 }));
     user = 'owner'; await assert.rejects(addPhotos(photoForm('RETURN')), e => e.message === policy.INCIDENT_PHOTOS_LOCKED_MESSAGE); assert.equal(photoRecords.length, 1);
+  });
+  await test('actions queue event snapshots and completion email only after confirmed settlement', async () => {
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    assert.equal(notificationEvents.at(-1).event, 'opened');
+    user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
+    assert.equal(notificationEvents.at(-1).event, 'proposed');
+    user = 'renter'; await actions.incidentAction(form({ operation: 'reject' }));
+    assert.equal(notificationEvents.at(-1).event, 'rejected');
+    user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Nowy rabat', refundCents: 5000 }));
+    user = 'renter'; refundStatus = 'pending'; await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' }));
+    assert.equal(notificationEvents.at(-1).event, 'accepted'); assert.equal(notificationEvents.filter(e => e.event === 'resolved').length, 0);
+    refundStatus = 'succeeded'; refunded = 5000; await settle('b');
+    assert.equal(notificationEvents.at(-1).event, 'resolved'); assert.equal(notificationEvents.at(-1).incident.refundCents, 5000);
+    await settle('b'); assert.equal(notificationEvents.filter(e => e.event === 'resolved').length, 1);
   });
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

@@ -1,3 +1,4 @@
+import { sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { Prisma } from "@prisma/client";
 import { processRenterCancellation } from "@/app/lib/renterCancellation";
 import { NextResponse } from "next/server";
@@ -23,5 +24,6 @@ export async function GET(req: Request) {
     try { results.push({ id: b.id, completed: ["NONE", "SUCCEEDED"].includes(await processRenterCancellation(b.id) ?? "") }); }
     catch { results.push({ id: b.id, completed: false }); }
   }
+  await sendPendingIncidentEmails();
   return NextResponse.json({ results });
 }

@@ -6,6 +6,7 @@ import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
 import { reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
+import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
 
 async function user() {
@@ -63,7 +64,9 @@ export async function openIncidentAction(data: FormData) {
     const slots = [1, 2, 3].filter(slot => !existing.some(p => p.slot === slot));
     if (slots.length < photos.length) throw new Error("Limit zdjęć dla tego etapu został wykorzystany.");
     if (photos.length) await tx.bookingEvidencePhoto.createMany({ data: photos.map((p, i) => ({ ...p, bookingId, stage, uploaderId: userId, slot: slots[i] })) });
+    await queueIncidentEmail(tx, incident, "opened", userId, `opened:${incident.id}`, `${text}${photos.length ? ` · Dodano ${photos.length} zdjęcia.` : ""}`);
   });
+  await sendPendingIncidentEmails(bookingId);
   refresh(bookingId);
 }
 export async function incidentAction(data: FormData) {
@@ -79,7 +82,8 @@ export async function incidentAction(data: FormData) {
     if (operation !== "retry" && !canActOnIncident(inc, userId === b.ownerId)) throw new Error(INCIDENT_WAIT_MESSAGE);
     if (operation === "evidence") {
       if (inc.status === "RESOLVED") throw new Error("Sprawa zakończona.");
-      await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: description(data, "evidence") } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: description(data, "evidence") } });
+      await queueIncidentEmail(tx, inc, "evidence", userId, `evidence:${evidence.id}`, evidence.text);
       return;
     }
     if (operation === "propose") {
@@ -90,16 +94,18 @@ export async function incidentAction(data: FormData) {
       if (!/^\d+$/.test(raw) || !Number.isSafeInteger(refundCents) || refundCents < 0 ||
         refundCents > (b.rentAmountCents ?? b.amountCents ?? 0) || inc.stage === "RETURN" && refundCents !== 0) throw new Error("Nieprawidłowa kwota zwrotu.");
       if (inc.stage === "DELIVERY" && (b.depositCents ?? 0) > 0) throw new Error("Historyczna płatność z kaucją wymaga osobnego rozliczenia.");
-      await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: `Propozycja: ${description(data, "resolution")} · Zwrot najmu: ${refundCents} gr` } });
-      await tx.incident.update({ where: { id: incidentId }, data: { refundCents, resolution: description(data, "resolution"), proposedById: userId, proposedAt: new Date(), status: inc.stage === "DELIVERY" ? "AWAITING_RENTER" : "AWAITING_OWNER" } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: `Propozycja: ${description(data, "resolution")} · Zwrot najmu: ${refundCents} gr` } });
+      const updated = await tx.incident.update({ where: { id: incidentId }, data: { refundCents, resolution: description(data, "resolution"), proposedById: userId, proposedAt: new Date(), status: inc.stage === "DELIVERY" ? "AWAITING_RENTER" : "AWAITING_OWNER" } });
+      await queueIncidentEmail(tx, updated, "proposed", userId, `proposed:${evidence.id}`, updated.resolution ?? "");
       return;
     }
     if (operation === "accept" || operation === "reject") {
       if (!inc.proposedById || inc.proposedById === userId || !["AWAITING_OWNER", "AWAITING_RENTER"].includes(inc.status) || inc.acceptedAt) throw new Error("Brak propozycji do zaakceptowania.");
       if (operation === "accept" && inc.stage === "DELIVERY" && (inc.refundCents ?? 0) < (b.rentAmountCents ?? 0) && data.get("receivedAndAccepted") !== "yes") throw new Error("Potwierdź odbiór i akceptację dalszego najmu.");
-      await tx.incident.update({ where: { id: incidentId }, data: operation === "reject" ?
+      const updated = await tx.incident.update({ where: { id: incidentId }, data: operation === "reject" ?
         { status: "ESCALATED" } : { status: inc.stage === "DELIVERY" ? "AGREEMENT_REACHED" : "RESOLVED", acceptedAt: new Date(), ...(inc.stage === "RETURN" ? { resolvedAt: new Date() } : {}) } });
-      await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: operation === "accept" ? "Zaakceptowano propozycję." : "Odrzucono propozycję — sprawa wymaga wyjaśnienia." } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: operation === "accept" ? "Zaakceptowano propozycję." : "Odrzucono propozycję — sprawa wymaga wyjaśnienia." } });
+      await queueIncidentEmail(tx, updated, operation === "reject" ? "rejected" : inc.stage === "RETURN" ? "resolved" : "accepted", userId, operation === "accept" && inc.stage === "RETURN" ? `resolved:${inc.id}` : `response:${evidence.id}`);
       if (operation === "accept" && inc.stage === "RETURN") {
         // Closing a return case does not assert receipt of a missing item.
         const issue = b.returnIssue;
@@ -108,11 +114,17 @@ export async function incidentAction(data: FormData) {
       return;
     }
     if (operation === "escalate" && !["RESOLVED", "AGREEMENT_REACHED"].includes(inc.status)) {
-      await tx.incident.update({ where: { id: incidentId }, data: { status: "ESCALATED" } });
+      const updated = await tx.incident.update({ where: { id: incidentId }, data: { status: "ESCALATED" } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: "Poproszono o wyjaśnienie sprawy." } });
+      await queueIncidentEmail(tx, updated, "escalated", userId, `escalated:${evidence.id}`);
       return;
     }
     if (operation !== "retry" || inc.stage !== "DELIVERY" || inc.status !== "AGREEMENT_REACHED") throw new Error("Nieprawidłowa operacja.");
+    const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: "Ponowiono sprawdzenie rozliczenia." } });
+    await queueIncidentEmail(tx, inc, "retry", userId, `retry:${evidence.id}`);
   });
   await trySettleRentOnlyBooking(bookingId);
+
+  await sendPendingIncidentEmails(bookingId);
   refresh(bookingId);
 }
