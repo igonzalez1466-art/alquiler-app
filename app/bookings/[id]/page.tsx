@@ -1,3 +1,5 @@
+import RenterCancellationPanel from "./_components/RenterCancellationPanel";
+import { canRenterCancelBooking, renterCancellationDeadline, readRenterCancellation } from "@/app/lib/renterCancellationPolicy";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { Suspense } from "react";
 import InpostTracking from "./_components/InpostTracking";
@@ -204,6 +206,9 @@ export default async function BookingPage({
       status: true,
       createdAt: true,
       cancelledAt: true,
+      renterCancellation: true,
+      amountCents: true,
+      rentSettlement: true,
 
       paymentStatus: true,
       paymentDueAt: true,
@@ -418,17 +423,18 @@ export default async function BookingPage({
     booking.depositCents ??
     (booking.depositStatus !== "NONE" ? (booking.listing?.fianza ?? 0) * 100 : 0);
 
+  const renterCancellation = readRenterCancellation(booking.renterCancellation);
   const platformFeeRate =
     booking.platformFeeRate ?? 1500;
 
   const platformFeeCents =
-    booking.platformFeeCents ??
+    renterCancellation ? 0 : booking.platformFeeCents ??
     Math.round(
       (rentAmountCents * platformFeeRate) / 10_000
     );
 
   const ownerPayoutCents =
-    booking.ownerPayoutCents ??
+    renterCancellation ? 0 : booking.ownerPayoutCents ??
     rentAmountCents - platformFeeCents;
 
   const platformFeePercent = platformFeeRate / 100;
@@ -554,6 +560,10 @@ export default async function BookingPage({
         </div>
       </section>
 
+      <RenterCancellationPanel bookingId={id} deadline={renterCancellationDeadline(booking.startDate).toISOString()}
+        isRenter={isRenter} canCancel={canRenterCancelBooking(booking, userId)} paid={booking.paymentStatus === "PAID"}
+        amountCents={readRenterCancellation(booking.renterCancellation)?.amountCents ?? booking.rentAmountCents ?? booking.amountCents ?? 0}
+        status={readRenterCancellation(booking.renterCancellation)?.status ?? null} />
       <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
       {!isCancelled && <BookingProgress booking={booking} />}
 

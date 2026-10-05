@@ -12,7 +12,7 @@ export default async function TransactionHistoryPage({ searchParams }: { searchP
   const pages = Math.max(1, Math.ceil(total / size)), page = Math.min(pageNumber(p.page), pages);
   const bookings = await prisma.booking.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * size, take: size,
     select: { id: true, bookingNumber: true, ownerId: true, renterId: true, createdAt: true, startDate: true, endDate: true, status: true,
-      paymentStatus: true, paidAt: true, refundedAt: true, rentAmountCents: true, depositCents: true, depositStatus: true, depositPaidAt: true,
+      renterCancellation: true, paymentStatus: true, paidAt: true, refundedAt: true, rentAmountCents: true, depositCents: true, depositStatus: true, depositPaidAt: true,
       depositRefundedCents: true, depositRetainedCents: true, depositRefundedAt: true, platformFeeCents: true, ownerPayoutCents: true,
       ownerTransferId: true, ownerTransferCents: true, ownerTransferredAt: true, depositTransferId: true, depositTransferredCents: true, depositTransferredAt: true,
       settlementCompletedAt: true, depositClaim: true, deliveryConfirmationStatus: true, returnConfirmationStatus: true, listing: { select: { title: true } } } });

@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { processRenterCancellation } from "@/app/lib/renterCancellation";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { settleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
@@ -10,6 +12,15 @@ export async function GET(req: Request) {
   const results = [];
   for (const b of bookings) {
     try { results.push({ id: b.id, completed: await settleRentOnlyBooking(b.id) }); }
+    catch { results.push({ id: b.id, completed: false }); }
+  }
+  const cancellations = await prisma.booking.findMany({ where: { status: "CANCELLED", renterCancellation: { not: Prisma.DbNull }, OR: [
+    { renterCancellation: { path: ["status"], equals: "PENDING" } },
+    { renterCancellation: { path: ["notifications", "owner", "sentAt"], equals: Prisma.JsonNull } },
+    { renterCancellation: { path: ["notifications", "renter", "sentAt"], equals: Prisma.JsonNull } },
+  ] }, select: { id: true }, take: 5, orderBy: { cancelledAt: "asc" } });
+  for (const b of cancellations) {
+    try { results.push({ id: b.id, completed: ["NONE", "SUCCEEDED"].includes(await processRenterCancellation(b.id) ?? "") }); }
     catch { results.push({ id: b.id, completed: false }); }
   }
   return NextResponse.json({ results });

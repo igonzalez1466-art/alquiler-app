@@ -32,7 +32,7 @@ const statusLabel: Record<BookingStatus, string> = {
   PENDING: "Oczekująca",
   AWAITING_PAYMENT: "Oczekuje na płatność",
   CONFIRMED: "Potwierdzona",
-  CANCELLED: "Odrzucona",
+  CANCELLED: "Anulowana",
 };
 
 const statusClass: Record<BookingStatus, string> = {

@@ -228,6 +228,7 @@ model Booking {
   paymentRef    String?
   paymentDueAt  DateTime?
   cancelledAt   DateTime?
+  renterCancellation Json?
 
   // ==========================================================
   // SNAPSHOT ECONÓMICO DE LA RESERVA
