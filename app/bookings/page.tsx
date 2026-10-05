@@ -4,6 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 import { getSession } from "@/app/lib/auth";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
+import BookingIncidentBadge from "./_components/BookingIncidentBadge";
 import BookingDetailsLink from "./_components/BookingDetailsLink";
 
 /* ============ Helpers ============ */
@@ -273,6 +274,9 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   select: {
   id: true,
   bookingNumber: true,
+  ownerId: true,
+  deliveryConfirmationStatus: true,
+  incidents: { select: { stage: true, status: true }, orderBy: { createdAt: "asc" } },
   listingId: true,
   renterId: true,
   startDate: true,
@@ -311,6 +315,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
     prisma.booking.findMany({
       where: ownerWhere,
       include: {
+        incidents: { select: { stage: true, status: true }, orderBy: { createdAt: "asc" } },
         listing: {
           select: {
             id: true,
@@ -508,6 +513,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
                       <StatusBadge status={b.status} expired={isPaymentDeadlineExpired(b, now)} />
+                      <BookingIncidentBadge booking={b} userId={userId} />
                       <BookingDetailsLink bookingId={b.id} />
                     </div>
                       </div>
@@ -734,6 +740,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-end">
                        <StatusBadge status={b.status} expired={isPaymentDeadlineExpired(b, now)} />
+                      <BookingIncidentBadge booking={b} userId={userId} />
                       <BookingDetailsLink bookingId={b.id} />
                       </div>
                     </div>
