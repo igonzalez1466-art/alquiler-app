@@ -3,8 +3,9 @@ import { prisma } from "@/app/lib/prisma";
 import { sendMail } from "@/app/lib/mailer";
 import { canActOnIncident, incidentReasons } from "@/app/lib/incidentPolicy";
 
-type Event = "opened" | "proposed" | "rejected" | "accepted" | "evidence" | "photos" | "escalated" | "retry" | "resolved";
+type Event = "cancellation_requested" | "opened" | "proposed" | "rejected" | "accepted" | "evidence" | "photos" | "escalated" | "retry" | "resolved";
 const titles: Record<Event, string> = {
+  cancellation_requested: "Prośba o anulowanie rezerwacji i zwrot 100% najmu",
   opened: "Nowe zgłoszenie", proposed: "Nowa propozycja rozwiązania", rejected: "Propozycja została odrzucona",
   accepted: "Propozycja została zaakceptowana", evidence: "Nowy dowód / komentarz", photos: "Dodano zdjęcia",
   escalated: "Prośba o wyjaśnienie sprawy", retry: "Ponowiono sprawdzenie rozliczenia", resolved: "Zgłoszenie zakończone — rozwiązanie zaakceptowane przez obie strony",

@@ -27,5 +27,12 @@ let checks=0;async function test(name,fn){rows=new Map();mails=[];failTo=null;se
   await test('SMTP failure retries only the unsent email with backoff',async()=>{await queue(tx,{...incident,status:'RESOLVED',acceptedAt:new Date(),resolution:'Uzgodniono'},'resolved',null,'resolved:i');failTo='renter@example.test';await send();assert.equal(mails.length,1);const failed=Array.from(rows.values()).find(e=>!e.sentAt);assert(failed.nextAttemptAt>new Date());await send();assert.equal(mails.length,1);failed.nextAttemptAt=new Date(0);await send();assert.equal(mails.length,2);assert.equal(mails.filter(m=>m.to==='owner@example.test').length,1);});
   await test('application URL configured later is resolved before sending',async()=>{delete env.APP_URL;await queue(tx,incident,'opened','renter','opened:i');await send();assert.equal(mails.length,0);env.APP_URL='https://staging.example.test';for(const e of rows.values())e.nextAttemptAt=new Date(0);await send();assert.equal(mails.length,1);assert(mails[0].text.includes('https://staging.example.test/account/incidents/b'));assert(!mails[0].html.includes('__INCIDENT_URL__'));});
   await test('unrelated user cannot create notifications',async()=>{await assert.rejects(queue(tx,incident,'evidence','stranger','evidence:1'));assert.equal(rows.size,0);});
+
+  await test('cancellation request emails owner with full refund proposal and claim link',async()=>{
+    await queue(tx,{...incident,status:'AWAITING_OWNER',proposedById:'renter',resolution:'Prośba o anulowanie. Komentarz: uszkodzony przedmiot',refundCents:18000},'cancellation_requested','renter','cancel:1','uszkodzony przedmiot');
+    await send(); assert.equal(mails.length,1); assert.equal(mails[0].to,'owner@example.test');
+    assert.match(mails[0].subject,/Prośba o anulowanie/); assert.match(mails[0].text,/180,00/); assert.match(mails[0].text,/Teraz Twoja kolej/);
+    assert(mails[0].html.includes("account/incidents/b")); assert.match(mails[0].text,/uszkodzony przedmiot/);
+  });
   console.log(`${checks} incident email checks passed. No actual emails or database writes.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});

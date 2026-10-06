@@ -137,7 +137,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     await actions.incidentAction(form({ operation: 'propose', resolution: 'Pierwsza propozycja', refundCents: 1000 }));
     for (const operation of ['evidence', 'escalate', 'propose']) await assert.rejects(actions.incidentAction(form({ operation, evidence: 'Zmiana', resolution: 'Nadpisanie', refundCents: 2000 })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
     assert.equal(inc.refundCents, 1000);
-    user = 'renter'; await actions.incidentAction(form({ operation: 'reject' }));
+    user = 'renter'; await actions.incidentAction(form({ operation: 'reject', comment: 'Proponowany rabat nie rozwiązuje problemu.' }));
     assert.equal(policy.canActOnIncident(inc, false), false); assert.equal(policy.canActOnIncident(inc, true), true);
   });
   await test('return actions follow renter then owner; closed decisions block comments', async () => {
@@ -181,7 +181,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     assert.equal(notificationEvents.at(-1).event, 'opened');
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
     assert.equal(notificationEvents.at(-1).event, 'proposed');
-    user = 'renter'; await actions.incidentAction(form({ operation: 'reject' }));
+    user = 'renter'; await actions.incidentAction(form({ operation: 'reject', comment: 'Proponowany rabat nie rozwiązuje problemu.' }));
     assert.equal(notificationEvents.at(-1).event, 'rejected');
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Nowy rabat', refundCents: 5000 }));
     user = 'renter'; refundStatus = 'pending'; await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' }));
@@ -189,6 +189,50 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     refundStatus = 'succeeded'; refunded = 5000; await settle('b');
     assert.equal(notificationEvents.at(-1).event, 'resolved'); assert.equal(notificationEvents.at(-1).incident.refundCents, 5000);
     await settle('b'); assert.equal(notificationEvents.filter(e => e.event === 'resolved').length, 1);
+  });
+
+  async function deliveryOffer() {
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
+    user = 'renter';
+  }
+  await test('rejection requires a nonblank bounded comment before changing state', async () => {
+    await deliveryOffer();
+    const count = notificationEvents.length;
+    for (const comment of ['', '   ', 'x'.repeat(2001)]) {
+      await assert.rejects(actions.incidentAction(form({ operation: 'reject', comment })));
+      assert.equal(inc.status, 'AWAITING_RENTER'); assert.equal(notificationEvents.length, count);
+    }
+    await actions.incidentAction(form({ operation: 'reject', comment: '  Nie mogę korzystać z przedmiotu.  ' }));
+    assert.equal(inc.status, 'ESCALATED');
+    assert.equal(notificationEvents.at(-1).detail, 'Nie mogę korzystać z przedmiotu.');
+    assert.equal(refunds, 0); assert.equal(transfers, 0);
+  });
+  await test('renter cancellation request requires owner acceptance and refunds exactly 100 percent', async () => {
+    await deliveryOffer();
+    await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: '  ' })));
+    await actions.incidentAction(form({ operation: 'request_cancel', comment: 'Przedmiot nie nadaje się do użycia.', refundCents: 1 }));
+    assert.equal(inc.status, 'AWAITING_OWNER'); assert.equal(inc.proposedById, 'renter');
+    assert.equal(inc.refundCents, 18000); assert.equal(b.status, 'CONFIRMED');
+    assert.equal(refunds, 0); assert.equal(transfers, 0); assert.equal(notificationEvents.at(-1).event, 'cancellation_requested');
+    await assert.rejects(actions.incidentAction(form({ operation: 'accept' })));
+    await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Ponownie' })));
+    user = 'owner'; await actions.incidentAction(form({ operation: 'accept' }));
+    assert.equal(b.status, 'CANCELLED'); assert.equal(b.paymentStatus, 'REFUNDED'); assert.equal(b.rentRefundedCents, 18000);
+    assert.equal(refunds, 1); assert.equal(transfers, 0); assert.equal(inc.status, 'RESOLVED');
+    assert.equal(notificationEvents.at(-1).event, 'resolved');
+  });
+  await test('cancellation request cannot modify earned rent, legacy deposits or return incidents', async () => {
+    for (const patch of [{ deliveryConfirmedAt: new Date() }, { deliveryConfirmationStatus: 'CONFIRMED' }, { rentSettlement: {} }, { ownerTransferId: 'tr' }, { settlementCompletedAt: new Date() }, { depositCents: 1000 }, { paymentStatus: 'REFUNDED' }, { status: 'CANCELLED' }]) {
+      reset(); await deliveryOffer(); Object.assign(b, patch);
+      await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie' })));
+      assert.equal(inc.status, 'AWAITING_RENTER'); assert.equal(refunds, 0);
+    }
+    reset(); await deliveryOffer(); inc.stage = 'RETURN';
+    await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie' })));
+    inc.stage = 'DELIVERY'; inc.status = 'AWAITING_OWNER'; user = 'owner';
+    await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie' })));
   });
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

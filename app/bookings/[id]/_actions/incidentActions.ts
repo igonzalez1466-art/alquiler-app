@@ -99,13 +99,29 @@ export async function incidentAction(data: FormData) {
       await queueIncidentEmail(tx, updated, "proposed", userId, `proposed:${evidence.id}`, updated.resolution ?? "");
       return;
     }
+    if (operation === "request_cancel") {
+      if (userId !== b.renterId || inc.stage !== "DELIVERY" || inc.acceptedAt ||
+        b.paymentStatus !== "PAID" || b.status === "CANCELLED" || b.cancelledAt ||
+        b.deliveryConfirmedAt || ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
+        b.rentSettlement || b.ownerTransferId || b.settlementCompletedAt || (b.depositCents ?? 0) > 0) {
+        throw new Error("Nie można poprosić o anulowanie w tym zgłoszeniu.");
+      }
+      const refundCents = b.rentAmountCents ?? 0;
+      if (!Number.isSafeInteger(refundCents) || refundCents <= 0) throw new Error("Nieprawidłowa kwota najmu.");
+      const resolution = "Prośba o anulowanie rezerwacji i zwrot 100% najmu. Komentarz: " + description(data, "comment");
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: "Propozycja: " + resolution } });
+      const updated = await tx.incident.update({ where: { id: incidentId }, data: { refundCents, resolution, proposedById: userId, proposedAt: new Date(), status: "AWAITING_OWNER" } });
+      await queueIncidentEmail(tx, updated, "cancellation_requested", userId, "cancel-request:" + evidence.id, resolution);
+      return;
+    }
     if (operation === "accept" || operation === "reject") {
       if (!inc.proposedById || inc.proposedById === userId || !["AWAITING_OWNER", "AWAITING_RENTER"].includes(inc.status) || inc.acceptedAt) throw new Error("Brak propozycji do zaakceptowania.");
       if (operation === "accept" && inc.stage === "DELIVERY" && (inc.refundCents ?? 0) < (b.rentAmountCents ?? 0) && data.get("receivedAndAccepted") !== "yes") throw new Error("Potwierdź odbiór i akceptację dalszego najmu.");
+      const comment = operation === "reject" ? description(data, "comment") : "";
       const updated = await tx.incident.update({ where: { id: incidentId }, data: operation === "reject" ?
         { status: "ESCALATED" } : { status: inc.stage === "DELIVERY" ? "AGREEMENT_REACHED" : "RESOLVED", acceptedAt: new Date(), ...(inc.stage === "RETURN" ? { resolvedAt: new Date() } : {}) } });
-      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: operation === "accept" ? "Zaakceptowano propozycję." : "Odrzucono propozycję — sprawa wymaga wyjaśnienia." } });
-      await queueIncidentEmail(tx, updated, operation === "reject" ? "rejected" : inc.stage === "RETURN" ? "resolved" : "accepted", userId, operation === "accept" && inc.stage === "RETURN" ? `resolved:${inc.id}` : `response:${evidence.id}`);
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: operation === "accept" ? "Zaakceptowano propozycję." : `Odrzucono propozycję. Komentarz: ${comment}` } });
+      await queueIncidentEmail(tx, updated, operation === "reject" ? "rejected" : inc.stage === "RETURN" ? "resolved" : "accepted", userId, operation === "accept" && inc.stage === "RETURN" ? `resolved:${inc.id}` : `response:${evidence.id}`, comment);
       if (operation === "accept" && inc.stage === "RETURN") {
         // Closing a return case does not assert receipt of a missing item.
         const issue = b.returnIssue;

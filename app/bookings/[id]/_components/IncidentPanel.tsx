@@ -18,6 +18,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
   const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: reasonsForStage.DELIVERY[0], RETURN: reasonsForStage.RETURN[0] });
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [responseMode, setResponseMode] = useState<Record<string, "reject" | "request_cancel" | undefined>>({});
   async function run(data: FormData, open = false) {
     if (busy.current) return;
     busy.current = true;
@@ -35,7 +36,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         data.delete("photos");
         for (const f of files) data.append("photos", await prepareBookingPhoto(f));
       }
-      await (open ? openIncidentAction(data) : incidentAction(data)); router.refresh();
+      await (open ? openIncidentAction(data) : incidentAction(data)); setResponseMode({}); router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Nie udało się zapisać."); }
     finally { busy.current = false; setPending(false); }
   }
@@ -54,12 +55,25 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && <fieldset disabled={pending || !canActOnIncident(c, isOwner)} className="space-y-3 disabled:opacity-50">
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-2">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="propose" />
-          <label className="block text-sm">Uzgodnione rozwiązanie<textarea name="resolution" required maxLength={2000} className="block w-full rounded border p-2" /></label>
+          <label className="block text-sm">Komentarz<textarea name="resolution" required maxLength={2000} className="block w-full rounded border p-2" /></label>
           {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {(rentCents / 100).toFixed(2)} zł)<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
           <ClaimActionButton disabled={pending} className={`${button} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700`}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
-        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex flex-col gap-3 sm:flex-row">{["accept", "reject"].map(operation => <form key={operation} action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={operation} />{operation === "accept" && c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}<ClaimActionButton disabled={pending} className={`${button} ${operation === "accept" ? "border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700" : ""}`}>{operation === "accept" ? "Akceptuję rozwiązanie" : "Odrzucam propozycję"}</ClaimActionButton></form>)}</div>}
-        <form action={d => run(d)} className="space-y-2"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="evidence" /><label className="block text-sm">Komentarz / tracking / opis dokumentu<textarea required name="evidence" maxLength={2000} className="block w-full rounded border p-2" /></label><ClaimActionButton disabled={pending} className={button}>Dodaj dowód / komentarz</ClaimActionButton></form>
+        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="accept" />
+            {c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="mb-2 block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}
+            <ClaimActionButton disabled={pending} className={button + " border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700"}>{isOwner && c.stage === "DELIVERY" && c.refundCents === rentCents ? "Akceptuję anulowanie i zwrot 100%" : "Akceptuję rozwiązanie"}</ClaimActionButton>
+          </form>
+          <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "reject" }))}>Odrzucam propozycję</button>
+        </div>}
+        {!isOwner && c.stage === "DELIVERY" && <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "request_cancel" }))}>Poproś o anulowanie rezerwacji</button>}
+        {responseMode[c.id] && <form action={d => run(d)} className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={responseMode[c.id]} />
+          <p className="text-sm font-semibold">{responseMode[c.id] === "reject" ? "Dlaczego odrzucasz propozycję?" : "Prośba o anulowanie i pełny zwrot"}</p>
+          {responseMode[c.id] === "request_cancel" && <p className="text-sm">Właściciel musi zaakceptować prośbę. Po akceptacji rezerwacja zostanie anulowana i otrzymasz zwrot 100% najmu ({(rentCents / 100).toFixed(2)} zł). Samo wysłanie prośby nie anuluje rezerwacji.</p>}
+          <label className="block text-sm">Komentarz (wymagany)<textarea autoFocus name="comment" required maxLength={2000} className="mt-1 block w-full rounded border bg-white p-2" /></label>
+          <div className="flex flex-wrap gap-2"><ClaimActionButton disabled={pending} className={button + " border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700"}>{responseMode[c.id] === "reject" ? "Wyślij odrzucenie" : "Wyślij prośbę o anulowanie"}</ClaimActionButton><button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: undefined }))}>Wróć</button></div>
+        </form>}
         {c.status !== "ESCALATED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>}
       </fieldset>}
       {c.status === "AGREEMENT_REACHED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="retry" /><p className="text-sm">Oczekujemy na rozliczenie Stripe. W razie opóźnienia można ponowić tę samą operację.</p><ClaimActionButton disabled={pending} className={button}>Sprawdź / ponów rozliczenie</ClaimActionButton></form>}
