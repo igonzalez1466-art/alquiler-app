@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import IncidentPhotoPicker from "./IncidentPhotoPicker";
 import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
@@ -70,8 +71,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         <input type="hidden" name="stage" value={stage} />
         <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded border p-2">{reasonsForStage[stage].map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded border p-2" /></label>
-        <label className="block text-sm">{incidentRequiresPhotos(stage, selectedReasons[stage]) ? "Zdjęcia (wymagane, od 1 do 3)" : "Zdjęcia (opcjonalnie, do 3)"}<input required={incidentRequiresPhotos(stage, selectedReasons[stage])} type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" className="block" /></label>
-        <p className="text-xs text-gray-600">Wybierz wszystkie zdjęcia przed wysłaniem zgłoszenia. Po zapisaniu nie można dodać kolejnych.</p>
+        <IncidentPhotoPicker required={incidentRequiresPhotos(stage, selectedReasons[stage])} disabled={pending} />
         <ClaimActionButton disabled={pending} className={button}>Wyślij zgłoszenie</ClaimActionButton>
       </form>
     </details>)}
