@@ -54,8 +54,8 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
       <div className={`rounded-xl p-4 ${state.needsAction ? "bg-indigo-50 text-indigo-950" : "bg-slate-50 text-slate-700"}`}><p className="mb-1 text-sm font-semibold">{state.needsAction ? "Co teraz zrobić?" : "Aktualny stan"}</p><p className="text-sm leading-relaxed">{state.next}</p>{state.needsAction && <a href={booking.incidents.length ? "#incident-section" : claim ? "#incident-deposit" : booking.deliveryIssue !== null ? "#incident-delivery" : "#incident-return"} className="mt-3 inline-flex rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Przejdź do odpowiedzi ↓</a>}</div>
     </header>
 
-    <BookingIncidents bookingId={id} userId={userId} />
     <IncidentTimeline events={timeline.map(event => ({ ...event, at: event.at.toISOString() }))} />
+    <BookingIncidents bookingId={id} userId={userId} />
 
     {!booking.incidents.some(i => i.stage === "DELIVERY") && (booking.deliveryIssue !== null || booking.deliveryConfirmationStatus === "DISPUTED") && <details open className="rounded-2xl border bg-white p-5" aria-labelledby="incident-delivery">
       <summary id="incident-delivery" className="cursor-pointer font-semibold">Dostawa — szczegóły i dowody</summary><div className="mt-4 space-y-3">
