@@ -109,8 +109,47 @@ async function notifyRenterCancellation(bookingId: string) {
       const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || process.env.AUTH_URL;
       const url = baseUrl ? `${baseUrl.replace(/\/$/, "")}/bookings/${encodeURIComponent(bookingId)}` : null;
       const title = `Rezerwacja #${b.bookingNumber ?? b.id} została anulowana przez najemcę`;
-      await sendMail({ to: notification.to, subject: title, text: `${title}\n${b.listing.title}\n${dates}\n${refundInfo}\n${url ?? ""}`,
-        html: `<h2>${escapeHtml(title)}</h2><p>${escapeHtml(b.listing.title)}</p><p>${escapeHtml(dates)}</p><p>${escapeHtml(refundInfo)}</p>${url ? `<p><a href="${escapeHtml(url)}">Otwórz rezerwację</a></p>` : ""}<p>Zespół MojaSzafa</p>` });
+      const greeting = `Cześć${b[role].name ? " " + b[role].name : ""}!`;
+      const paid = saved.amountCents > 0;
+      const status = !paid ? "Nieopłacona — brak zwrotu" : saved.status === "SUCCEEDED" ? "Zwrot potwierdzony przez Stripe" : saved.status === "FAILED" ? "Zwrot wymaga pomocy obsługi" : "Zwrot w toku";
+      const details = [
+        ["Rezerwacja", `#${b.bookingNumber ?? b.id}`], ["Przedmiot", b.listing.title],
+        ["Termin najmu", dates], ["Anulowana przez", b.renter.name || "Najemca"],
+      ];
+      const financialDetails = paid ? [
+        ["Zapłacona kwota najmu", amount], ["Zwrot dla najemcy (100%)", amount],
+        ["Potrącenia", "0,00 zł"], ["Wynagrodzenie właściciela", "0,00 zł"],
+        ["Sposób zwrotu", "Pierwotna metoda płatności"], ["Stan zwrotu", status],
+        ...(saved.refundId ? [["Numer zwrotu Stripe", saved.refundId]] : []),
+      ] : [["Stan płatności", status], ["Kwota do zwrotu", "0,00 zł"], ["Wynagrodzenie właściciela", "0,00 zł"]];
+      const guidance = role === "renter"
+        ? paid ? "Nie musisz prosić właściciela o zwrot. MojaSzafa obsługuje zwrot przez Stripe; aktualny stan znajdziesz w rezerwacji." : "Rezerwacja została anulowana. Nie pobierzemy za nią opłaty za najem."
+        : paid ? "Całość opłaconego najmu jest zwracana najemcy przez Stripe. Nie otrzymasz wynagrodzenia za tę rezerwację i nie musisz wykonywać osobnego przelewu do najemcy." : "Nie otrzymasz wynagrodzenia za tę rezerwację. Nie ma płatności do zwrotu.";
+      const timing = paid ? saved.status === "SUCCEEDED"
+        ? "Stripe potwierdził zwrot. Pieniądze mogą jeszcze nie być widoczne na rachunku najemcy — termin zaksięgowania zależy od banku."
+        : saved.status === "FAILED" ? "Zwrot nie został potwierdzony. Najemcy nadal przysługuje pełny zwrot; potrzebna jest pomoc obsługi serwisu."
+        : "Zwrot jest w toku. Ta wiadomość nie oznacza, że pieniądze zostały już zaksięgowane na rachunku najemcy. Sprawdź aktualny stan w rezerwacji." : "";
+      const rows = (values: string[][]) => values.map(([label, value]) => `<p style="margin:0 0 8px;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join("");
+      await sendMail({ to: notification.to, subject: title,
+        text: [greeting, title, details.map(([label, value]) => `${label}: ${value}`).join("\n"), refundInfo, financialDetails.map(([label, value]) => `${label}: ${value}`).join("\n"), guidance, timing, url ? `Otwórz rezerwację: ${url}` : "", "Pozdrawiamy,\nZespół MojaSzafa", "Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać."].filter(Boolean).join("\n\n"),
+        html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#18181b;max-width:640px;">
+          <p style="margin:0 0 24px;">${escapeHtml(greeting)}</p>
+          <p style="margin:0 0 18px;">Rezerwacja <strong>#${escapeHtml(String(b.bookingNumber ?? b.id))}</strong> została anulowana przez najemcę.</p>
+          <div style="margin:20px 0;padding:18px;border:1px solid #e4e4e7;border-radius:9px;background:#fafafa;">
+            <p style="margin:0 0 14px;font-size:17px;"><strong>Podsumowanie rezerwacji</strong></p>${rows(details)}
+            <p style="margin:0;font-size:12px;color:#71717a;">Daty w czasie polskim.</p>
+          </div>
+          <div style="margin:20px 0;padding:18px;border:1px solid ${saved.status === "FAILED" ? "#fde68a" : "#c7d2fe"};border-radius:9px;background:${saved.status === "FAILED" ? "#fffbeb" : "#eef2ff"};">
+            <p style="margin:0 0 14px;font-size:17px;"><strong>${paid ? "Pełny zwrot płatności — 100%" : "Brak płatności do zwrotu"}</strong></p>${rows(financialDetails)}
+            <p style="margin:12px 0 0;">${escapeHtml(refundInfo)}</p>
+          </div>
+          <p style="margin:18px 0;">${escapeHtml(guidance)}</p>
+          ${timing ? `<p style="margin:0 0 20px;font-size:13px;color:#52525b;">${escapeHtml(timing)}</p>` : ""}
+          ${url ? `<p style="margin:26px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 18px;border-radius:6px;background:#111827;color:#fff;font-weight:700;text-decoration:none;">Otwórz rezerwację</a></p>` : ""}
+          <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
+          <p style="margin:0;font-size:13px;color:#555;">Pozdrawiamy,<br/><strong>Zespół MojaSzafa</strong></p>
+          <p style="margin-top:6px;font-size:11px;color:#888;">Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.</p>
+        </div>` });
       sent = true;
     } catch (error) { console.error("[RENTER CANCELLATION] Email requires retry", bookingId, role, error); }
     await prisma.$transaction(async tx => {
