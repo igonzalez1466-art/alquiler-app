@@ -38,8 +38,39 @@ export async function queueIncidentEmail(tx: Prisma.TransactionClient, incident:
     ].filter(Boolean).join("\n\n");
     // Resolve the current application URL at send time if the deployment was not configured yet.
     const url = baseUrl ? `${baseUrl.replace(/\/$/, "")}/account/incidents/${encodeURIComponent(b.id)}` : "__INCIDENT_URL__";
-    const fullText = `${text}${url ? `\n\n${url}` : ""}\n\nZespół MojaSzafa`;
-    const html = `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2>${escapeHtml(title)}</h2><p style="white-space:pre-wrap">${escapeHtml(text)}</p>${url ? `<p><a href="${escapeHtml(url)}">${canActOnIncident(incident, recipient.id === b.ownerId) ? "Otwórz zgłoszenie i odpowiedz" : "Zobacz zgłoszenie i uzgodnienia"}</a></p>` : ""}<p>Zespół MojaSzafa</p></div>`;
+    const greeting = `Cześć${recipient.name ? " " + recipient.name : ""}!`;
+    const footer = "Pozdrawiamy,\nZespół MojaSzafa\n\nTa wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.";
+    const fullText = `${greeting}\n\n${text}\n\nOtwórz zgłoszenie: ${url}\n\n${footer}`;
+    const details = [
+      ["Rezerwacja", `#${b.bookingNumber ?? b.id}`], ["Przedmiot", b.listing.title],
+      ["Etap", incident.stage === "DELIVERY" ? "Dostawa" : "Zwrot"], ["Powód", incidentReasons[incident.reason]],
+      ["Data powiadomienia", new Date().toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })],
+    ];
+    const buttonLabel = canActOnIncident(incident, recipient.id === b.ownerId) ? "Otwórz zgłoszenie i odpowiedz" : "Zobacz zgłoszenie i uzgodnienia";
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#18181b;max-width:640px;">
+      <p style="margin:0 0 24px;">${escapeHtml(greeting)}</p>
+      <p style="margin:0 0 18px;"><strong>${escapeHtml(title)}</strong> — rezerwacja <strong>#${escapeHtml(String(b.bookingNumber ?? b.id))}</strong>.</p>
+      ${event !== "resolved" ? `<p style="margin:0 0 18px;white-space:pre-wrap;overflow-wrap:anywhere;"><strong>${actor}:</strong> ${escapeHtml(detail || title)}</p>` : ""}
+      <div style="margin:20px 0;padding:18px;border:1px solid #e4e4e7;border-radius:9px;background:#fafafa;">
+        <p style="margin:0 0 14px;font-size:17px;"><strong>Podsumowanie zgłoszenia</strong></p>
+        ${details.map(([label, value]) => `<p style="margin:0 0 8px;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join("")}
+        <p style="margin:12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;"><strong>Opis problemu:</strong> ${escapeHtml(incident.description)}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#71717a;">Daty w czasie polskim. Stan opisany w wiadomości odpowiada chwili działania; aktualny stan znajdziesz pod przyciskiem poniżej.</p>
+      </div>
+      ${incident.resolution || refund ? `<div style="margin:20px 0;padding:18px;border:1px solid #c7d2fe;border-radius:9px;background:#eef2ff;">
+        <p style="margin:0 0 14px;font-size:17px;"><strong>${incident.acceptedAt ? "Uzgodnione rozwiązanie" : "Propozycja rozwiązania"}</strong></p>
+        ${incident.resolution ? `<p style="margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere;">${escapeHtml(incident.resolution)}</p>` : ""}
+        ${refund ? `<p style="margin:0;"><strong>${escapeHtml(refund)}</strong></p>` : ""}
+      </div>` : ""}
+      <div style="margin:20px 0;padding:14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa;">
+        <strong>${event === "resolved" ? "Zakończenie sprawy" : "Następny krok"}</strong><p style="margin:7px 0 0;">${escapeHtml(next)}</p>
+      </div>
+      ${incident.stage === "RETURN" ? '<p style="margin:0 0 20px;font-size:12px;color:#71717a;">Zgłoszenie zwrotu nie zmienia należnego wynagrodzenia za najem. MojaSzafa nie ustala odszkodowania ani winy.</p>' : ""}
+      <p style="margin:26px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 18px;border-radius:6px;background:#111827;color:#ffffff;font-weight:700;text-decoration:none;">${buttonLabel}</a></p>
+      <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
+      <p style="margin:0;font-size:13px;color:#555;">Pozdrawiamy,<br/><strong>Zespół MojaSzafa</strong></p>
+      <p style="margin-top:6px;font-size:11px;color:#888;">Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.</p>
+    </div>`;
     await tx.incidentNotification.upsert({ where: { eventKey: `${key}:${recipient.id}` }, create: {
       incidentId: incident.id, recipientId: recipient.id, eventKey: `${key}:${recipient.id}`, to: recipient.email,
       subject: `${title} — rezerwacja #${b.bookingNumber ?? b.id}`, text: fullText, html,
