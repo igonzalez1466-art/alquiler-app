@@ -1,9 +1,21 @@
 "use client";
 import { actionableTasks } from "@/app/lib/actionableTasks";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { PendingTask } from "@/app/lib/pendingBookingTasks";
+function TaskNavigationFeedback({ panel }: { panel: RefObject<HTMLDetailsElement | null> }) {
+  const { pending } = useLinkStatus();
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending && panel.current) panel.current.open = false;
+    wasPending.current = pending;
+  }, [pending, panel]);
+  return pending ? <span role="status" className="mb-2 flex items-center gap-2 text-sm font-medium text-indigo-700">
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 animate-spin motion-reduce:animate-none" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" /><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
+    Otwieranie…
+  </span> : null;
+}
 export default function PendingTasksBell({ userId }: { userId: string }) {
   const pathname = usePathname();
   const [tasks, setTasks] = useState<PendingTask[] | null>(null);
@@ -13,6 +25,7 @@ export default function PendingTasksBell({ userId }: { userId: string }) {
   const visibleTasks = tasks ? actionableTasks(tasks, clock) : null;
   const panel = useRef<HTMLDetailsElement>(null);
   const reload = useRef<() => void>(() => {});
+  useEffect(() => { if (panel.current) panel.current.open = false; }, [pathname]);
   useEffect(() => {
     let active = true, busy = false;
     const controller = new AbortController();
@@ -67,8 +80,8 @@ export default function PendingTasksBell({ userId }: { userId: string }) {
       {error && <p role="status" className="my-2 text-sm text-amber-800">Nie udało się odświeżyć listy. Wyświetlone zadania mogą być nieaktualne.</p>}
       {!tasks && !error && <p className="py-3 text-sm">Wczytywanie…</p>}
       {visibleTasks?.length === 0 && !error && <p className="py-3 text-sm">Nie masz teraz zadań do wykonania.</p>}
-      <ul className="max-h-[60vh] overflow-y-auto divide-y">{visibleTasks?.map(task => <li key={task.id}><Link prefetch={false} href={task.href} onClick={() => { if (panel.current) panel.current.open = false; }} className="block rounded p-3 hover:bg-gray-50">
-        <p className="text-sm font-semibold">{task.title}</p><p className="text-xs text-gray-600">{task.bookingNumber === null ? "Mój profil" : `#${task.bookingNumber} · ${task.listing}`}</p><p className="mt-1 text-sm">{task.description}</p>
+      <ul className="max-h-[60vh] overflow-y-auto divide-y">{visibleTasks?.map(task => <li key={task.id}><Link prefetch={false} href={task.href} onNavigate={() => { const target = new URL(task.href, window.location.href); if (target.pathname === window.location.pathname && target.search === window.location.search && panel.current) panel.current.open = false; }} className="block rounded p-3 hover:bg-gray-50">
+        <TaskNavigationFeedback panel={panel} /><p className="text-sm font-semibold">{task.title}</p><p className="text-xs text-gray-600">{task.bookingNumber === null ? "Mój profil" : `#${task.bookingNumber} · ${task.listing}`}</p><p className="mt-1 text-sm">{task.description}</p>
         {task.deadline && <p className="mt-1 text-xs text-rose-700">Termin: {new Date(task.deadline).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>}
       </Link></li>)}</ul>
       <p className="border-t pt-2 text-xs text-gray-500">Przypomnienia profilu znikają po uzupełnieniu danych. Zadania rezerwacji znikają po wykonaniu lub upływie terminu działania. Zaległe zwroty i nierozstrzygnięte sprawy pozostają widoczne. Daty w czasie polskim.</p>
