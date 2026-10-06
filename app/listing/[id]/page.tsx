@@ -2,7 +2,7 @@
 import { prisma } from "@/app/lib/prisma";
 import { sportLabel, accessoryLabel } from "@/app/lib/listingAttributes";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
-import Image from "next/image";
+import ListingPhotoGallery from "@/app/components/ListingPhotoGallery";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/app/lib/auth";
@@ -306,22 +306,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
           {listing.images.length > 0 && (
             <section className="border rounded-xl bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold mb-3">Zdjęcia</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {listing.images
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((img) => (
-                    <div key={img.id} className="relative h-44 md:h-48 rounded-lg overflow-hidden">
-                      <Image
-                        src={img.url}
-                        alt={img.alt ?? listing.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
-                      />
-                    </div>
-                  ))}
-              </div>
+              <ListingPhotoGallery title={listing.title} photos={listing.images.slice().sort((a, b) => a.order - b.order)} />
             </section>
           )}
 

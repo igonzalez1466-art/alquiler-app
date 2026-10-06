@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
+import ListingPhotoGallery from "@/app/components/ListingPhotoGallery";
 import { sportLabel, accessoryLabel } from "@/app/lib/listingAttributes";
 const enumLabels: Record<string, string> = {
   // Gender
@@ -56,19 +56,18 @@ type Listing = {
 export default function ListingResults({ listings, showStatus = false }: { listings: Listing[]; showStatus?: boolean }) {
   if (!listings.length) return <p className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Nie znaleźliśmy pasujących ogłoszeń. Zmień lub usuń wybrane filtry.</p>;
   return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label="Ogłoszenia">
-    {listings.map(l => <Link key={l.id} href={`/listing/${l.id}`} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-      <div className="relative aspect-[4/3] bg-slate-100">
-        {l.images[0] ? <Image src={l.images[0].url} alt={l.images[0].alt ?? l.title} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover transition duration-300 group-hover:scale-[1.02]" /> : <span className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Brak zdjęcia</span>}
-        {showStatus && <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${l.available ? "bg-white text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{l.available ? "Aktywne" : "Nieaktywne"}</span>}
-        {l.images.length > 1 && <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-1 text-xs">{l.images.length} zdjęć</span>}
+    {listings.map(l => <article key={l.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+      <div className="relative">
+        <ListingPhotoGallery cover photos={l.images} title={l.title} />
+        {showStatus && <span className={`pointer-events-none absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${l.available ? "bg-white text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{l.available ? "Aktywne" : "Nieaktywne"}</span>}
       </div>
-      <div className="space-y-2 p-4">
+      <Link href={`/listing/${l.id}`} className="block space-y-2 p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
         <p className="text-xs text-slate-500">{accessoryLabel(l.accessoryType) ?? label(l.garmentType)}{l.size ? ` · Rozmiar ${l.size}` : ""}</p>
         <h2 className="line-clamp-2 font-semibold text-slate-900 group-hover:text-indigo-700">{l.title}</h2>
         <p className="text-sm text-slate-500">{[l.marca, l.city].filter(Boolean).join(" · ") || "Lokalizacja niepodana"}</p>
         {(l.sport || l.pregnancy) && <p className="text-xs text-indigo-700">{[sportLabel(l.sport), l.pregnancy ? "Odzież ciążowa" : null].filter(Boolean).join(" · ")}</p>}
         <p className="pt-1 text-lg font-semibold">{new Intl.NumberFormat("pl-PL").format(l.pricePerDay)} zł <span className="text-sm font-normal text-slate-500">/ dzień</span></p>
-      </div>
-    </Link>)}
+      </Link>
+    </article>)}
   </div>;
 }
