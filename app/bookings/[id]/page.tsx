@@ -1,3 +1,4 @@
+import { canReturnCancelledIncidentBooking } from "@/app/lib/cancelledIncidentReturn";
 import RenterCancellationPanel from "./_components/RenterCancellationPanel";
 import { canRenterCancelBooking, renterCancellationDeadline, readRenterCancellation } from "@/app/lib/renterCancellationPolicy";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
@@ -313,6 +314,7 @@ export default async function BookingPage({
   const isRenter =
     !!userId && booking.renterId === userId;
   if (!isOwner && !isRenter) return notFound();
+  const cancelledIncidentReturn = canReturnCancelledIncidentBooking(booking);
   const evidencePhotos = booking.paymentStatus === "PAID"
     ? await prisma.bookingEvidencePhoto.findMany({
         where: { bookingId: id },
@@ -321,7 +323,7 @@ export default async function BookingPage({
       })
     : [];
   const visibleEvidencePhotos = evidencePhotos.filter(photo => canViewBookingEvidencePhoto(booking, photo, userId));
-  const contactVisible = booking.paymentStatus === "PAID" && (isOwner || isRenter);
+  const contactVisible = (booking.paymentStatus === "PAID" || cancelledIncidentReturn) && (isOwner || isRenter);
   const counterpart = isOwner ? booking.renter : booking.owner;
 
   const deliveryTracking = isInpost(booking.carrier) ? normalizeInpostNumber(booking.trackingNumber) : null;
@@ -373,7 +375,7 @@ export default async function BookingPage({
   ========================================================== */
 
   const logisticsEnabled =
-    booking.paymentStatus === "PAID";
+    booking.paymentStatus === "PAID" || cancelledIncidentReturn;
 
   const canOwnerEditShipping =
     isOwner && logisticsEnabled && booking.status !== "CANCELLED" &&
@@ -389,7 +391,7 @@ export default async function BookingPage({
     booking.returnConfirmationStatus === "AUTO_CONFIRMED";
 
   const renterCanConfirmDelivery = isRenter && canReceive(booking, "DELIVERY");
-  const ownerCanConfirmReturn = isOwner && canReceive(booking, "RETURN");
+  const ownerCanConfirmReturn = isOwner && (canReceive(booking, "RETURN") || cancelledIncidentReturn && ["SHIPPED", "DELIVERED"].includes(booking.returnStatus) && ["NOT_REQUESTED", "AWAITING_CONFIRMATION"].includes(booking.returnConfirmationStatus));
 
   const deliveryCompleted =
     booking.shippingStatus === "DELIVERED" &&
@@ -398,7 +400,7 @@ export default async function BookingPage({
   const canRenterEditReturn =
     isRenter &&
     logisticsEnabled &&
-    deliveryCompleted && !returnLocked &&
+    (deliveryCompleted || cancelledIncidentReturn) && !returnLocked &&
     !["SHIPPED", "DELIVERED"].includes(booking.returnStatus) &&
     (booking.returnConfirmationStatus !== "DISPUTED" || booking.depositCents === 0);
 
@@ -907,7 +909,7 @@ export default async function BookingPage({
 
               {/* DEVOLUCIÓN */}
 
-              <ReturnSection defaultOpen={!returnLocked && deliveryLocked && (booking.endDate <= new Date() || booking.returnStatus === "SHIPPED" || booking.returnConfirmationStatus === "AWAITING_CONFIRMATION" || booking.returnConfirmationStatus === "DISPUTED")}>
+              <ReturnSection defaultOpen={!returnLocked && (cancelledIncidentReturn || deliveryLocked && (booking.endDate <= new Date() || booking.returnStatus === "SHIPPED" || booking.returnConfirmationStatus === "AWAITING_CONFIRMATION" || booking.returnConfirmationStatus === "DISPUTED"))}>
 
                 <div className="flex flex-wrap items-center gap-2">
                   {booking.returnConfirmationStatus !==
@@ -997,7 +999,7 @@ export default async function BookingPage({
                 )}
 
                 {ownerCanConfirmReturn && (
-                  <ReceiptActions bookingId={id} stage="RETURN" hasDeposit={depositCents > 0} remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === userId).length)} />
+                  <ReceiptActions hideReport={cancelledIncidentReturn} bookingId={id} stage="RETURN" hasDeposit={depositCents > 0} remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "RETURN" && photo.uploaderId === userId).length)} />
                 )}
 
                 {canRenterEditReturn && (
@@ -1019,7 +1021,7 @@ export default async function BookingPage({
                   </p>
                 )}
 
-                {!deliveryCompleted && !returnLocked && (
+                {!deliveryCompleted && !cancelledIncidentReturn && !returnLocked && (
                   <p className="text-xs text-gray-500">
                     Formularz zwrotu będzie dostępny dopiero po
                     potwierdzeniu dostawy.

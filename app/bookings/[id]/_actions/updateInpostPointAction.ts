@@ -1,5 +1,6 @@
 "use server";
 
+import { cancelledIncidentReturnWhere } from "@/app/lib/cancelledIncidentReturn";
 import { getSession } from "@/app/lib/auth";
 import { fetchInpostPointAddress, readInpostPoint } from "@/app/lib/inpostPoint";
 import { prisma } from "@/app/lib/prisma";
@@ -35,8 +36,7 @@ export async function updateInpostPointAction(formData: FormData) {
         where: {
           id: bookingId,
           ownerId: userId,
-          status: { not: "CANCELLED" },
-          paymentStatus: "PAID",
+          OR: [{ status: { not: "CANCELLED" }, paymentStatus: "PAID" }, cancelledIncidentReturnWhere()],
           returnStatus: { in: ["PENDING", "READY"] },
         },
         data: {

@@ -25,23 +25,32 @@ export async function queueIncidentEmail(tx: Prisma.TransactionClient, incident:
   for (const recipient of recipients) {
     if (!recipient.email) { console.error("[INCIDENT EMAIL] Missing recipient address", incident.id, recipient.id); continue; }
     const title = titles[event];
+    const fullCancellation = event === "resolved" && incident.stage === "DELIVERY" && (b.rentAmountCents ?? 0) > 0 && incident.refundCents === b.rentAmountCents;
+    const returnInstructions = fullCancellation ? recipient.id === b.renterId
+      ? "Jeśli masz już przedmiot, jak najszybciej uzgodnij jego zwrot z właścicielem. Na stronie rezerwacji, w sekcji Zwrot, wpisz sposób przekazania lub przewoźnika i numer śledzenia, a następnie oznacz przedmiot jako wysłany / przekazany."
+      : "Jeśli najemca otrzymał przedmiot, uzgodnij z nim jak najszybszy zwrot. Po otrzymaniu przedmiotu potwierdź odbiór na stronie rezerwacji." : "";
     const next = incident.status === "RESOLVED" ? "Sprawa została zakończona. Rozwiązanie zaakceptowały obie strony."
-      : incident.status === "AGREEMENT_REACHED" ? "Obie strony zaakceptowały rozwiązanie. Rozliczenie Stripe jest w toku."
+      : incident.status === "AGREEMENT_REACHED" ? (incident.refundCents ?? 0) > 0
+        ? "Obie strony zaakceptowały rozwiązanie. Uzgodniony zwrot pieniędzy jest w trakcie realizacji. To jeszcze nie potwierdzenie wpływu środków na konto; otrzymasz osobne powiadomienie po zakończeniu rozliczenia."
+        : "Obie strony zaakceptowały rozwiązanie. Trwa realizacja uzgodnionego rozliczenia."
+      : event === "cancellation_requested" ? "Prośba o anulowanie czeka na akceptację właściciela. Samo wysłanie prośby nie anuluje rezerwacji ani nie uruchamia zwrotu pieniędzy. Otwórz zgłoszenie, aby sprawdzić prośbę i odpowiedzieć."
       : canActOnIncident(incident, recipient.id === b.ownerId) ? "Teraz Twoja kolej. Otwórz zgłoszenie i podejmij działanie."
       : `Czekamy na działanie ${canActOnIncident(incident, true) ? "właściciela" : "najemcy"}. Możesz sprawdzić aktualny stan zgłoszenia.`;
     const refund = incident.stage === "DELIVERY" && incident.refundCents !== null
-      ? `${event === "resolved" || incident.acceptedAt ? "Uzgodniony zwrot najmu" : "Proponowany zwrot najmu"}: ${new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(incident.refundCents / 100)}.` : "";
+      ? `${event === "resolved" ? "Zrealizowany zwrot najmu" : incident.acceptedAt ? "Uzgodniony zwrot najmu" : "Proponowany zwrot najmu"}: ${new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(incident.refundCents / 100)}.` : "";
+    const refundStatus = event === "resolved" && incident.stage === "DELIVERY" && (incident.refundCents ?? 0) > 0 ? "Zwrot został zrealizowany na pierwotną metodę płatności. Termin pojawienia się środków zależy od banku lub operatora płatności." : "";
     const text = [title, `Rezerwacja #${b.bookingNumber ?? b.id}: ${b.listing.title}`,
       `Etap: ${incident.stage === "DELIVERY" ? "Dostawa" : "Zwrot"}. Powód: ${incidentReasons[incident.reason]}.`,
       event === "resolved" ? "" : `${actor}: ${detail || title}.`, incident.description,
-      incident.resolution ? `Rozwiązanie: ${incident.resolution}` : "", refund, next,
+      incident.resolution ? `Rozwiązanie: ${incident.resolution}` : "", refund, refundStatus, next, returnInstructions,
       incident.stage === "RETURN" ? "Zgłoszenie zwrotu nie zmienia należnego wynagrodzenia za najem. MojaSzafa nie ustala odszkodowania ani winy." : "",
     ].filter(Boolean).join("\n\n");
     // Resolve the current application URL at send time if the deployment was not configured yet.
     const url = baseUrl ? `${baseUrl.replace(/\/$/, "")}/account/incidents/${encodeURIComponent(b.id)}` : "__INCIDENT_URL__";
+    const bookingUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/bookings/${encodeURIComponent(b.id)}#return-section` : "__INCIDENT_BOOKING_URL__";
     const greeting = `Cześć${recipient.name ? " " + recipient.name : ""}!`;
     const footer = "Pozdrawiamy,\nZespół MojaSzafa\n\nTa wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.";
-    const fullText = `${greeting}\n\n${text}\n\nOtwórz zgłoszenie: ${url}\n\n${footer}`;
+    const fullText = `${greeting}\n\n${text}\n\nOtwórz zgłoszenie: ${url}${fullCancellation ? "\n\nOtwórz rezerwację — zwrot: " + bookingUrl : ""}\n\n${footer}`;
     const details = [
       ["Rezerwacja", `#${b.bookingNumber ?? b.id}`], ["Przedmiot", b.listing.title],
       ["Etap", incident.stage === "DELIVERY" ? "Dostawa" : "Zwrot"], ["Powód", incidentReasons[incident.reason]],
@@ -68,6 +77,8 @@ export async function queueIncidentEmail(tx: Prisma.TransactionClient, incident:
       </div>
       ${incident.stage === "RETURN" ? '<p style="margin:0 0 20px;font-size:12px;color:#71717a;">Zgłoszenie zwrotu nie zmienia należnego wynagrodzenia za najem. MojaSzafa nie ustala odszkodowania ani winy.</p>' : ""}
       <p style="margin:26px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 18px;border-radius:6px;background:#111827;color:#ffffff;font-weight:700;text-decoration:none;">${buttonLabel}</a></p>
+      ${refundStatus ? `<p style="margin:18px 0;">${escapeHtml(refundStatus)}</p>` : ""}
+      ${returnInstructions ? `<div style="margin:20px 0;padding:18px;border:1px solid #e4e4e7;border-radius:9px;background:#fafafa;"><strong>Zwrot przedmiotu</strong><p>${escapeHtml(returnInstructions)}</p><a href="${escapeHtml(bookingUrl)}" style="display:inline-block;padding:13px 18px;border-radius:6px;background:#111827;color:#fff;font-weight:700;text-decoration:none;">${recipient.id === b.renterId ? "Uzupełnij dane zwrotu w rezerwacji" : "Otwórz rezerwację — zwrot"}</a></div>` : ""}
       <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
       <p style="margin:0;font-size:13px;color:#555;">Pozdrawiamy,<br/><strong>Zespół MojaSzafa</strong></p>
       <p style="margin-top:6px;font-size:11px;color:#888;">Ta wiadomość została wysłana automatycznie — prosimy na nią nie odpowiadać.</p>
@@ -95,7 +106,8 @@ export async function sendPendingIncidentEmails(bookingId?: string) {
         if (!process.env.APP_URL && !process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXTAUTH_URL && !process.env.AUTH_URL) throw new Error("Application URL missing");
         const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || process.env.AUTH_URL;
         const url = `${baseUrl!.replace(/\/$/, "")}/account/incidents/${encodeURIComponent(email.incident.bookingId)}`;
-        await sendMail({ to: email.to, subject: email.subject, text: email.text.replaceAll("__INCIDENT_URL__", url), html: email.html.replaceAll("__INCIDENT_URL__", escapeHtml(url)) });
+        const bookingUrl = `${baseUrl!.replace(/\/$/, "")}/bookings/${encodeURIComponent(email.incident.bookingId)}#return-section`;
+        await sendMail({ to: email.to, subject: email.subject, text: email.text.replaceAll("__INCIDENT_URL__", url).replaceAll("__INCIDENT_BOOKING_URL__", bookingUrl), html: email.html.replaceAll("__INCIDENT_URL__", escapeHtml(url)).replaceAll("__INCIDENT_BOOKING_URL__", escapeHtml(bookingUrl)) });
         await prisma.incidentNotification.updateMany({ where: { id: email.id, leaseUntil, sentAt: null }, data: { sentAt: new Date(), leaseUntil: null, lastError: null } });
       } catch {
         await prisma.incidentNotification.updateMany({ where: { id: email.id, leaseUntil, sentAt: null }, data: {

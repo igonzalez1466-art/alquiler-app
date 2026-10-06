@@ -1,5 +1,6 @@
 "use server";
 
+import { cancelledIncidentReturnWhere } from "@/app/lib/cancelledIncidentReturn";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
@@ -16,7 +17,7 @@ export async function confirmReturnAction(formData: FormData) {
   if (!bookingId) throw new Error("Brak bookingId");
   const now = new Date();
   const updated = await prisma.booking.updateMany({
-    where: receiptWhere(bookingId, userId, "RETURN"),
+    where: { OR: [receiptWhere(bookingId, userId, "RETURN"), { ...cancelledIncidentReturnWhere(), id: bookingId, ownerId: userId, returnStatus: { in: ["SHIPPED", "DELIVERED"] }, returnConfirmationStatus: { in: ["NOT_REQUESTED", "AWAITING_CONFIRMATION"] } }] },
     data: {
       returnStatus: "DELIVERED",
       returnDeliveredAt: now,

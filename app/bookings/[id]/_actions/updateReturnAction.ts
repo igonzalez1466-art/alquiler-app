@@ -1,5 +1,6 @@
 "use server";
 
+import { canReturnCancelledIncidentBooking, cancelledIncidentReturnWhere } from "@/app/lib/cancelledIncidentReturn";
 import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
@@ -54,6 +55,8 @@ export async function updateReturnAction(formData: FormData) {
       status: true,
       paymentStatus: true,
       depositCents: true,
+      settlementCompletedAt: true,
+      incidents: { select: { stage: true, status: true, acceptedAt: true, refundCents: true } },
       renterId: true,
       startDate: true,
       endDate: true,
@@ -97,7 +100,8 @@ export async function updateReturnAction(formData: FormData) {
     throw new Error("Brak uprawnień (tylko najemca)");
   }
 
-  if (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID") {
+  const cancelledIncidentReturn = canReturnCancelledIncidentBooking(booking);
+  if (!cancelledIncidentReturn && (booking.status === "CANCELLED" || booking.paymentStatus !== "PAID")) {
   throw new Error("Zwrot można uzupełnić dopiero po opłaceniu rezerwacji");
 }
 
@@ -106,7 +110,7 @@ export async function updateReturnAction(formData: FormData) {
     (booking.deliveryConfirmationStatus === "CONFIRMED" ||
       booking.deliveryConfirmationStatus === "AUTO_CONFIRMED");
 
-  if (!deliveryCompleted) {
+  if (!deliveryCompleted && !cancelledIncidentReturn) {
     throw new Error("Zwrot można uzupełnić dopiero po potwierdzeniu dostawy");
   }
 
@@ -157,12 +161,10 @@ export async function updateReturnAction(formData: FormData) {
     where: {
       id: bookingId,
       renterId: userId,
-      status: { not: "CANCELLED" },
-      paymentStatus: "PAID",
+      ...(cancelledIncidentReturn ? cancelledIncidentReturnWhere() : { status: { not: "CANCELLED" as const }, paymentStatus: "PAID" as const }),
       returnStatus: booking.returnStatus,
       returnConfirmationStatus: booking.returnConfirmationStatus,
-      shippingStatus: "DELIVERED",
-      deliveryConfirmationStatus: { in: ["CONFIRMED", "AUTO_CONFIRMED"] },
+      ...(!cancelledIncidentReturn ? { shippingStatus: "DELIVERED" as const, deliveryConfirmationStatus: { in: ["CONFIRMED" as const, "AUTO_CONFIRMED" as const] } } : {}),
       ...(returnCarrier === "InPost" ? { returnInpostPointCode: { not: null } } : {}),
     },
     data,
@@ -257,7 +259,7 @@ export async function updateReturnAction(formData: FormData) {
   <div style="margin-top:18px; padding:14px; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px; color:#1e3a8a;">
     <strong>Ważne:</strong><br/>
     Potwierdź zwrot dopiero po faktycznym otrzymaniu przedmiotu.<br/>
-    ${(booking.depositCents ?? 0) > 0 ? "Po potwierdzeniu zwrotu będzie można rozliczyć kaucję." : "Po potwierdzeniu zwrotu będzie można rozliczyć najem."}
+    ${cancelledIncidentReturn ? "Potwierdzenie zapisuje odbiór przedmiotu i nie zmienia uzgodnionego zwrotu pieniędzy." : (booking.depositCents ?? 0) > 0 ? "Po potwierdzeniu zwrotu będzie można rozliczyć kaucję." : "Po potwierdzeniu zwrotu będzie można rozliczyć najem."}
   </div>
 
   ${emailSignature()}
