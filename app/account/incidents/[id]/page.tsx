@@ -78,6 +78,5 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
 
     </section>}
 
-    <p className="text-xs text-gray-600">Daty pochodzą z zapisów aplikacji. Zgłoszenie dostawy wstrzymuje wypłatę; zmiana ceny wymaga zgody obu stron. Zgłoszenie zwrotu nie zmienia należnego najmu.{(booking.depositCents ?? 0) > 0 && " Propozycja potrącenia sama nie przenosi środków."}</p>
   </main>;
 }
