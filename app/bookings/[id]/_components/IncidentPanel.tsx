@@ -67,7 +67,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
           </form>
           <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "reject" }))}>Odrzucam propozycję</button>
         </div>}
-        {!isOwner && c.stage === "DELIVERY" && <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "request_cancel" }))}>Poproś o anulowanie rezerwacji</button>}
+        {!isOwner && c.stage === "DELIVERY" && c.reason === "NOT_AS_DESCRIBED" && <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "request_cancel" }))}>Poproś o anulowanie rezerwacji</button>}
         {responseMode[c.id] && <form action={d => run(d)} className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={responseMode[c.id]} />
           <p className="text-sm font-semibold">{responseMode[c.id] === "reject" ? "Dlaczego odrzucasz propozycję?" : "Prośba o anulowanie i pełny zwrot"}</p>

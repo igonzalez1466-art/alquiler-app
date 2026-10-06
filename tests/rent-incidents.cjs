@@ -191,9 +191,11 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     await settle('b'); assert.equal(notificationEvents.filter(e => e.event === 'resolved').length, 1);
   });
 
-  async function deliveryOffer() {
+  async function deliveryOffer(reason = 'NOT_AS_DESCRIBED') {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    const report = form({ stage: 'DELIVERY', reason, description: 'Problem' });
+    if (policy.incidentRequiresPhotos('DELIVERY', reason)) report.append('photos', new File(['mock photo'], 'photo.jpg', { type: 'image/jpeg' }));
+    await actions.openIncidentAction(report);
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
     user = 'renter';
   }
@@ -233,6 +235,18 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie' })));
     inc.stage = 'DELIVERY'; inc.status = 'AWAITING_OWNER'; user = 'owner';
     await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie' })));
+  });
+  await test('only the original NOT_AS_DESCRIBED report allows a cancellation request', async () => {
+    for (const reason of policy.reasonsForStage.DELIVERY.filter(reason => reason !== 'NOT_AS_DESCRIBED')) {
+      reset(); await deliveryOffer(reason);
+      const originalResolution = inc.resolution, count = notificationEvents.length;
+      await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie', reason: 'NOT_AS_DESCRIBED' })));
+      assert.equal(inc.reason, reason); assert.equal(inc.status, 'AWAITING_RENTER');
+      assert.equal(inc.resolution, originalResolution); assert.equal(notificationEvents.length, count);
+      assert.equal(refunds, 0); assert.equal(transfers, 0);
+      await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' }));
+      assert.equal(inc.status, 'RESOLVED'); assert.equal(b.rentRefundedCents, 4000);
+    }
   });
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

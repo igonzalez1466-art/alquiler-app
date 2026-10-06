@@ -101,7 +101,7 @@ export async function incidentAction(data: FormData) {
       return;
     }
     if (operation === "request_cancel") {
-      if (userId !== b.renterId || inc.stage !== "DELIVERY" || inc.acceptedAt ||
+      if (userId !== b.renterId || inc.stage !== "DELIVERY" || inc.reason !== "NOT_AS_DESCRIBED" || inc.acceptedAt ||
         b.paymentStatus !== "PAID" || b.status === "CANCELLED" || b.cancelledAt ||
         b.deliveryConfirmedAt || ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
         b.rentSettlement || b.ownerTransferId || b.settlementCompletedAt || (b.depositCents ?? 0) > 0) {
