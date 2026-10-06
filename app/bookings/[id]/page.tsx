@@ -609,18 +609,19 @@ export default async function BookingPage({
 
       {/* RESERVA CANCELADA */}
 
-      {isCancelled && (
+      {isCancelled && !cancelledIncidentReturn && (
         <section className="p-4 border rounded bg-white text-sm text-gray-600">
           Rezerwacja została anulowana — szczegóły płatności,
           dostawy i zwrotu nie są dostępne.
         </section>
       )}
 
-      {!isCancelled && (
+      {(!isCancelled || cancelledIncidentReturn) && (
         <>
+          {cancelledIncidentReturn && <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-semibold">Rezerwacja anulowana — zwrot przedmiotu</p><p className="mt-2">{isRenter ? "Jeśli masz przedmiot, uzgodnij z właścicielem jego zwrot jak najszybciej. Uzupełnij sposób przekazania lub numer przesyłki w sekcji Zwrot poniżej." : "Uzgodnij z najemcą jak najszybszy zwrot przedmiotu. Po otrzymaniu przedmiotu potwierdź odbiór w sekcji Zwrot poniżej."}</p><p className="mt-2">Zapisanie wysyłki i potwierdzenie odbioru nie zmieniają uzgodnionego zwrotu pieniędzy.</p></section>}
           {/* PAGO */}
 
-          <section className="border rounded bg-white overflow-hidden">
+          {!isCancelled && <section className="border rounded bg-white overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">
                 Płatność
@@ -772,7 +773,7 @@ export default async function BookingPage({
               )}
               <p className="text-xs text-gray-600">Przy wysyłce InPost koszt etykiety nie jest wliczony w płatność za rezerwację. Osoba nadająca przesyłkę opłaca ją bezpośrednio w InPost.</p>
             </div>
-          </section>
+          </section>}
 
           {bookingHasIncident && currentIncidentState && <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Incydent w rezerwacji</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold">{currentIncidentState.label}</span></div>
@@ -792,7 +793,7 @@ export default async function BookingPage({
             <>
               {/* ENTREGA */}
 
-              <section id="delivery-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
+              {!cancelledIncidentReturn && <section id="delivery-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   Dostawa
 
@@ -905,7 +906,7 @@ export default async function BookingPage({
                     zablokowana.
                   </p>
                 )}
-              </section>
+              </section>}
 
               {/* DEVOLUCIÓN */}
 
