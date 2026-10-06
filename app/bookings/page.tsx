@@ -70,6 +70,7 @@ function StatusBadge({ status, expired }: { status: string; expired: boolean }) 
 }
 
 type SP = {
+  section?: "renter" | "owner";
   review?: string;
   mStatus?: "all" | BookingStatus;
   mFrom?: string;
@@ -374,20 +375,18 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   }).toString();
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-10">
-      <h1 className="text-2xl font-bold">Rezerwacje</h1>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      <header className="space-y-2"><h1 className="text-2xl font-bold">Rezerwacje</h1><p className="text-sm text-slate-600">Wybierz sekcję, aby zobaczyć rezerwacje i dostępne działania.</p></header>
 
       {/* ===================== JAKO NAJEMCA ===================== */}
       <section>
-        <details className="space-y-3" open>
-          <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
-            <span className="text-xl font-semibold">Moje rezerwacje</span>
-            <span className="text-sm text-gray-500">
-              {asRenter.length} {pluralPLBooking(asRenter.length)}
-            </span>
+        <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" open={p.section === "renter" || !!p.review && asRenter.some(b => b.id === p.review)}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 hover:bg-indigo-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0"><span className="block text-lg font-semibold text-slate-900">Moje rezerwacje</span><span className="mt-1 block text-sm text-slate-500">Przedmioty, które wynajmujesz</span></span>
+            <span className="flex shrink-0 items-center gap-3"><span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-800">{asRenter.length} {pluralPLBooking(asRenter.length)}</span><span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white text-2xl text-indigo-600"><span className="group-open:hidden">+</span><span className="hidden group-open:inline">−</span></span></span>
           </summary>
 
-          <div className="space-y-3">
+          <div className="space-y-3 border-t border-slate-100 p-4 sm:p-5">
             <form
               method="GET"
               className="rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
@@ -440,6 +439,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
                 </select>
               </label>
 
+              <input type="hidden" name="section" value="renter" />
               {/* zachowaj filtry właściciela */}
               <input type="hidden" name="oStatus" value={p.oStatus ?? "all"} />
               <input type="hidden" name="oFrom" value={p.oFrom ?? ""} />
@@ -452,7 +452,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   </button>
 
   <Link
-    href="/bookings"
+    href="/bookings?section=renter"
     className="w-full lg:flex-1 lg:w-auto text-center border rounded px-3 py-2 whitespace-nowrap"
   >
     Wyczyść filtry
@@ -574,21 +574,18 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
 
       {/* ===================== JAKO WŁAŚCICIEL ===================== */}
       <section>
-        <details className="space-y-3">
-          <summary className="flex items-center justify-between cursor-pointer list-none border-b pb-2 mb-2 [&::-webkit-details-marker]:hidden">
-            <span className="text-xl font-semibold">
-              Rezerwacje otrzymane
-            </span>
-            <span className="text-sm text-gray-500">
-              {asOwner.length} {pluralPLBooking(asOwner.length)}
-            </span>
+        <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" open={p.section === "owner" || !!p.review && asOwner.some(b => b.id === p.review)}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 hover:bg-indigo-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0"><span className="block text-lg font-semibold text-slate-900">Rezerwacje otrzymane</span><span className="mt-1 block text-sm text-slate-500">Rezerwacje Twoich przedmiotów</span></span>
+            <span className="flex shrink-0 items-center gap-3"><span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-800">{asOwner.length} {pluralPLBooking(asOwner.length)}</span><span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white text-2xl text-indigo-600"><span className="group-open:hidden">+</span><span className="hidden group-open:inline">−</span></span></span>
           </summary>
 
-          <div className="space-y-3">
+          <div className="space-y-3 border-t border-slate-100 p-4 sm:p-5">
             <form
               method="GET"
               className="rounded border p-3 grid grid-cols-2 md:grid-cols-6 gap-2 bg-white"
             >
+              <input type="hidden" name="section" value="owner" />
               {/* zachowaj filtry najemcy */}
               <input type="hidden" name="mStatus" value={p.mStatus ?? "all"} />
               <input type="hidden" name="mFrom" value={p.mFrom ?? ""} />
@@ -652,7 +649,7 @@ if (oSort === "num_asc") ownerOrderBy = { bookingNumber: "asc" };
   </button>
 
   <Link
-    href={`/bookings?${preserveM}`}
+    href={`/bookings?${preserveM}&section=owner`}
     className="w-full lg:flex-1 lg:w-auto text-center border rounded px-3 py-2 whitespace-nowrap"
   >
     Wyczyść filtry
