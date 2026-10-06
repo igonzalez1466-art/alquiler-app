@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import { formatIncidentMoney, formatIncidentEvidenceText } from "@/app/lib/incidentFormatting";
 import IncidentPhotoPicker from "./IncidentPhotoPicker";
 import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
@@ -49,14 +50,14 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <p className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-900">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
       <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
       <p className="rounded-lg bg-slate-50 p-3 text-sm font-medium">{c.status === "RESOLVED" ? c.acceptedAt ? "Rozwiązanie zaakceptowane przez obie strony. Zgłoszenie zakończone." : "Zgłoszenie zakończone." : c.status === "AGREEMENT_REACHED" ? "Rozwiązanie zaakceptowane. Rozliczenie w toku." : canActOnIncident(c, isOwner) ? "Twoja kolej — odpowiedz poniżej." : `Czekamy na odpowiedź ${canActOnIncident(c, true) ? "właściciela" : "najemcy"}.`}</p>
-      {c.resolution && <p className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {((c.refundCents ?? 0) / 100).toFixed(2)} zł</>}</p>}
-      {c.evidence.length > 0 && <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">Historia zgłoszenia ({c.evidence.length})</summary><div className="mt-3 space-y-2">{[...c.evidence].reverse().map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{e.text} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}</div></details>}
+      {c.resolution && <p className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {formatIncidentMoney(c.refundCents ?? 0)}</>}</p>}
+      {c.evidence.length > 0 && <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">Historia zgłoszenia ({c.evidence.length})</summary><div className="mt-3 space-y-2">{[...c.evidence].reverse().map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{formatIncidentEvidenceText(e.text)} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}</div></details>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && <fieldset disabled={pending || !canActOnIncident(c, isOwner)} className="space-y-3 disabled:opacity-50">
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-2">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="propose" />
           <label className="block text-sm">Komentarz<textarea name="resolution" required maxLength={2000} className="block w-full rounded border p-2" /></label>
-          {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {(rentCents / 100).toFixed(2)} zł)<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
+          {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {formatIncidentMoney(rentCents)})<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
           <ClaimActionButton disabled={pending} className={`${button} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700`}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
         {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -70,7 +71,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         {responseMode[c.id] && <form action={d => run(d)} className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={responseMode[c.id]} />
           <p className="text-sm font-semibold">{responseMode[c.id] === "reject" ? "Dlaczego odrzucasz propozycję?" : "Prośba o anulowanie i pełny zwrot"}</p>
-          {responseMode[c.id] === "request_cancel" && <p className="text-sm">Właściciel musi zaakceptować prośbę. Po akceptacji rezerwacja zostanie anulowana i otrzymasz zwrot 100% najmu ({(rentCents / 100).toFixed(2)} zł). Samo wysłanie prośby nie anuluje rezerwacji.</p>}
+          {responseMode[c.id] === "request_cancel" && <p className="text-sm">Właściciel musi zaakceptować prośbę. Po akceptacji rezerwacja zostanie anulowana i otrzymasz zwrot 100% najmu ({formatIncidentMoney(rentCents)}). Samo wysłanie prośby nie anuluje rezerwacji.</p>}
           <label className="block text-sm">Komentarz (wymagany)<textarea autoFocus name="comment" required maxLength={2000} className="mt-1 block w-full rounded border bg-white p-2" /></label>
           <div className="flex flex-wrap gap-2"><ClaimActionButton disabled={pending} className={button + " border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700"}>{responseMode[c.id] === "reject" ? "Wyślij odrzucenie" : "Wyślij prośbę o anulowanie"}</ClaimActionButton><button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: undefined }))}>Wróć</button></div>
         </form>}

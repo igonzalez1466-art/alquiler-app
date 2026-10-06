@@ -7,6 +7,13 @@ function load(file,mocks={}) {
   return cache[file]=exports;
 }
 const {incidentTimeline,incidentState}=load('app/lib/incidentCase.ts');
+const {formatIncidentMoney,formatIncidentEvidenceText}=load('app/lib/incidentFormatting.ts');
+assert.equal(formatIncidentMoney(6000).replaceAll('\u00a0',' '),'60,00 zł');
+assert.equal(formatIncidentMoney(6001).replaceAll('\u00a0',' '),'60,01 zł');
+assert.equal(formatIncidentEvidenceText('Propozycja: hkj · Zwrot najmu: 6000 gr').replaceAll('\u00a0',' '),'Propozycja: hkj · Zwrot najmu: 60,00 zł');
+assert.equal(formatIncidentEvidenceText('Komentarz: 6000 gr'),'Komentarz: 6000 gr');
+assert.equal(formatIncidentEvidenceText('Propozycja: opis · Zwrot najmu: 0 gr').replaceAll('\u00a0',' '),'Propozycja: opis · Zwrot najmu: 0,00 zł');
+assert.equal(formatIncidentEvidenceText('Propozycja: opis · Zwrot najmu: 60,00 zł'),'Propozycja: opis · Zwrot najmu: 60,00 zł');
 const date=n=>new Date(`2026-10-06T${String(n).padStart(2,'0')}:00:00Z`);
 const incident={stage:'DELIVERY',status:'AWAITING_OWNER',reason:'OTHER',proposedById:'owner',createdAt:date(1),description:'Problem',resolvedAt:null,evidence:[{uploaderId:'owner',text:'Propozycja: rabat',createdAt:date(2)},{uploaderId:'renter',text:'Odrzucono propozycję',createdAt:date(3)}]};
 const booking={ownerId:'owner',renterId:'renter',incidents:[incident],deliveryIssue:{reason:'OTHER',description:'Problem',reportedById:'renter',reportedAt:date(1).toISOString(),resolvedById:null,resolvedAt:null},returnIssue:null,depositClaim:null,depositCents:0};
@@ -14,6 +21,8 @@ const events=incidentTimeline(booking);
 assert.equal(events.length,3); // Mirrored legacy issue must not duplicate the opening.
 assert.equal(events.at(-1).title,'Dostawa · Najemca: odrzucenie propozycji');
 assert.equal(events[1].detail,'Propozycja: rabat');
+const legacyProposal={...incident,evidence:[{uploaderId:'owner',text:'Propozycja: hkj · Zwrot najmu: 6000 gr',createdAt:date(2)}]};
+assert.equal(incidentTimeline({...booking,incidents:[legacyProposal]}).at(-1).detail.replaceAll('\u00a0',' '),'Propozycja: hkj · Zwrot najmu: 60,00 zł');
 assert.equal(incidentState(booking,'owner').needsAction,true);
 assert.equal(incidentState(booking,'renter').label,'Czeka na właściciela');
 assert.match(incidentState({...booking,incidents:[{...incident,status:'AGREEMENT_REACHED'}]},'owner').next,/Obie strony zaakceptowały/);

@@ -1,3 +1,4 @@
+import { formatIncidentEvidenceText } from "@/app/lib/incidentFormatting";
 import type { Booking } from "@prisma/client";
 import { canActOnIncident } from "@/app/lib/incidentPolicy";
 import { claimReasons, readDepositClaim } from "@/app/lib/depositClaim";
@@ -97,7 +98,7 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
     for (const evidence of incident.evidence ?? []) {
       const actor = evidence.uploaderId === booking.ownerId ? "Właściciel" : "Najemca";
       const action = evidence.text.startsWith("Propozycja:") ? "nowa propozycja" : evidence.text.startsWith("Zaakceptowano") ? "akceptacja propozycji" : evidence.text.startsWith("Odrzucono") ? "odrzucenie propozycji" : evidence.text.startsWith("Poproszono") ? "prośba o wyjaśnienie" : evidence.text.startsWith("Ponowiono") ? "sprawdzenie rozliczenia" : "komentarz / dowód";
-      add(evidence.createdAt, `${stage} · ${actor}: ${action}`, evidence.text);
+      add(evidence.createdAt, `${stage} · ${actor}: ${action}`, formatIncidentEvidenceText(evidence.text));
     }
     add(incident.resolvedAt, `${stage}: zgłoszenie zakończone`, incident.resolution ?? undefined);
   }

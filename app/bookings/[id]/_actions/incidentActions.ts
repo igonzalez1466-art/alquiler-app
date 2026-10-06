@@ -1,5 +1,6 @@
 "use server";
 
+import { formatIncidentMoney } from "@/app/lib/incidentFormatting";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
@@ -94,7 +95,7 @@ export async function incidentAction(data: FormData) {
       if (!/^\d+$/.test(raw) || !Number.isSafeInteger(refundCents) || refundCents < 0 ||
         refundCents > (b.rentAmountCents ?? b.amountCents ?? 0) || inc.stage === "RETURN" && refundCents !== 0) throw new Error("Nieprawidłowa kwota zwrotu.");
       if (inc.stage === "DELIVERY" && (b.depositCents ?? 0) > 0) throw new Error("Historyczna płatność z kaucją wymaga osobnego rozliczenia.");
-      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: `Propozycja: ${description(data, "resolution")} · Zwrot najmu: ${refundCents} gr` } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: `Propozycja: ${description(data, "resolution")} · Zwrot najmu: ${formatIncidentMoney(refundCents)}` } });
       const updated = await tx.incident.update({ where: { id: incidentId }, data: { refundCents, resolution: description(data, "resolution"), proposedById: userId, proposedAt: new Date(), status: inc.stage === "DELIVERY" ? "AWAITING_RENTER" : "AWAITING_OWNER" } });
       await queueIncidentEmail(tx, updated, "proposed", userId, `proposed:${evidence.id}`, updated.resolution ?? "");
       return;
