@@ -1,0 +1,34 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..'),cache={};
+function load(file,mocks={}) {
+  if(cache[file]) return cache[file];
+  const exports={};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:id=>mocks[id]??(id.startsWith('@/')?load(id.slice(2)+'.ts'):require(id)),Date,Intl,Number});
+  return cache[file]=exports;
+}
+const {incidentTimeline,incidentState}=load('app/lib/incidentCase.ts');
+const date=n=>new Date(`2026-10-06T${String(n).padStart(2,'0')}:00:00Z`);
+const incident={stage:'DELIVERY',status:'AWAITING_OWNER',reason:'OTHER',proposedById:'owner',createdAt:date(1),description:'Problem',resolvedAt:null,evidence:[{uploaderId:'owner',text:'Propozycja: rabat',createdAt:date(2)},{uploaderId:'renter',text:'Odrzucono propozycję',createdAt:date(3)}]};
+const booking={ownerId:'owner',renterId:'renter',incidents:[incident],deliveryIssue:{reason:'OTHER',description:'Problem',reportedById:'renter',reportedAt:date(1).toISOString(),resolvedById:null,resolvedAt:null},returnIssue:null,depositClaim:null,depositCents:0};
+const events=incidentTimeline(booking);
+assert.equal(events.length,3); // Mirrored legacy issue must not duplicate the opening.
+assert.equal(events.at(-1).title,'Dostawa · Najemca: odrzucenie propozycji');
+assert.equal(events[1].detail,'Propozycja: rabat');
+assert.equal(incidentState(booking,'owner').needsAction,true);
+assert.equal(incidentState(booking,'renter').label,'Czeka na właściciela');
+assert.match(incidentState({...booking,incidents:[{...incident,status:'AGREEMENT_REACHED'}]},'owner').next,/Obie strony zaakceptowały/);
+let expanded=false;
+const jsx=(type,props)=>({type,props});
+const Timeline=load('app/account/incidents/[id]/IncidentTimeline.tsx',{'react':{useState:()=>[expanded,fn=>{expanded=fn(expanded)}]},'react/jsx-runtime':{jsx,jsxs:jsx}}).default;
+const children=node=>Array.isArray(node)?node.flatMap(children):node&&typeof node==='object'?[node,...children(node.props?.children)]:[];
+const input=Array.from({length:7},(_,i)=>({at:date(i+1).toISOString(),title:'event '+(i+1)}));
+let tree=children(Timeline({events:input}));
+assert.equal(tree.filter(n=>n.type==='li').length,5);
+assert.equal(tree.find(n=>n.type==='h3').props.children,'event 7');
+const button=tree.find(n=>n.type==='button');assert.equal(button.props['aria-expanded'],false);button.props.onClick();
+tree=children(Timeline({events:input}));assert.equal(tree.filter(n=>n.type==='li').length,7);
+assert.equal(tree.find(n=>n.type==='button').props['aria-expanded'],true);
+assert.equal(input[0].title,'event 1'); // Rendering does not mutate incoming chronology.
+tree.find(n=>n.type==='button').props.onClick();
+assert.equal(children(Timeline({events:input})).filter(n=>n.type==='li').length,5);
+console.log('Incident timeline checks passed: modern activity, legacy deduplication, turn status, newest first, expand/collapse.');

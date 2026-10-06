@@ -10,7 +10,7 @@ type IncidentBooking = Pick<Booking,
   "depositDecisionAt" | "settlementCompletedAt" | "shippedAt" | "returnShippedAt" |
   "deliveredAt" | "deliveryConfirmedAt" | "returnDeliveredAt" | "returnConfirmedAt" |
   "depositRefundedAt" | "depositRetainedCents" | "depositCents"
-> & { incidents?: { stage: string; status: string; proposedById: string | null; reason: string }[] };
+> & { incidents?: { stage: string; status: string; proposedById: string | null; reason: string; createdAt?: Date; description?: string; resolvedAt?: Date | null; resolution?: string | null; evidence?: { uploaderId: string; text: string; createdAt: Date }[] }[] };
 
 export type IncidentEvent = { at: Date; title: string; detail?: string };
 
@@ -40,7 +40,7 @@ export function incidentState(booking: IncidentBooking, userId: string) {
   const current = booking.incidents?.find(i => i.status !== "RESOLVED");
   if (current) {
     const needsAction = [booking.ownerId, booking.renterId].includes(userId) && canActOnIncident(current, booking.ownerId === userId);
-    return { label: current.status === "AGREEMENT_REACHED" ? "Uzgodnione — rozliczenie w toku" : current.status === "ESCALATED" ? "Wymaga wyjaśnienia" : "Czeka na odpowiedź", next: current.stage === "DELIVERY" ? "Uzgodnij rozwiązanie dostawy. Wypłata pozostaje wstrzymana." : "Wyjaśnij zwrot. Należny najem pozostaje bez zmian.", needsAction };
+    return { label: current.status === "AGREEMENT_REACHED" ? "Uzgodnione — rozliczenie w toku" : current.status === "ESCALATED" ? "Wymaga wyjaśnienia" : needsAction ? "Twoja kolej" : canActOnIncident(current, true) ? "Czeka na właściciela" : "Czeka na najemcę", next: current.status === "AGREEMENT_REACHED" ? "Obie strony zaakceptowały rozwiązanie. Trwa realizacja uzgodnionego rozliczenia." : needsAction ? current.stage === "DELIVERY" ? "Sprawdź ostatnią propozycję i odpowiedz poniżej. Wypłata pozostaje wstrzymana." : "Sprawdź zgłoszenie zwrotu i odpowiedz poniżej. Należny najem pozostaje bez zmian." : "Czekamy na odpowiedź drugiej strony. Otrzymasz powiadomienie, gdy będzie Twoja kolej.", needsAction };
   }
   if (booking.incidents?.length) return { label: "Zakończona", next: "Zobacz rozwiązanie i dowody.", needsAction: false };
   const claim = readDepositClaim(booking.depositClaim);
@@ -91,21 +91,31 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
     if (Number.isNaN(at.getTime())) return;
     events.push({ at, title, detail });
   };
+  for (const incident of booking.incidents ?? []) {
+    const stage = incident.stage === "DELIVERY" ? "Dostawa" : "Zwrot";
+    add(incident.createdAt, `${stage}: otwarto zgłoszenie`, incident.description);
+    for (const evidence of incident.evidence ?? []) {
+      const actor = evidence.uploaderId === booking.ownerId ? "Właściciel" : "Najemca";
+      const action = evidence.text.startsWith("Propozycja:") ? "nowa propozycja" : evidence.text.startsWith("Zaakceptowano") ? "akceptacja propozycji" : evidence.text.startsWith("Odrzucono") ? "odrzucenie propozycji" : evidence.text.startsWith("Poproszono") ? "prośba o wyjaśnienie" : evidence.text.startsWith("Ponowiono") ? "sprawdzenie rozliczenia" : "komentarz / dowód";
+      add(evidence.createdAt, `${stage} · ${actor}: ${action}`, evidence.text);
+    }
+    add(incident.resolvedAt, `${stage}: zgłoszenie zakończone`, incident.resolution ?? undefined);
+  }
   const delivery = readIssue(booking.deliveryIssue);
   const returned = readIssue(booking.returnIssue);
   const claim = readDepositClaim(booking.depositClaim);
   if (booking.deliveryIssue !== null) {
     add(booking.shippedAt, "Właściciel oznaczył dostawę jako wysłaną");
     add(booking.deliveredAt, "Odbiór dostawy zapisano w aplikacji");
-    add(delivery?.reportedAt, "Najemca zgłosił problem z dostawą", delivery ? issueReasonLabel(delivery.reason) : undefined);
-    add(delivery?.resolvedAt, "Problem z dostawą został zamknięty");
+    if (!booking.incidents?.some(i => i.stage === "DELIVERY")) add(delivery?.reportedAt, "Najemca zgłosił problem z dostawą", delivery ? issueReasonLabel(delivery.reason) : undefined);
+    if (!booking.incidents?.some(i => i.stage === "DELIVERY")) add(delivery?.resolvedAt, "Problem z dostawą został zamknięty");
     add(booking.deliveryConfirmedAt, "Odbiór dostawy został potwierdzony");
   }
   if (booking.returnIssue !== null || booking.depositClaim !== null) {
     add(booking.returnShippedAt, "Najemca oznaczył zwrot jako wysłany");
     add(booking.returnDeliveredAt, "Odbiór zwrotu zapisano w aplikacji");
-    add(returned?.reportedAt, "Właściciel zgłosił problem ze zwrotem", returned ? issueReasonLabel(returned.reason) : undefined);
-    add(returned?.resolvedAt, "Problem ze zwrotem został zamknięty");
+    if (!booking.incidents?.some(i => i.stage === "RETURN")) add(returned?.reportedAt, "Właściciel zgłosił problem ze zwrotem", returned ? issueReasonLabel(returned.reason) : undefined);
+    if (!booking.incidents?.some(i => i.stage === "RETURN")) add(returned?.resolvedAt, "Problem ze zwrotem został zamknięty");
     add(booking.returnConfirmedAt, "Odbiór zwrotu został potwierdzony");
   }
   add(claim?.proposedAt, "Właściciel zaproponował potrącenie z kaucji", claim ? claimReasons[claim.reasonCode] : undefined);

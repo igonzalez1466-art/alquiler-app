@@ -38,7 +38,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
       depositDecisionAt: true, settlementCompletedAt: true, shippedAt: true, deliveredAt: true, deliveryConfirmedAt: true,
       returnShippedAt: true, returnDeliveredAt: true, returnConfirmedAt: true,
       depositRefundedAt: true, depositRetainedCents: true, depositCents: true,
-      incidents: true,
+      incidents: { include: { evidence: { orderBy: { createdAt: "asc" } } } },
       listing: { select: { title: true } },
     },
   });
@@ -56,10 +56,10 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
   return <main className="mx-auto max-w-4xl space-y-6 p-4">
     <Link href="/account" className="text-sm underline">← Mój profil</Link>
     <div>
-      <h1 className="text-2xl font-bold">Moje incydenty</h1>
+      <h1 className="text-2xl font-bold">Moje zgłoszenia</h1>
       <p className="mt-2 text-sm text-gray-600">Zgłoszenia dotyczące dostawy i zwrotu z Twoich rezerwacji. Historyczne roszczenia dotyczące kaucji również pozostają dostępne. Daty podano w czasie polskim.</p>
     </div>
-    <nav aria-label="Filtruj incydenty" className="flex flex-wrap gap-2 text-sm">
+    <nav aria-label="Filtruj zgłoszenia" className="flex flex-wrap gap-2 text-sm">
       {([
         ["all", "Wszystkie", cards.length],
         ["action", "Wymaga Twojego działania", counts.action],
@@ -67,22 +67,22 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
         ["closed", "Zakończone", counts.closed],
       ] as const).map(([value, label, count]) => <Link key={value} href={filterHref(value)} aria-current={filter === value ? "page" : undefined} className={`rounded-full border px-3 py-2 ${filter === value ? "border-indigo-600 bg-indigo-600 text-white" : "bg-white text-gray-800 hover:border-indigo-400"}`}>{label} · {count}</Link>)}
     </nav>
-    {visible.length === 0 && <p className="rounded border bg-white p-5">{cards.length === 0 ? "Nie masz jeszcze zgłoszonych incydentów." : "Brak spraw w tej grupie."}</p>}
+    {visible.length === 0 && <p className="rounded border bg-white p-5">{cards.length === 0 ? "Nie masz jeszcze żadnych zgłoszeń." : "Brak spraw w tej grupie."}</p>}
     <div className="space-y-4">
       {visible.map(({ booking, state, bucket, lastEvent }) => {
-        return <article key={booking.id} className="rounded-xl border bg-white p-5 space-y-3 shadow-sm">
+        return <article key={booking.id} className="rounded-2xl border bg-white p-5 sm:p-6 space-y-3 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><h2 className="font-semibold">#{booking.bookingNumber} · {booking.listing.title}</h2><p className="text-xs text-gray-600">{booking.ownerId === userId ? "Właściciel" : "Najemca"} · {datePL(booking.startDate)} — {datePL(booking.endDate)}</p></div>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${bucket === "action" ? "bg-amber-100 text-amber-900" : bucket === "waiting" ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-slate-700"}`}>{state.label}</span>
           </div>
           <div className="flex flex-wrap gap-2">{incidentTopics(booking).map(topic => <span key={topic.label} className="rounded border px-2 py-1 text-xs">{topic.label}: {topic.detail}</span>)}</div>
           <p className="text-sm">{state.next}</p>
-          {lastEvent && <p className="text-xs text-gray-600">Ostatni zapisany krok: {datePL(lastEvent.at)} · {lastEvent.title}</p>}
+          {lastEvent && <p className="text-xs text-gray-600">Ostatnia aktualizacja: {datePL(lastEvent.at)} · {lastEvent.title}</p>}
           <Link href={`/account/incidents/${encodeURIComponent(booking.id)}`} className="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Otwórz sprawę</Link>
         </article>;
       })}
     </div>
-    <nav aria-label="Strony incydentów" className="flex justify-between text-sm">
+    <nav aria-label="Strony zgłoszeń" className="flex justify-between text-sm">
       {page > 1 ? <Link className="underline" href={pageHref(page - 1)}>← Poprzednia</Link> : <span />}
       {page < pageCount && <Link className="underline" href={pageHref(page + 1)}>Następna →</Link>}
     </nav>

@@ -40,7 +40,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
     finally { busy.current = false; setPending(false); }
   }
   const button = "rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50";
-  return <section id="incident-section" className="space-y-4 rounded-2xl border bg-white p-5 sm:p-6">
+  return <section id="incident-section" className="space-y-4 rounded-2xl border bg-white p-5 sm:p-6 scroll-mt-24">
     <h2 className="text-lg font-semibold">Zgłoszenia i uzgodnienia</h2>
     <p className="text-sm">Przed potwierdzeniem odbioru problem z dostawą wstrzymuje wypłatę. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia. Problemy ze zwrotem nie zmniejszają należnego wynagrodzenia.</p>
     {cases.map(c => <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-4 rounded-xl border p-4 scroll-mt-24">
@@ -49,7 +49,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
       <p className="rounded-lg bg-slate-50 p-3 text-sm font-medium">{c.status === "RESOLVED" ? c.acceptedAt ? "Rozwiązanie zaakceptowane przez obie strony. Zgłoszenie zakończone." : "Zgłoszenie zakończone." : c.status === "AGREEMENT_REACHED" ? "Rozwiązanie zaakceptowane. Rozliczenie w toku." : canActOnIncident(c, isOwner) ? "Twoja kolej — odpowiedz poniżej." : `Czekamy na odpowiedź ${canActOnIncident(c, true) ? "właściciela" : "najemcy"}.`}</p>
       {c.resolution && <p className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {((c.refundCents ?? 0) / 100).toFixed(2)} zł</>}</p>}
-      {c.evidence.length > 0 && <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">Historia zgłoszenia ({c.evidence.length})</summary><div className="mt-3 space-y-2">{c.evidence.map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{e.text} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}</div></details>}
+      {c.evidence.length > 0 && <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">Historia zgłoszenia ({c.evidence.length})</summary><div className="mt-3 space-y-2">{[...c.evidence].reverse().map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{e.text} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}</div></details>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && <fieldset disabled={pending || !canActOnIncident(c, isOwner)} className="space-y-3 disabled:opacity-50">
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-2">
