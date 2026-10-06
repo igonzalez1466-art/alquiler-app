@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import LocationField from "./LocationField";
 import { readListingLocation, LOCATION_MESSAGE } from "./locationValidation";
 import PhotosField from "./PhotosField";
+import { ListingFieldError } from "./ListingFieldErrors";
 import PublishForm, { PublishButton } from "./PublishForm";
 import ListingAttributesFields from "./ListingAttributesFields";
 import { sendMail } from "@/app/lib/mailer";
@@ -151,7 +152,7 @@ export default async function NewListingPage({
     const pricePerDayRaw = String(formData.get("pricePerDay") || "").trim();
     const pricePerDay = Number(pricePerDayRaw);
     const minimumRentalDays = Number(formData.get("minimumRentalDays") ?? 1);
-    if (!Number.isInteger(minimumRentalDays) || minimumRentalDays < 1 || minimumRentalDays > 2147483647) return { error: "Minimalny okres wynajmu musi być dodatnią liczbą całkowitą." };
+    if (!Number.isInteger(minimumRentalDays) || minimumRentalDays < 1 || minimumRentalDays > 2147483647) return { error: "Minimalny okres wynajmu musi być dodatnią liczbą całkowitą.", field: "minimumRentalDays" };
 
     // ✅ Deposit (kaucja / fianza) opcjonalna
     const fianzaRaw = DEPOSITS_ENABLED ? String(formData.get("fianza") || "").trim() : "";
@@ -173,35 +174,35 @@ export default async function NewListingPage({
 
     /* ===== VALIDACIONES ===== */
 
-    if (!title) return { error: "Tytuł jest obowiązkowy" };
+    if (!title) return { error: "Tytuł jest obowiązkowy", field: "title" };
 
     if (
       !Number.isFinite(pricePerDay) ||
       !Number.isInteger(pricePerDay) ||
       pricePerDay <= 0
     ) {
-      return { error: "Cena za dzień musi być liczbą całkowitą > 0" };
+      return { error: "Cena za dzień musi być liczbą całkowitą > 0", field: "pricePerDay" };
     }
 
     if (fianza !== null) {
       if (!Number.isFinite(fianza) || !Number.isInteger(fianza) || fianza < 0) {
-        return { error: "Kaucja musi być liczbą całkowitą ≥ 0" };
+        return { error: "Kaucja musi być liczbą całkowitą ≥ 0", field: "fianza" };
       }
     }
 
-    if (!location) return { error: LOCATION_MESSAGE };
+    if (!location) return { error: LOCATION_MESSAGE, field: "city" };
     const { city, postalCode, lat, lng } = location;
 
     // ✅ Color (enum Prisma Color)
     const color: Color | null = ALLOWED_COLORS.has(colorRaw as Color)
       ? (colorRaw as Color)
       : null;
-    if (!color) return { error: "Nieprawidłowy kolor" };
+    if (!color) return { error: "Nieprawidłowy kolor", field: "color" };
 
     if (
       !ALLOWED_MATERIALS.has(material as (typeof MATERIALS)[number]["value"])
     ) {
-      return { error: "Nieprawidłowy materiał" };
+      return { error: "Nieprawidłowy materiał", field: "material" };
     }
 
     const gender: Gender | null = ALLOWED_GENDERS.has(genderRaw as Gender)
@@ -214,24 +215,24 @@ export default async function NewListingPage({
       ? (garmentTypeRaw as GarmentType)
       : null;
 
-    if (!gender) return { error: "Nieprawidłowa płeć" };
-    if (sportEnabled && !isSportCode(sportRaw)) return { error: "Wybierz dyscyplinę sportu." };
-    if (pregnancy && gender !== "WOMAN") return { error: "Odzież ciążowa jest dostępna tylko dla kategorii Kobieta." };
-    if (!garmentType) return { error: "Nieprawidłowy typ ubrania" };
+    if (!gender) return { error: "Nieprawidłowa płeć", field: "gender" };
+    if (sportEnabled && !isSportCode(sportRaw)) return { error: "Wybierz dyscyplinę sportu.", field: "sport" };
+    if (pregnancy && gender !== "WOMAN") return { error: "Odzież ciążowa jest dostępna tylko dla kategorii Kobieta.", field: "pregnancy" };
+    if (!garmentType) return { error: "Nieprawidłowy typ ubrania", field: "garmentType" };
     const accessoryRaw = String(formData.get("accessoryType") || "").trim();
-    if (garmentType === "ACCESORIO" && !isAccessoryCode(accessoryRaw)) return { error: "Wybierz rodzaj akcesorium." };
+    if (garmentType === "ACCESORIO" && !isAccessoryCode(accessoryRaw)) return { error: "Wybierz rodzaj akcesorium.", field: "accessoryType" };
     const accessoryType = garmentType === "ACCESORIO" ? accessoryRaw : null;
     const sport = sportEnabled ? sportRaw : null;
 
-    if (!size) return { error: "Rozmiar jest obowiązkowy" };
+    if (!size) return { error: "Rozmiar jest obowiązkowy", field: "size" };
     const estado = CONDITION_OPTIONS.find(
       (option) => option.value === formData.get("estado")
     )?.value;
     const metodoEnvio = DELIVERY_OPTIONS.find(
       (option) => option.value === formData.get("metodoEnvio")
     )?.value;
-    if (!estado) return { error: "Wybierz aktualny stan przedmiotu." };
-    if (!metodoEnvio) return { error: "Wybierz preferowaną formę dostawy." };
+    if (!estado) return { error: "Wybierz aktualny stan przedmiotu.", field: "estado" };
+    if (!metodoEnvio) return { error: "Wybierz preferowaną formę dostawy.", field: "metodoEnvio" };
 
 
 
@@ -239,10 +240,10 @@ export default async function NewListingPage({
     const files = formData.getAll("photos")
       .filter((value): value is File => value instanceof File && value.size > 0);
     if (files.length < 3) {
-      return { error: "Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie." };
+      return { error: "Dodaj co najmniej 3 zdjęcia, aby opublikować ogłoszenie.", field: "photos" };
     }
     if (files.some((file) => !file.type.startsWith("image/"))) {
-      return { error: "Wybierz wyłącznie pliki ze zdjęciami." };
+      return { error: "Wybierz wyłącznie pliki ze zdjęciami.", field: "photos" };
     }
 
     // Finish uploads first; a failed upload must not publish an incomplete listing.
@@ -377,15 +378,17 @@ export default async function NewListingPage({
         </div>
       )}
 
+      <nav aria-label="Sekcje ogłoszenia" className="mb-5 flex flex-wrap gap-2 text-sm">{[["listing-item", "1. Przedmiot"], ["listing-photos", "2. Zdjęcia"], ["listing-price", "3. Cena i dostawa"]].map(([id, title]) => <a key={id} href={`#${id}`} className="rounded-full border bg-white px-4 py-2 hover:bg-indigo-50">{title}</a>)}</nav>
       <PublishForm
         action={createListingAction}
-        className="rounded-2xl border bg-white shadow-sm"
+        className="space-y-5"
       >
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         {/* ===== Podstawowe ===== */}
-        <div className="p-6 border-b">
+        <div id="listing-item" className="scroll-mt-24 p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className={sectionTitle}>Podstawowe informacje</div>
+              <div className={sectionTitle}>1. Przedmiot</div>
               <div className={sectionHint}>Tytuł i opis ogłoszenia.</div>
             </div>
           </div>
@@ -402,6 +405,7 @@ export default async function NewListingPage({
                 required
                 className={`${inputBase} mt-1`}
               />
+<ListingFieldError name="title" />
             </div>
 
             <div>
@@ -418,90 +422,8 @@ export default async function NewListingPage({
           </div>
         </div>
 
-        {/* ===== Ceny ===== */}
-        <div className="p-6 border-b">
-          <div className={sectionTitle}>Cennik</div>
-          <div className={sectionHint}>
-            Cena za dzień jest obowiązkowa.
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelBase} htmlFor="pricePerDay">
-                Cena za dzień (zł)
-              </label>
-              <input
-                id="pricePerDay"
-                name="pricePerDay"
-                type="number"
-                min={1}
-                step={1}
-                required
-                placeholder="Np. 50"
-                className={`${inputBase} mt-1`}
-              />
-            </div>
-
-            <div>
-              <label className={labelBase} htmlFor="minimumRentalDays">Minimalny okres wynajmu (dni)</label>
-              <input id="minimumRentalDays" name="minimumRentalDays" type="number" min={1} max={2147483647} step={1} defaultValue={1} required className={`${inputBase} mt-1`} />
-              <p className="mt-1 text-xs text-gray-500">Najemca nie będzie mógł zarezerwować krótszego okresu. Liczymy dzień rozpoczęcia i zakończenia.</p>
-            </div>
-            {DEPOSITS_ENABLED && <div>
-              <label className={labelBase} htmlFor="fianza">
-                Kaucja (zł)
-              </label>
-              <input
-                id="fianza"
-                name="fianza"
-                type="number"
-                min={0}
-                step={1}
-                placeholder="Np. 30 (opcjonalnie)"
-                className={`${inputBase} mt-1`}
-              />
-            </div>}
-          </div>
-        </div>
-
-        {/* ===== Lokalizacja ===== */}
-        <div className="p-6 border-b">
-          <div className={sectionTitle}>Lokalizacja</div>
-          <div className={sectionHint}>
-            Wybierz miasto lub kod pocztowy w Polsce.
-          </div>
-
-          <div className="mt-4">
-            <LocationField />
-          </div>
-        </div>
-
-        <div className="p-6 border-b">
-          <div className={sectionTitle}>Stan i dostawa</div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelBase} htmlFor="estado">Aktualny stan przedmiotu</label>
-              <select id="estado" name="estado" required defaultValue="" className={`${inputBase} mt-1`}>
-                <option value="" disabled>Wybierz stan</option>
-                {CONDITION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelBase} htmlFor="metodoEnvio">Preferowana forma dostawy</label>
-              <select id="metodoEnvio" name="metodoEnvio" required defaultValue="" className={`${inputBase} mt-1`}>
-                <option value="" disabled>Wybierz formę dostawy</option>
-                {DELIVERY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs text-gray-500">Szczegóły i koszty dostawy uzgodnij z najemcą przed akceptacją rezerwacji.</p>
-            </div>
-          </div>
-        </div>
         {/* ===== Szczegóły ===== */}
-        <div className="p-6 border-b">
+        <div className="p-5 sm:p-6 pt-0">
           <div className={sectionTitle}>Szczegóły produktu</div>
           <div className={sectionHint}>
             Ułatw użytkownikom znalezienie ogłoszenia.
@@ -520,7 +442,7 @@ export default async function NewListingPage({
               />
             </div>
 
-            <ListingAttributesFields inputClassName={inputBase} labelClassName={labelBase} />
+            <ListingAttributesFields inputClassName={inputBase} labelClassName={labelBase} /><ListingFieldError name="gender" /><ListingFieldError name="sport" /><ListingFieldError name="pregnancy" />
 
             <div>
               <label className={labelBase} htmlFor="size">
@@ -567,6 +489,7 @@ export default async function NewListingPage({
                 <option>46</option>
                 <option>48</option>
               </select>
+<ListingFieldError name="size" />
             </div>
 
             <div>
@@ -586,9 +509,10 @@ export default async function NewListingPage({
                   </option>
                 ))}
               </select>
+<ListingFieldError name="color" />
             </div>
 
-            <GarmentTypeFields required className="md:col-span-4" inputClassName={`${inputBase} mt-1`} />
+            <GarmentTypeFields required className="md:col-span-2" inputClassName={`${inputBase} mt-1`} /><ListingFieldError name="garmentType" /><ListingFieldError name="accessoryType" />
 
             <div className="md:col-span-2">
               <label className={labelBase} htmlFor="material">
@@ -607,23 +531,120 @@ export default async function NewListingPage({
                   </option>
                 ))}
               </select>
+<ListingFieldError name="material" />
             </div>
           </div>
         </div>
 
+
+</section>
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         {/* ===== Zdjęcia + submit ===== */}
-        <div className="p-6">
-          <div className={sectionTitle}>Zdjęcia</div>
+        <div id="listing-photos" className="scroll-mt-24 p-5 sm:p-6">
+          <div className={sectionTitle}>2. Zdjęcia</div>
           <div className={sectionHint}>
             Dodaj co najmniej 3 wyraźne zdjęcia. Najlepiej w pionie.
           </div>
 
           <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4">
-                          <PhotosField />
+                          <PhotosField /><ListingFieldError name="photos" />
 
-            <PublishButton />
+
           </div>
         </div>
+
+</section>
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {/* ===== Ceny ===== */}
+        <div id="listing-price" className="scroll-mt-24 p-5 sm:p-6">
+          <div className={sectionTitle}>3. Cena i dostawa</div>
+          <div className={sectionHint}>
+            Cena za dzień jest obowiązkowa.
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelBase} htmlFor="pricePerDay">
+                Cena za dzień (zł)
+              </label>
+              <input
+                id="pricePerDay"
+                name="pricePerDay"
+                type="number"
+                min={1}
+                step={1}
+                required
+                placeholder="Np. 50"
+                className={`${inputBase} mt-1`}
+              />
+<ListingFieldError name="pricePerDay" />
+            </div>
+
+            <div>
+              <label className={labelBase} htmlFor="minimumRentalDays">Minimalny okres wynajmu (dni)</label>
+              <input id="minimumRentalDays" name="minimumRentalDays" type="number" min={1} max={2147483647} step={1} defaultValue={1} required className={`${inputBase} mt-1`} />
+<ListingFieldError name="minimumRentalDays" />
+              <p className="mt-1 text-xs text-gray-500">Najemca nie będzie mógł zarezerwować krótszego okresu. Liczymy dzień rozpoczęcia i zakończenia.</p>
+            </div>
+            {DEPOSITS_ENABLED && <div>
+              <label className={labelBase} htmlFor="fianza">
+                Kaucja (zł)
+              </label>
+              <input
+                id="fianza"
+                name="fianza"
+                type="number"
+                min={0}
+                step={1}
+                placeholder="Np. 30 (opcjonalnie)"
+                className={`${inputBase} mt-1`}
+              />
+<ListingFieldError name="fianza" />
+            </div>}
+          </div>
+        </div>
+
+        {/* ===== Lokalizacja ===== */}
+        <div className="p-5 sm:p-6 pt-0">
+          <div className={sectionTitle}>Lokalizacja</div>
+          <div className={sectionHint}>
+            Wybierz miasto lub kod pocztowy w Polsce.
+          </div>
+
+          <div className="mt-4">
+            <LocationField /><ListingFieldError name="city" />
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-6 pt-0">
+          <div className={sectionTitle}>Stan i dostawa</div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelBase} htmlFor="estado">Aktualny stan przedmiotu</label>
+              <select id="estado" name="estado" required defaultValue="" className={`${inputBase} mt-1`}>
+                <option value="" disabled>Wybierz stan</option>
+                {CONDITION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+<ListingFieldError name="estado" />
+            </div>
+            <div>
+              <label className={labelBase} htmlFor="metodoEnvio">Preferowana forma dostawy</label>
+              <select id="metodoEnvio" name="metodoEnvio" required defaultValue="" className={`${inputBase} mt-1`}>
+                <option value="" disabled>Wybierz formę dostawy</option>
+                {DELIVERY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+<ListingFieldError name="metodoEnvio" />
+              <p className="mt-2 text-xs text-gray-500">Szczegóły i koszty dostawy uzgodnij z najemcą przed akceptacją rezerwacji.</p>
+            </div>
+          </div>
+        </div>
+
+</section>
+<div className="rounded-2xl border bg-white p-5 sm:p-6"><p className="mb-4 text-sm text-slate-600">Sprawdź dane i zdjęcia przed publikacją.</p><PublishButton /></div>
       </PublishForm>
     </div>
   );

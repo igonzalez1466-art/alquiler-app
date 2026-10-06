@@ -2,6 +2,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm'), assert = r
 const root = path.resolve(__dirname, '..');
 const ts = require(root + '/node_modules/typescript');
 const jsx = (type, props) => ({ type, props });
+class FieldControl { constructor() { this.attributes = {}; this.focused = false; this.scrolled = false; } setAttribute(k, v) { this.attributes[k] = v; } scrollIntoView() { this.scrolled = true; } focus() { this.focused = true; } }
 const cache = new Map();
 let uploads = 0, created = 0, saved, transitions = [], states = [], refIndex = 0;
 const react = {
@@ -35,10 +36,10 @@ function load(file) {
     if (id === '@vercel/blob') return { put: async () => { uploads++; return { url: 'https://example.test/photo.jpg' }; } };
     if (id === 'node:crypto') return require(id);
     if (['./LocationField', './PhotosField', './ListingAttributesFields'].includes(id)) return id;
-    if (id.startsWith('./')) return load(path.join(path.dirname(file), id + (id === './PublishForm' ? '.tsx' : '.ts')));
+    if (id.startsWith('./')) return load(path.join(path.dirname(file), id + (['./PublishForm', './ListingFieldErrors'].includes(id) ? '.tsx' : '.ts')));
     throw Error(id);
   }
-  vm.runInNewContext(code, { exports, require: req, FormData: BrowserFormData, File, console, process: { env: {} } });
+  vm.runInNewContext(code, { exports, require: req, FormData: BrowserFormData, File, HTMLElement: FieldControl, console, process: { env: {} } });
   cache.set(file, exports); return exports;
 }
 function find(node, type) {
@@ -71,12 +72,16 @@ function form(changes = {}) {
   const ui = PublishForm({ action, children: 'fields' });
   const element = find(ui, 'form');
   assert.equal(element.props.action, undefined, 'Validation responses must not trigger React action reset');
-  const dom = { data, reset() { resets++; } };
+  const locationControl = new FieldControl();
+  const dom = { data, querySelector() { return locationControl; }, reset() { resets++; } };
   element.props.onSubmit({ preventDefault() { prevented++; }, currentTarget: dom });
   element.props.onSubmit({ preventDefault() { prevented++; }, currentTarget: dom });
   assert.equal(transitions.length, 1, 'Repeated submit is blocked while pending');
   await Promise.all(transitions);
   assert.equal(states[0], location.LOCATION_MESSAGE);
+  assert.equal(states[2].city, location.LOCATION_MESSAGE);
+  assert.equal(locationControl.focused, true); assert.equal(locationControl.scrolled, true);
+  assert.equal(locationControl.attributes["aria-describedby"], "listing-error-city");
   assert.equal(resets, 0); assert.equal(prevented, 2);
   assert.deepEqual(Array.from(data), original, 'Text, options and photo files survive validation');
   const corrected = form({ city: 'Warszawa', lat: '52.2297', lng: '21.0122', postalCode: '00-001' });

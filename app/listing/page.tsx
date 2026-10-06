@@ -238,6 +238,7 @@ export default async function ListingPage({
       size: true,
       color: true,
       garmentType: true,
+      accessoryType: true,
       materials: true,
       images: {
         select: { id: true, url: true, alt: true, order: true },

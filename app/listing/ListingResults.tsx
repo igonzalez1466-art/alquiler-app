@@ -1,12 +1,7 @@
 "use client";
-
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { sportLabel } from "@/app/lib/listingAttributes";
-
-/* ===================== LABELS ===================== */
-
+import { sportLabel, accessoryLabel } from "@/app/lib/listingAttributes";
 const enumLabels: Record<string, string> = {
   // Gender
   WOMAN: "Kobieta",
@@ -37,23 +32,6 @@ const label = (v?: string | null) => {
   return key ? enumLabels[key] ?? key : "—";
 };
 
-const colorMap: Record<string, string> = {
-  negro: "#111111",
-  blanco: "#f5f5f5",
-  gris: "#9ca3af",
-  azul: "#2563eb",
-  rojo: "#dc2626",
-  verde: "#16a34a",
-  beige: "#d1bfa7",
-  marrón: "#8b5e34",
-  marron: "#8b5e34",
-  rosa: "#ec4899",
-  morado: "#7e22ce",
-  amarillo: "#f59e0b",
-  naranja: "#f97316",
-};
-
-/* ===================== TYPES ===================== */
 
 type Listing = {
   id: string;
@@ -69,151 +47,28 @@ type Listing = {
   size: string | null;
   color: string | null;
   garmentType: string | null;
+  accessoryType?: string | null;
   materials: string[] | null;
   images: { id: string; url: string; alt: string | null }[];
 };
 
-/* ===================== COMPONENT ===================== */
 
 export default function ListingResults({ listings, showStatus = false }: { listings: Listing[]; showStatus?: boolean }) {
-  const [open, setOpen] = useState(false);
-
-  if (!listings.length) {
-    return null;
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Botón solo en móvil */}
-      <div className="md:hidden flex justify-end">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="mb-2 px-3 py-2 text-sm border rounded-lg bg-white"
-        >
-          {open ? "Ukryj listę" : "Pokaż listę ogłoszeń"}
-        </button>
+  if (!listings.length) return <p className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Nie znaleźliśmy pasujących ogłoszeń. Zmień lub usuń wybrane filtry.</p>;
+  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label="Ogłoszenia">
+    {listings.map(l => <Link key={l.id} href={`/listing/${l.id}`} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+      <div className="relative aspect-[4/3] bg-slate-100">
+        {l.images[0] ? <Image src={l.images[0].url} alt={l.images[0].alt ?? l.title} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover transition duration-300 group-hover:scale-[1.02]" /> : <span className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Brak zdjęcia</span>}
+        {showStatus && <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${l.available ? "bg-white text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{l.available ? "Aktywne" : "Nieaktywne"}</span>}
+        {l.images.length > 1 && <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-1 text-xs">{l.images.length} zdjęć</span>}
       </div>
-
-      {/* Lista */}
-      <div className={`${open ? "block" : "hidden"} md:block space-y-4`}>
-        {listings.map((l) => {
-          const colorBg =
-            colorMap[(l.color ?? "").toLowerCase()] ?? "transparent";
-
-          return (
-            <Link
-              key={l.id}
-              href={`/listing/${l.id}`}
-              className="block border rounded p-4 space-y-3 hover:shadow-lg transition group bg-white"
-            >
-              {/* ===== TITLE + PRICE ===== */}
-              <div className="flex items-baseline justify-between gap-2">
-                <div className="min-w-0 flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold group-hover:underline truncate">
-                    {l.title}
-                  </h2>
-                  {showStatus && (
-                    <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-xs font-medium ${l.available ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
-                      {l.available ? "Aktywne" : "Nieaktywne"}
-                    </span>
-                  )}
-                </div>
-
-                <span className="shrink-0 text-sm font-semibold text-gray-900">
-                  {l.pricePerDay} zł / dzień
-                </span>
-              </div>
-
-              <p className="text-sm text-gray-700">
-                {l.city ?? "—"}
-                {l.postalCode ? ` (${l.postalCode})` : ""}
-              </p>
-
-              {(l.sport || l.pregnancy) && <div className="flex flex-wrap gap-2 text-xs">
-                {l.sport && <span className="rounded-full border bg-indigo-50 px-2.5 py-1 text-indigo-800">Sport: {sportLabel(l.sport) ?? l.sport}</span>}
-                {l.pregnancy && <span className="rounded-full border bg-pink-50 px-2.5 py-1 text-pink-800">Odzież ciążowa</span>}
-              </div>}
-
-              {/* ===== DETAILS ===== */}
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
-                <div className="rounded-lg border px-2 py-1 bg-white">
-                  <p className="text-[11px] text-gray-500">Marka</p>
-                  <p className="truncate">{l.marca ?? "—"}</p>
-                </div>
-
-                <div className="rounded-lg border px-2 py-1 bg-white">
-                  <p className="text-[11px] text-gray-500">Typ ubrania</p>
-                  <p className="truncate">{label(l.garmentType)}</p>
-                </div>
-
-                <div className="rounded-lg border px-2 py-1 bg-white">
-                  <p className="text-[11px] text-gray-500">Płeć</p>
-                  <p className="truncate">{label(l.gender)}</p>
-                </div>
-
-                <div className="rounded-lg border px-2 py-1 bg-white">
-                  <p className="text-[11px] text-gray-500">Rozmiar</p>
-                  <p className="truncate">{l.size ?? "—"}</p>
-                </div>
-
-                <div className="rounded-lg border px-2 py-1 bg-white">
-                  <p className="text-[11px] text-gray-500">Kolor</p>
-                  <div className="flex items-center gap-1">
-                    <span
-                      className="inline-block h-3 w-3 rounded-full border"
-                      style={{ backgroundColor: colorBg }}
-                    />
-                    <span className="truncate">{l.color ?? "—"}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border px-2 py-1 bg-white col-span-2 md:col-span-1">
-                  <p className="text-[11px] text-gray-500">Materiały</p>
-                  {Array.isArray(l.materials) && l.materials.length ? (
-                    <div className="flex flex-wrap gap-1">
-                      {l.materials.slice(0, 2).map((m) => (
-                        <span
-                          key={m}
-                          className="rounded-full border px-1.5 py-0.5 bg-gray-50"
-                        >
-                          {m}
-                        </span>
-                      ))}
-                      {l.materials.length > 2 && (
-                        <span className="text-gray-500">
-                          +{l.materials.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span>—</span>
-                  )}
-                </div>
-              </div>
-
-              {/* ===== IMAGES ===== */}
-              {l.images.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto py-1">
-                  {l.images.map((img) => (
-                    <div
-                      key={img.id}
-                      className="relative w-28 h-20 shrink-0 rounded overflow-hidden bg-gray-50"
-                    >
-                      <Image
-                        src={img.url}
-                        alt={img.alt ?? l.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Link>
-          );
-        })}
+      <div className="space-y-2 p-4">
+        <p className="text-xs text-slate-500">{accessoryLabel(l.accessoryType) ?? label(l.garmentType)}{l.size ? ` · Rozmiar ${l.size}` : ""}</p>
+        <h2 className="line-clamp-2 font-semibold text-slate-900 group-hover:text-indigo-700">{l.title}</h2>
+        <p className="text-sm text-slate-500">{[l.marca, l.city].filter(Boolean).join(" · ") || "Lokalizacja niepodana"}</p>
+        {(l.sport || l.pregnancy) && <p className="text-xs text-indigo-700">{[sportLabel(l.sport), l.pregnancy ? "Odzież ciążowa" : null].filter(Boolean).join(" · ")}</p>}
+        <p className="pt-1 text-lg font-semibold">{new Intl.NumberFormat("pl-PL").format(l.pricePerDay)} zł <span className="text-sm font-normal text-slate-500">/ dzień</span></p>
       </div>
-    </div>
-  );
+    </Link>)}
+  </div>;
 }

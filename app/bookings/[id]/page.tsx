@@ -560,12 +560,12 @@ export default async function BookingPage({
         </div>
       </section>
 
+      <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
+      {!isCancelled && <BookingProgress booking={booking} />}
       <RenterCancellationPanel bookingId={id} deadline={renterCancellationDeadline(booking.startDate).toISOString()}
         isRenter={isRenter} canCancel={canRenterCancelBooking(booking, userId)} paid={booking.paymentStatus === "PAID"}
         amountCents={readRenterCancellation(booking.renterCancellation)?.amountCents ?? booking.rentAmountCents ?? booking.amountCents ?? 0}
         status={readRenterCancellation(booking.renterCancellation)?.status ?? null} />
-      <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
-      {!isCancelled && <BookingProgress booking={booking} />}
 
       {contactVisible && (
         <section className="p-4 border rounded bg-white space-y-2">
@@ -907,7 +907,7 @@ export default async function BookingPage({
 
               {/* DEVOLUCIÓN */}
 
-              <ReturnSection>
+              <ReturnSection defaultOpen={!returnLocked && deliveryLocked && (booking.endDate <= new Date() || booking.returnStatus === "SHIPPED" || booking.returnConfirmationStatus === "AWAITING_CONFIRMATION" || booking.returnConfirmationStatus === "DISPUTED")}>
 
                 <div className="flex flex-wrap items-center gap-2">
                   {booking.returnConfirmationStatus !==

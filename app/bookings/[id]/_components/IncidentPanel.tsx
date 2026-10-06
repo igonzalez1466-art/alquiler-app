@@ -7,7 +7,7 @@ import { incidentAction, openIncidentAction } from "../_actions/incidentActions"
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
 import { incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
 
-type Case = { id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; evidence: { id: string; text: string; createdAt: string }[] };
+type Case = { id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
 export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos }: {
   bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode;
@@ -38,25 +38,26 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
     } catch (e) { setError(e instanceof Error ? e.message : "Nie udało się zapisać."); }
     finally { busy.current = false; setPending(false); }
   }
-  const button = "rounded border px-3 py-2 text-sm disabled:opacity-50";
-  return <section id="incident-section" className="space-y-4 rounded border bg-white p-4">
+  const button = "rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50";
+  return <section id="incident-section" className="space-y-4 rounded-2xl border bg-white p-5 sm:p-6">
     <h2 className="text-lg font-semibold">Zgłoszenia i uzgodnienia</h2>
     <p className="text-sm">Przed potwierdzeniem odbioru problem z dostawą wstrzymuje wypłatę. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia. Problemy ze zwrotem nie zmniejszają należnego wynagrodzenia.</p>
-    {cases.map(c => <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-3 rounded border p-3 scroll-mt-24">
+    {cases.map(c => <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-4 rounded-xl border p-4 scroll-mt-24">
       <h3 className="font-semibold">{c.stage === "DELIVERY" ? "Dostawa" : "Zwrot"}: {incidentReasons[c.reason]}</h3>
-      <p className="text-sm">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
-      <p className="whitespace-pre-wrap text-sm">{c.description}</p>
-      {c.resolution && <p className="whitespace-pre-wrap text-sm">Propozycja: {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {((c.refundCents ?? 0) / 100).toFixed(2)} zł</>}</p>}
-      {c.evidence.map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{e.text} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}
+      <p className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-900">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
+      <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
+      <p className="rounded-lg bg-slate-50 p-3 text-sm font-medium">{c.status === "RESOLVED" ? c.acceptedAt ? "Rozwiązanie zaakceptowane przez obie strony. Zgłoszenie zakończone." : "Zgłoszenie zakończone." : c.status === "AGREEMENT_REACHED" ? "Rozwiązanie zaakceptowane. Rozliczenie w toku." : canActOnIncident(c, isOwner) ? "Twoja kolej — odpowiedz poniżej." : `Czekamy na odpowiedź ${canActOnIncident(c, true) ? "właściciela" : "najemcy"}.`}</p>
+      {c.resolution && <p className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {((c.refundCents ?? 0) / 100).toFixed(2)} zł</>}</p>}
+      {c.evidence.length > 0 && <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">Historia zgłoszenia ({c.evidence.length})</summary><div className="mt-3 space-y-2">{c.evidence.map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{e.text} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}</div></details>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && <fieldset disabled={pending || !canActOnIncident(c, isOwner)} className="space-y-3 disabled:opacity-50">
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-2">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="propose" />
           <label className="block text-sm">Uzgodnione rozwiązanie<textarea name="resolution" required maxLength={2000} className="block w-full rounded border p-2" /></label>
           {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {(rentCents / 100).toFixed(2)} zł)<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
-          <ClaimActionButton disabled={pending} className={button}>Zaproponuj rozwiązanie</ClaimActionButton>
+          <ClaimActionButton disabled={pending} className={`${button} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700`}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
-        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex gap-2">{["accept", "reject"].map(operation => <form key={operation} action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={operation} />{operation === "accept" && c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}<ClaimActionButton disabled={pending} className={button}>{operation === "accept" ? "Akceptuję rozwiązanie" : "Odrzucam propozycję"}</ClaimActionButton></form>)}</div>}
+        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex flex-col gap-3 sm:flex-row">{["accept", "reject"].map(operation => <form key={operation} action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={operation} />{operation === "accept" && c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}<ClaimActionButton disabled={pending} className={`${button} ${operation === "accept" ? "border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700" : ""}`}>{operation === "accept" ? "Akceptuję rozwiązanie" : "Odrzucam propozycję"}</ClaimActionButton></form>)}</div>}
         <form action={d => run(d)} className="space-y-2"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="evidence" /><label className="block text-sm">Komentarz / tracking / opis dokumentu<textarea required name="evidence" maxLength={2000} className="block w-full rounded border p-2" /></label><ClaimActionButton disabled={pending} className={button}>Dodaj dowód / komentarz</ClaimActionButton></form>
         {c.status !== "ESCALATED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>}
       </fieldset>}

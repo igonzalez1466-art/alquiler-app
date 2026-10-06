@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
+import { ListingErrorsContext } from "./ListingFieldErrors";
 
 const PublishingContext = createContext(false);
-export type PublishResult = { error: string } | void;
+export type PublishResult = { error: string; field?: string } | void;
 
 export function PublishButton() {
   const pending = useContext(PublishingContext);
@@ -26,20 +27,48 @@ export default function PublishForm({ action, children, className }: {
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [error, setError] = useState("");
   const [uncertain, setUncertain] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
-  return <PublishingContext.Provider value={pending}>
-    <form className={className} onSubmit={event => {
+  return <PublishingContext.Provider value={pending}><ListingErrorsContext.Provider value={fieldErrors}>
+    <form className={className} onInvalidCapture={event => {
+      const control = event.target as HTMLInputElement;
+      const name = control.id === "listing-location" ? "city" : control.name;
+      if (name && name !== "city") {
+        setFieldErrors(current => ({ ...current, [name]: control.validity.valueMissing ? "Uzupełnij to pole." : control.validationMessage }));
+        control.setAttribute("aria-invalid", "true");
+        control.setAttribute("aria-describedby", `listing-error-${name}`);
+      }
+    }} onChangeCapture={event => {
+      const control = event.target as HTMLInputElement;
+      const name = control.id === "listing-location" ? "city" : control.name;
+      if (name) setFieldErrors(current => { const next = { ...current }; delete next[name]; return next; });
+      control.removeAttribute("aria-invalid");
+      if (control.getAttribute("aria-describedby")?.startsWith("listing-error-")) control.removeAttribute("aria-describedby");
+    }} onSubmit={event => {
       event.preventDefault();
       // Invoke the action explicitly: a validation response must not trigger React's
       // automatic reset of uncontrolled fields or the selected photo files.
       if (busy.current) return;
       busy.current = true;
-      const data = new FormData(event.currentTarget);
-      setError(""); setUncertain(false);
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      setError(""); setUncertain(false); setFieldErrors({});
       startTransition(async () => {
         try {
           const result = await action(data);
-          if (result?.error) setError(result.error);
+          if (result?.error) {
+            setError(result.error);
+            if (result.field) {
+              setFieldErrors({ [result.field]: result.error });
+              const control = result.field === "city" ? form.querySelector?.("#listing-location") : form.elements?.namedItem(result.field);
+              if (control instanceof HTMLElement) {
+                control.setAttribute("aria-invalid", "true");
+                control.setAttribute("aria-describedby", `listing-error-${result.field}`);
+                control.scrollIntoView({ block: "center", behavior: "smooth" });
+                control.focus({ preventScroll: true });
+              }
+            }
+          }
         } catch (cause) {
           if (typeof cause === "object" && cause !== null && "digest" in cause && typeof cause.digest === "string" && cause.digest.startsWith("NEXT_REDIRECT")) throw cause;
           setUncertain(true);
@@ -48,7 +77,7 @@ export default function PublishForm({ action, children, className }: {
       });
     }}>
       {children}
-      {error && <p ref={errorRef} role="alert" className="px-6 pb-6 text-sm text-rose-700">{error}{uncertain && <> <Link href="/listing?tab=my" className="underline">Moje ogłoszenia</Link></>}</p>}
+      {error && <p ref={errorRef} role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}{uncertain && <> <Link href="/listing?tab=my" className="underline">Moje ogłoszenia</Link></>}</p>}
     </form>
-  </PublishingContext.Provider>;
+  </ListingErrorsContext.Provider></PublishingContext.Provider>;
 }
