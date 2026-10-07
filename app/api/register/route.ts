@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     // ✅ FIX TypeScript: email puede venir como string | null
     if (!user.email) {
       return NextResponse.json(
-        { error: "Usuario sin email (datos inválidos en DB)" },
+        { error: "Brak adresu e-mail konta." },
         { status: 500 }
       );
     }

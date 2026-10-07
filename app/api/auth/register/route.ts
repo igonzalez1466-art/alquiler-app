@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     // ✅ GUARDIA PARA TYPESCRIPT (CLAVE)
     if (!user.email) {
       return NextResponse.json(
-        { error: "Email not found after creation" },
+        { error: "Nie udało się potwierdzić adresu e-mail po utworzeniu konta." },
         { status: 500 }
       );
     }

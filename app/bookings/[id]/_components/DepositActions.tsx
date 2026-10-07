@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -30,7 +31,7 @@ export default function DepositActions({
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState("");
   const [payoutSetup, setPayoutSetup] = useState(false);
-  function showError(error: unknown) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setErrorMessage(error instanceof Error ? error.message : "Nie udało się dokończyć rozliczenia. Spróbuj ponownie."); }
+  function showError(error: unknown) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setErrorMessage(userMessage(error, "Nie udało się dokończyć rozliczenia. Spróbuj ponownie.")); }
   const notice = <>{payoutSetup && <PayoutSetupNotice isOwner />}{errorMessage && <p role="alert" className="text-sm text-rose-700">{errorMessage}</p>}</>;
   const [mode, setMode] = useState<Mode>("refund");
   const [loading, setLoading] = useState(false);

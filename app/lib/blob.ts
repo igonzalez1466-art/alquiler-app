@@ -5,7 +5,7 @@ import { put } from "@vercel/blob";
 
 export async function uploadImageToBlob(file: File) {
   if (!file || file.size === 0) {
-    throw new Error("No file provided");
+    throw new Error("Wybierz plik.");
   }
 
   const blob = await put(file.name, file, {

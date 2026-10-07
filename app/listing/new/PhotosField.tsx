@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import NextImage from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -138,7 +139,7 @@ export default function PhotosField() {
       setMessage(`Gotowe: ${prepared.length} zdjęć, ${(total / 1_000_000).toLocaleString("pl-PL", { maximumFractionDigits: 2 })} MB. Możesz opublikować ogłoszenie.`);
     } catch (cause) {
       if (currentVersion !== version.current) return;
-      const text = cause instanceof Error ? cause.message : "Nie udało się przygotować zdjęć. Wybierz je ponownie.";
+      const text = userMessage(cause, "Nie udało się przygotować zdjęć. Wybierz je ponownie.");
       // Never leave the original oversized files ready to submit after failure.
       input.value = "";
       selectedFiles.current = [];

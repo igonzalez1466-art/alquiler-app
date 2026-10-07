@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useState } from "react";
 import GoogleSignInButton from "@/app/components/GoogleSignInButton";
@@ -50,7 +51,7 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(data?.error || "Nie udało się zarejestrować");
+      setError(userMessage(data?.error, "Nie udało się zarejestrować."));
       return;
     }
 

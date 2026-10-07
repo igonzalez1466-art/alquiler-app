@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { confirmDeliveryAction } from "../_actions/confirmDeliveryAction";
@@ -19,7 +20,7 @@ export default function ReceiptActions({ bookingId, stage, hideReport = false }:
     try {
       const data = new FormData(); data.set("bookingId", bookingId);
       await (stage === "DELIVERY" ? confirmDeliveryAction(data) : confirmReturnAction(data)); router.refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Nie udało się zapisać."); }
+    } catch (e) { setError(userMessage(e, "Nie udało się zapisać.")); }
     finally { setPending(false); }
   }
   return <div className="space-y-2">

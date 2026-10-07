@@ -1,5 +1,6 @@
 // app/bookings/_components/RejectButton.tsx
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -26,9 +27,7 @@ export default function RejectButton({ bookingId }: { bookingId: string }) {
         router.refresh();
       } catch (e: unknown) {
         const message =
-          e instanceof Error
-            ? e.message
-            : "Nie udało się odrzucić rezerwacji";
+          userMessage(e, "Nie udało się odrzucić rezerwacji");
         setError(message);
       }
     });

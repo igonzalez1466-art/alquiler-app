@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     const userId = session?.user?.id;
 
     if (!userId) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return NextResponse.json({ error: "Brak uprawnień." }, { status: 401 });
     }
 
     const body = await req.json();
@@ -60,14 +60,14 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", issues: err.issues },
+        { error: "Nieprawidłowe dane.", issues: err.issues.map(issue => ({ ...issue, message: issue.code === "custom" ? issue.message : "Sprawdź wartość w tym polu." })) },
         { status: 400 }
       );
     }
 
     console.error(err);
     return NextResponse.json(
-      { error: "Error al crear anuncio" },
+      { error: "Nie udało się utworzyć ogłoszenia." },
       { status: 500 }
     );
   }

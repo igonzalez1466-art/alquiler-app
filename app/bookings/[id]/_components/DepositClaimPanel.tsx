@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useRef, useState, type FormEvent } from "react";
 import ClaimActionButton from "@/app/components/ClaimActionButton";
@@ -44,7 +45,7 @@ export default function DepositClaimPanel(p: Props) {
       announceBookingAction(p.bookingId, message);
       setProposing(false); setDisputing(false); router.refresh();
     }
-    catch (error) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
+    catch (error) { setPayoutSetup(error instanceof Error && error.name === "PayoutSetupRequired"); setError(userMessage(error, "Nie udało się zapisać. Spróbuj ponownie.")); }
     finally { busy.current = false; setPending(false); }
   };
   const button = "rounded border px-4 py-2 bg-white disabled:opacity-50";

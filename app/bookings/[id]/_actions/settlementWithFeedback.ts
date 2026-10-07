@@ -10,7 +10,7 @@ export async function settlementWithFeedback(data: FormData, operation: "full" |
       case "retain": await retainDepositAction(data); break;
       case "retry": await retrySettlementAction(data); break;
       case "approved": await executeApprovedClaimAction(data); break;
-      default: throw new Error("Invalid settlement operation");
+      default: throw new Error("Nieprawidłowa operacja rozliczenia.");
     }
     return { ok: true as const };
   } catch (error) {

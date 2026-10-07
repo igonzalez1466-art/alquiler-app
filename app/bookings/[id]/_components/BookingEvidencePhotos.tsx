@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,7 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
       router.refresh();
     } catch (cause) {
       setMessage("");
-      setError(cause instanceof Error ? cause.message : "Nie udało się zapisać zdjęć.");
+      setError(userMessage(cause, "Nie udało się zapisać zdjęć."));
     } finally {
       setBusy(false);
     }

@@ -1,4 +1,5 @@
 "use server";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
@@ -12,7 +13,7 @@ export async function startPhoneVerification(rawPhone: string) {
   if (!session?.user?.id) return { ok: false as const, message: "Zaloguj się ponownie." };
   let phone: string;
   try { phone = normalizePhone(rawPhone); }
-  catch (error) { return { ok: false as const, message: error instanceof Error ? error.message : "Nieprawidłowy numer." }; }
+  catch (error) { return { ok: false as const, message: userMessage(error, "Nieprawidłowy numer.") }; }
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { phone: true, phoneVerifiedAt: true, phoneVerificationSentAt: true } });
   if (!user) return { ok: false as const, message: "Nie znaleziono konta." };
   if (user.phone === phone && user.phoneVerifiedAt) return { ok: true as const, alreadyVerified: true as const, maskedPhone: phone };
@@ -20,7 +21,7 @@ export async function startPhoneVerification(rawPhone: string) {
     return { ok: false as const, message: "Poczekaj 30 sekund przed wysłaniem kolejnego kodu." };
   }
   try { await sendPhoneCode(phone); }
-  catch (error) { return { ok: false as const, message: error instanceof Error ? error.message : "Nie udało się wysłać kodu." }; }
+  catch (error) { return { ok: false as const, message: userMessage(error, "Nie udało się wysłać kodu.") }; }
   await prisma.user.update({ where: { id: session.user.id }, data: { phoneVerificationTarget: phone, phoneVerificationSentAt: new Date() } });
   return { ok: true as const, alreadyVerified: false as const, maskedPhone: phone };
 }
@@ -34,7 +35,7 @@ export async function confirmPhoneVerification(code: string) {
   }
   let approved = false;
   try { approved = await checkPhoneCode(user.phoneVerificationTarget, code.trim()); }
-  catch (error) { return { ok: false as const, message: error instanceof Error ? error.message : "Nie udało się sprawdzić kodu." }; }
+  catch (error) { return { ok: false as const, message: userMessage(error, "Nie udało się sprawdzić kodu.") }; }
   if (!approved) return { ok: false as const, message: "Kod jest nieprawidłowy lub wygasł." };
   try {
     await prisma.user.update({ where: { id: session.user.id }, data: {

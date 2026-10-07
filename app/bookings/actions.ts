@@ -94,7 +94,7 @@ export async function createBookingAction(input: {
   const renterId = session?.user?.id;
 
   if (!renterId) {
-    throw new Error("No autenticado");
+    throw new Error("Zaloguj się, aby kontynuować.");
   }
 
   await assertBookingAccountsAvailable(renterId);
@@ -111,12 +111,12 @@ export async function createBookingAction(input: {
   });
 
   if (!listing) {
-    throw new Error("Anuncio no encontrado");
+    throw new Error("Nie znaleziono ogłoszenia.");
   }
 
   await assertBookingAccountsAvailable(listing.userId);
   if (listing.userId === renterId) {
-    throw new Error("No puedes reservar tu propio artículo");
+    throw new Error("Nie możesz zarezerwować własnego przedmiotu.");
   }
 
   const start = new Date(input.startDate);
@@ -126,7 +126,7 @@ export async function createBookingAction(input: {
     Number.isNaN(start.getTime()) ||
     Number.isNaN(end.getTime())
   ) {
-    throw new Error("Fechas inválidas.");
+    throw new Error("Nieprawidłowe daty.");
   }
 
   // Permite que inicio y fin sean el mismo día.
@@ -157,7 +157,7 @@ export async function createBookingAction(input: {
   });
 
   if (overlapping) {
-    throw new Error("Estas fechas ya están reservadas.");
+    throw new Error("Ten termin jest już zarezerwowany.");
   }
 
   // Los importes quedan guardados en la reserva.
@@ -168,12 +168,12 @@ export async function createBookingAction(input: {
 
   if (!pricePerDay || pricePerDay <= 0) {
     throw new Error(
-      "El anuncio no tiene un precio por día válido."
+      "Cena za dzień w ogłoszeniu jest nieprawidłowa."
     );
   }
 
   if (deposit < 0) {
-    throw new Error("El anuncio no tiene una fianza válida.");
+    throw new Error("Kwota kaucji w ogłoszeniu jest nieprawidłowa.");
   }
 
   const pricePerDayCents = Math.round(pricePerDay * 100);
@@ -322,7 +322,7 @@ export async function approveBookingAction(
   const userId = session?.user?.id;
 
   if (!userId) {
-    throw new Error("No autenticado");
+    throw new Error("Zaloguj się, aby kontynuować.");
   }
 
   const booking = await prisma.booking.findUnique({
@@ -340,11 +340,11 @@ export async function approveBookingAction(
   });
 
   if (!booking) {
-    throw new Error("Reserva no encontrada");
+    throw new Error("Nie znaleziono rezerwacji.");
   }
 
   if (booking.listing.userId !== userId) {
-    throw new Error("No autorizado");
+    throw new Error("Brak uprawnień.");
   }
 
   await assertBookingAccountsAvailable(userId, booking.renterId);
@@ -353,7 +353,7 @@ export async function approveBookingAction(
   }
 
   if (booking.status !== "PENDING") {
-    throw new Error("Esta reserva ya fue procesada");
+    throw new Error("Ta rezerwacja została już przetworzona.");
   }
     if (getApprovalDeadline(booking.createdAt) <= new Date()) {
     throw new Error(
@@ -394,12 +394,12 @@ export async function approveBookingAction(
 
   if (pricePerDayCents <= 0 || rentAmountCents <= 0) {
     throw new Error(
-      "La reserva no tiene un importe de alquiler válido."
+      "Kwota najmu w rezerwacji jest nieprawidłowa."
     );
   }
 
   if (depositCents < 0) {
-    throw new Error("La reserva no tiene una fianza válida.");
+    throw new Error("Kwota kaucji w rezerwacji jest nieprawidłowa.");
   }
 
   // El plazo empieza ahora, al aceptar la solicitud.
@@ -653,7 +653,7 @@ export async function rejectBookingAction(
   const userId = session?.user?.id;
 
   if (!userId) {
-    throw new Error("No autenticado");
+    throw new Error("Zaloguj się, aby kontynuować.");
   }
 
   const booking = await prisma.booking.findUnique({
@@ -671,16 +671,16 @@ export async function rejectBookingAction(
   });
 
   if (!booking) {
-    throw new Error("Reserva no encontrada");
+    throw new Error("Nie znaleziono rezerwacji.");
   }
 
   if (booking.listing.userId !== userId) {
-    throw new Error("No autorizado");
+    throw new Error("Brak uprawnień.");
   }
 
   if (booking.status !== "PENDING") {
     throw new Error(
-      "Solo reservas pendientes pueden rechazarse"
+      "Można odrzucić tylko oczekujące rezerwacje."
     );
   }
 

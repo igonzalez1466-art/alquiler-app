@@ -1,5 +1,6 @@
 // app/reset-password/ResetPasswordClient.tsx
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -19,7 +20,7 @@ export default function ResetPasswordClient() {
     return (
       <div className="max-w-sm mx-auto mt-10">
         <h1 className="text-xl font-bold mb-2">Resetowanie hasła</h1>
-        <p className="text-red-600">Falta el token en la URL.</p>
+        <p className="text-red-600">Link do resetowania hasła jest nieprawidłowy. Poproś o nowy link.</p>
       </div>
     );
   }
@@ -30,11 +31,11 @@ export default function ResetPasswordClient() {
     setMsg(null);
 
     if (password.length < 8) {
-      setErr("Password must have at least 8 caracthers.");
+      setErr("Hasło musi mieć co najmniej 8 znaków.");
       return;
     }
     if (password !== confirm) {
-      setErr("Passwords do not match.");
+      setErr("Hasła nie są takie same.");
       return;
     }
 
@@ -49,15 +50,15 @@ export default function ResetPasswordClient() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErr(
-          (data as { message?: string })?.message ||
-            "Password could not be reset"
+          userMessage((data as { message?: string })?.message) ||
+            "Nie udało się zresetować hasła."
         );
       } else {
         setMsg("Hasło zostało zresetowane. Możesz się teraz zalogować.");
         setTimeout(() => router.push("/login"), 1500);
       }
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Error de red";
+      const message = userMessage(e, "Nie udało się połączyć z serwerem. Spróbuj ponownie.");
       setErr(message);
     } finally {
       setLoading(false);
@@ -77,7 +78,7 @@ export default function ResetPasswordClient() {
             htmlFor="password"
             className="block text-sm font-medium text-gray-700"
           >
-            Enter password
+            Nowe hasło
           </label>
           <input
             id="password"
@@ -115,7 +116,7 @@ export default function ResetPasswordClient() {
           disabled={loading}
           className="w-full bg-blue-600 text-white rounded py-2 disabled:opacity-60"
         >
-          {loading ? "Saving..." : "Resetowanie hasła"}
+          {loading ? "Zapisywanie…" : "Resetowanie hasła"}
         </button>
       </form>
     </div>

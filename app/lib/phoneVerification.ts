@@ -20,19 +20,19 @@ type VerifyResponse = { status?: string; code?: number };
 function twilioErrorMessage(result: VerifyResponse, httpStatus: number) {
   const code = result.code;
   if (httpStatus === 401 || code === 20003) {
-    return "Błąd konfiguracji Twilio: sprawdź Account SID i Auth Token w Vercel.";
+    return "Weryfikacja telefonu jest chwilowo niedostępna. Spróbuj ponownie później.";
   }
   if (httpStatus === 404 || code === 20404) {
-    return "Nie znaleziono usługi Twilio Verify. Sprawdź Verify Service SID w Vercel.";
+    return "Weryfikacja telefonu jest chwilowo niedostępna. Spróbuj ponownie później.";
   }
   if (code === 60200) return "Numer telefonu lub kanał SMS jest nieprawidłowy. Wpisz numer z kodem kraju.";
   if (code === 60203) return "Osiągnięto limit wysyłek na ten numer. Spróbuj ponownie później.";
   if (code === 60205) return "Ten numer nie obsługuje wiadomości SMS. Użyj numeru komórkowego.";
   if (code === 60207 || httpStatus === 429) return "Osiągnięto limit wysyłek. Spróbuj ponownie później.";
   if (code === 60238 || code === 60605) {
-    return "Twilio zablokowało wysyłkę. Sprawdź Fraud Guard, Blocked Verifications i Geo Permissions.";
+    return "Nie można teraz wysłać kodu SMS. Spróbuj ponownie później lub skontaktuj się z obsługą serwisu.";
   }
-  return `Twilio odrzuciło żądanie (kod ${code ?? httpStatus}). Sprawdź logi Verify.`;
+  return "Nie udało się zweryfikować telefonu. Spróbuj ponownie później.";
 }
 
 async function verifyRequest(path: string, body: URLSearchParams): Promise<VerifyResponse> {

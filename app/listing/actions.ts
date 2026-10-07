@@ -27,9 +27,9 @@ export async function createListing(formData: FormData): Promise<void> {
   const pricePerDayRaw = String(formData.get("pricePerDay") ?? "").trim();
   const pricePerDay = Number(pricePerDayRaw);
 
-  if (!title) throw new Error("Falta el título");
+  if (!title) throw new Error("Podaj tytuł ogłoszenia.");
   if (!Number.isFinite(pricePerDay) || !Number.isInteger(pricePerDay) || pricePerDay <= 0) {
-    throw new Error("pricePerDay inválido (debe ser entero positivo)");
+    throw new Error("Cena za dzień musi być dodatnią liczbą całkowitą.");
   }
 
   // Crear anuncio
@@ -57,13 +57,13 @@ export async function createListing(formData: FormData): Promise<void> {
     try {
       await sendMail({
         to: owner.email,
-        subject: "Tu anuncio ha sido publicado",
+        subject: "Twoje ogłoszenie zostało opublikowane",
         html: `
-          <p>Hola ${owner.name ?? ""},</p>
-          <p>Tu anuncio <strong>${listing.title}</strong> se ha creado correctamente.</p>
+          <p>Cześć ${owner.name ?? ""},</p>
+          <p>Twoje ogłoszenie <strong>${listing.title}</strong> zostało utworzone.</p>
           <p>
             <a href="${baseUrl}/listing/${listing.id}">
-              Ver anuncio
+              Zobacz ogłoszenie
             </a>
           </p>
         `,
@@ -89,15 +89,15 @@ export async function toggleListingAvailable(formData: FormData): Promise<void> 
   const uid: string = userId;
 
   const listingId = String(formData.get("listingId") ?? "").trim();
-  if (!listingId) throw new Error("Missing listingId");
+  if (!listingId) throw new Error("Brak numeru ogłoszenia.");
 
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
     select: { userId: true, available: true },
   });
 
-  if (!listing) throw new Error("Listing not found");
-  if (listing.userId !== uid) throw new Error("Not allowed");
+  if (!listing) throw new Error("Nie znaleziono ogłoszenia.");
+  if (listing.userId !== uid) throw new Error("Brak uprawnień.");
 
   await prisma.listing.update({
     where: { id: listingId },

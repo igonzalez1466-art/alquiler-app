@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,7 +16,7 @@ export default function RentOnlySettlementButton({ bookingId }: { bookingId: str
       onClick={async () => {
         setPending(true); setError("");
         try { await settleRentOnlyAction(bookingId); router.refresh(); }
-        catch (failure) { setError(failure instanceof Error ? failure.message : "Nie udało się rozliczyć najmu."); }
+        catch (failure) { setError(userMessage(failure, "Nie udało się rozliczyć najmu.")); }
         finally { setPending(false); }
       }}>
       {pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}

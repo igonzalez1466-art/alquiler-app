@@ -1,5 +1,6 @@
 // app/bookings/_components/ApproveButton.tsx
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useTransition, useState } from "react";
 import { approveBookingAction } from "@/app/bookings/actions";
@@ -23,7 +24,7 @@ export function ApproveButton({ bookingId, phoneVerified }: { bookingId: string;
         router.refresh();
       } catch (e: unknown) {
         const message =
-          e instanceof Error ? e.message : "Nie udało się zaakceptować rezerwacji";
+          userMessage(e, "Nie udało się zaakceptować rezerwacji");
         setError(message);
       }
     });

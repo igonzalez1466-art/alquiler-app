@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -38,7 +39,7 @@ function InnerPayForm({ hasDeposit }: { hasDeposit: boolean }) {
     setProcessing(false);
 
     if (result.error) {
-      setError(result.error.message ?? "Wystąpił błąd podczas płatności");
+      setError(userMessage(result.error.message, "Nie udało się dokonać płatności. Sprawdź dane płatności i spróbuj ponownie."));
       return;
     }
 
@@ -71,7 +72,7 @@ function InnerPayForm({ hasDeposit }: { hasDeposit: boolean }) {
 
 export default function PayForm({ clientSecret, hasDeposit }: { clientSecret: string; hasDeposit: boolean }) {
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }}>
+    <Elements stripe={stripePromise} options={{ clientSecret, locale: "pl" }}>
       <InnerPayForm hasDeposit={hasDeposit} />
     </Elements>
   );

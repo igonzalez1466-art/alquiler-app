@@ -21,7 +21,7 @@ type JWTWithRole = JWT & { role?: Role };
 export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.AUTH_SECRET,
-  pages: { signOut: "/logout" },
+  pages: { signIn: "/login", signOut: "/logout", error: "/auth/error" },
 
   // 👇 importante: literal "jwt" (con NextAuthOptions tipado ya no se convierte en string)
   session: { strategy: "jwt" },
@@ -48,8 +48,8 @@ export const authConfig: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
+        email: { label: "E-mail", type: "text" },
+        password: { label: "Hasło", type: "password" },
       },
       async authorize(creds) {
         const email = String(creds?.email || "").toLowerCase().trim();

@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { use, useEffect, useState } from "react";
 import PayForm from "./PayForm";
@@ -34,7 +35,7 @@ export default function PayBookingPage({
         const json = await res.json();
         setData(json);
       } catch (err: any) {
-        setError(err.message ?? "Wystąpił błąd podczas tworzenia płatności");
+        setError(userMessage(err, "Nie udało się przygotować płatności. Spróbuj ponownie."));
       } finally {
         setLoading(false);
       }

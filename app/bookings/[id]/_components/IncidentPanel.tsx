@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useRef, useState, type ReactNode } from "react";
 import { formatIncidentMoney, formatIncidentEvidenceText } from "@/app/lib/incidentFormatting";
@@ -38,7 +39,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         for (const f of files) data.append("photos", await prepareBookingPhoto(f));
       }
       await (open ? openIncidentAction(data) : incidentAction(data)); setResponseMode({}); router.refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Nie udało się zapisać."); }
+    } catch (e) { setError(userMessage(e, "Nie udało się zapisać.")); }
     finally { busy.current = false; setPending(false); }
   }
   const button = "rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 disabled:opacity-50";

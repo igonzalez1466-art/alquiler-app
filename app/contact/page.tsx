@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 import { useState } from "react";
 
 export default function ContactPage() {
@@ -25,7 +26,7 @@ export default function ContactPage() {
       if (!res.ok) {
         const msg =
           typeof (data as { message?: unknown })?.message === "string"
-            ? (data as { message: string }).message
+            ? userMessage((data as { message: string }).message)
             : "Nie udało się wysłać";
         throw new Error(msg);
       }
@@ -37,7 +38,7 @@ export default function ContactPage() {
       setMessage("");
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Błąd sieci";
+        userMessage(err, "Błąd sieci");
       setStatus("❌ " + message);
     } finally {
       setLoading(false);

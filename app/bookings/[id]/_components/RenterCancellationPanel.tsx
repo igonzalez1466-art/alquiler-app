@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cancelByRenterAction } from "../_actions/cancelByRenterAction";
@@ -26,7 +27,7 @@ export default function RenterCancellationPanel({ bookingId, deadline, paid, amo
       event.preventDefault(); if (busy.current) return; busy.current = true; setPending(true); setError("");
       const data = new FormData(); data.set("bookingId", bookingId); data.set("confirm", "yes");
       try { const result = await cancelByRenterAction(data); announceBookingAction(bookingId, result.status === "SUCCEEDED" ? "Rezerwacja anulowana. Zwrot 100% potwierdzony." : "Rezerwacja anulowana. Sprawdź stan zwrotu poniżej."); setConfirming(false); router.refresh(); }
-      catch (e) { setError(e instanceof Error ? e.message : "Nie udało się anulować. Spróbuj ponownie."); }
+      catch (e) { setError(userMessage(e, "Nie udało się anulować. Spróbuj ponownie.")); }
       finally { busy.current = false; setPending(false); }
     }} className="space-y-3">
       {!retry && <p className="text-sm font-medium">Czy na pewno chcesz anulować tę rezerwację?</p>}

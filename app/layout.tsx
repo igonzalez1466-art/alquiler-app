@@ -1,4 +1,5 @@
 import "./globals.css";
+import PolishFormValidation from "./components/PolishFormValidation";
 import NavbarWrapper from "./components/NavbarWrapper";
 import CookieBanner from "./components/CookieBanner";
 import AnalyticsLoader from "./components/AnalyticsLoader";
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="pl" className="h-full antialiased">
       <body className="min-h-full bg-background text-foreground font-sans">
+        <PolishFormValidation />
         <NavbarWrapper />
 
         <main className="max-w-5xl mx-auto p-4 md:p-6">

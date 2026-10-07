@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const session = await getServerSession(authConfig);
 
   if (!session?.user?.id) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse("Zaloguj się, aby kontynuować.", { status: 401 });
   }
 
   const userId = session.user.id;
@@ -24,13 +24,13 @@ export async function POST(request: Request) {
       : "";
 
   if (!id) {
-    return new NextResponse("Missing bookingId", { status: 400 });
+    return new NextResponse("Brak numeru rezerwacji.", { status: 400 });
   }
 
   const key = process.env.STRIPE_SECRET_KEY;
 
   if (!key) {
-    return new NextResponse("Payment configuration unavailable", {
+    return new NextResponse("Płatności są chwilowo niedostępne.", {
       status: 503,
     });
   }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
         if (!booking || booking.renterId !== userId) {
           return {
-            error: "Booking not found",
+            error: "Nie znaleziono rezerwacji.",
             status: 404,
           };
         }
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
         if (rent <= 0 || deposit < 0) {
           return {
-            error: "Invalid amounts",
+            error: "Nieprawidłowa kwota płatności.",
             status: 400,
           };
         }
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
           paymentIntent.metadata.bookingId !== id
         ) {
           return {
-            error: "Payment does not match booking",
+            error: "Płatność nie odpowiada tej rezerwacji.",
             status: 409,
           };
         }

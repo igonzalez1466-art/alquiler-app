@@ -11,14 +11,14 @@ export async function createReviewAction(formData: FormData) {
   const session = (await getServerSession(authConfig)) as Session | null;
 
   const userId = session?.user?.id;
-  if (!userId) throw new Error("No autorizado");
+  if (!userId) throw new Error("Brak uprawnień.");
 
   const bookingId = String(formData.get("bookingId") || "");
   const rating = Number(formData.get("rating") || "0");
   const comment = String(formData.get("comment") || "").trim();
 
   if (!bookingId || !(rating >= 1 && rating <= 5)) {
-    throw new Error("Datos inválidos");
+    throw new Error("Nieprawidłowe dane.");
   }
 
   const booking = await prisma.booking.findUnique({
@@ -27,11 +27,11 @@ export async function createReviewAction(formData: FormData) {
       listing: { select: { userId: true } },
     },
   });
-  if (!booking) throw new Error("Reserva no encontrada");
+  if (!booking) throw new Error("Nie znaleziono rezerwacji.");
 
   const now = new Date();
   if (booking.status !== "CONFIRMED" || booking.endDate > now) {
-    throw new Error("Aún no puedes valorar esta reserva");
+    throw new Error("Nie możesz jeszcze ocenić tej rezerwacji.");
   }
 
   const ownerId = booking.listing.userId;
@@ -50,14 +50,14 @@ export async function createReviewAction(formData: FormData) {
     revieweeId = renterId;
     role = "RENTER";
   } else {
-    throw new Error("No autorizado para valorar esta reserva");
+    throw new Error("Brak uprawnień do oceny tej rezerwacji.");
   }
 
   const exists = await prisma.review.findFirst({
     where: { bookingId, reviewerId, revieweeId },
     select: { id: true },
   });
-  if (exists) throw new Error("Ya has valorado en esta reserva");
+  if (exists) throw new Error("Ta rezerwacja została już przez Ciebie oceniona.");
 
   await prisma.review.create({
     data: {

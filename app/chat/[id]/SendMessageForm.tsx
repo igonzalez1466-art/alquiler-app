@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useRef, useState, useTransition } from "react";
 import { sendMessageAction } from "./actions";
@@ -22,7 +23,7 @@ export default function SendMessageForm({ conversationId, isClosed }: { conversa
             await sendMessageAction(conversationId, formData);
             formRef.current?.reset();
           } catch (error) {
-            setError(error instanceof Error ? error.message : "Nie udało się wysłać wiadomości. Spróbuj ponownie.");
+            setError(userMessage(error, "Nie udało się wysłać wiadomości. Spróbuj ponownie."));
           } finally {
             submitting.current = false;
           }

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; photoId: string }> }) {
   const userId = (await getSession())?.user?.id;
-  if (!userId) return new Response("Not found", { status: 404 });
+  if (!userId) return new Response("Nie znaleziono strony.", { status: 404 });
   const account = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
   const admin = account?.role === "ADMIN";
   const { id, photoId } = await params;
@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     },
   });
   if (!photo || !admin && !canViewBookingEvidencePhoto(photo.booking, photo, userId)) {
-    return new Response("Not found", { status: 404 });
+    return new Response("Nie znaleziono strony.", { status: 404 });
   }
   return new Response(Uint8Array.from(photo.data), {
     headers: {

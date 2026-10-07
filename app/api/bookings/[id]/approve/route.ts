@@ -15,7 +15,7 @@ export async function PATCH(
   const session = await getServerSession(authConfig);
 
   if (!session?.user?.id) {
-    return new NextResponse("Unauthorized", {
+    return new NextResponse("Zaloguj się, aby kontynuować.", {
       status: 401,
     });
   }
@@ -27,7 +27,7 @@ export async function PATCH(
   });
 
   if (!booking || booking.ownerId !== session.user.id) {
-    return new NextResponse("Forbidden", {
+    return new NextResponse("Brak uprawnień.", {
       status: 403,
     });
   }

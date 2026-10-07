@@ -84,7 +84,7 @@ export async function startChatAction(formData: FormData) {
     formData.get("ownerId")?.toString();
 
   if (!listingId || !ownerId) {
-    throw new Error("Datos incompletos");
+    throw new Error("Uzupełnij wymagane dane.");
   }
 
   if (currentUserId === ownerId) {

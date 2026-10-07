@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -45,7 +46,7 @@ export default function ShippingForm({ bookingId, initial }: Props) {
             announceBookingAction(bookingId, "Dostawa została oznaczona jako wysłana. Teraz najemca potwierdza odbiór.");
             router.refresh();
           } catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Nie udało się zapisać. Spróbuj ponownie.");
+            setError(userMessage(cause, "Nie udało się zapisać. Spróbuj ponownie."));
           } finally {
             submitting.current = false;
             setLoading(false);

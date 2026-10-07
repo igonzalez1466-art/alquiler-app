@@ -155,7 +155,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full bg-blue-600 text-white rounded py-2 hover:bg-blue-700 transition disabled:opacity-60"
         >
-          {loading ? "Logowanie..." : "Login"}
+          {loading ? "Logowanie..." : "Zaloguj się"}
         </button>
 
         <div className="text-center mt-3">

@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useState } from "react";
 import ClaimActionButton from "@/app/components/ClaimActionButton";
@@ -21,7 +22,7 @@ export default function ResolveIssueForm({ bookingId, stage, hasDeposit }: { boo
     setPending(true);
     setError("");
     try { await resolveLogisticsProblemAction(data); announceBookingAction(bookingId, "Problem został oznaczony jako rozwiązany. Sprawdź kolejny krok w sprawie."); setExpanded(false); router.refresh(); }
-    catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać. Spróbuj ponownie."); }
+    catch (error) { setError(userMessage(error, "Nie udało się zapisać. Spróbuj ponownie.")); }
     finally { setPending(false); }
   }}>
     <label className="flex items-start gap-2 text-sm">

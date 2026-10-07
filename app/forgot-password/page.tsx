@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useState } from "react";
 
@@ -32,18 +33,18 @@ export default function ForgotPasswordPage() {
       if (!res.ok) {
         const message =
           typeof (data as { message?: unknown })?.message === "string"
-            ? (data as { message: string }).message
-            : "Error enviando el enlace";
+            ? userMessage((data as { message: string }).message)
+            : "Nie udało się wysłać linku.";
         setErr(message);
       } else {
         const message =
           typeof (data as { message?: unknown })?.message === "string"
-            ? (data as { message: string }).message
-            : "If the email address exists, you will receive an email.";
+            ? userMessage((data as { message: string }).message, "Jeśli podany adres e-mail istnieje, otrzymasz link do zresetowania hasła.")
+            : "Jeśli podany adres e-mail istnieje, otrzymasz link do zresetowania hasła.";
         setMsg(message);
       }
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Error de red";
+      const message = userMessage(e, "Nie udało się połączyć z serwerem. Spróbuj ponownie.");
       setErr(message);
     } finally {
       setLoading(false);
@@ -82,7 +83,7 @@ export default function ForgotPasswordPage() {
           disabled={loading}
           className="w-full bg-blue-600 text-white rounded py-2 hover:bg-blue-700 transition disabled:opacity-60"
         >
-          {loading ? "Sending..." : "Wyślij link"}
+          {loading ? "Wysyłanie…" : "Wyślij link"}
         </button>
       </form>
     </div>

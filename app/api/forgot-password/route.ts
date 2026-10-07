@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const { email } = await req.json().catch(() => ({ email: "" }));
 
     if (!email) {
-      return NextResponse.json({ message: "Email requerido" }, { status: 400 });
+      return NextResponse.json({ message: "Podaj adres e-mail." }, { status: 400 });
     }
 
     // Respuesta genérica: no filtramos si existe o no

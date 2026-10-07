@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { lookupInpostPointAddressAction, savePreferredInpostPointAction } from "./inpostActions";
@@ -46,7 +47,7 @@ export default function PreferredInpostPointForm({ code, address, geowidgetToken
       setSaved(true);
       window.dispatchEvent(new Event("profile-tasks-updated"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nie udało się zapisać punktu.");
+      setError(userMessage(cause, "Nie udało się zapisać punktu."));
     } finally {
       setSaving(false);
     }

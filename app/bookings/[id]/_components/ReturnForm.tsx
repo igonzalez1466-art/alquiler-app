@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -41,7 +42,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
             announceBookingAction(bookingId, "Zwrot został oznaczony jako wysłany. Teraz właściciel potwierdza odbiór.");
             router.refresh();
           } catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Nie udało się zapisać. Spróbuj ponownie.");
+            setError(userMessage(cause, "Nie udało się zapisać. Spróbuj ponownie."));
           } finally {
             submitting.current = false;
             setLoading(false);

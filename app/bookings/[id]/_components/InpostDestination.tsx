@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/app/lib/userMessage";
 
 import { useCallback, useRef, useState } from "react";
 import InpostPointPicker from "@/app/account/InpostPointPicker";
@@ -70,7 +71,7 @@ export default function InpostDestination({ bookingId, stage, isRecipient, locke
         });
         setEditing(false);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Nie udało się zapisać punktu.");
+        setError(userMessage(cause, "Nie udało się zapisać punktu."));
       } finally {
         setSaving(false);
       }

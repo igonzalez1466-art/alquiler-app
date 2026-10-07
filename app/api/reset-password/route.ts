@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const { token, password } = await req.json();
 
     if (!token || !password) {
-      return NextResponse.json({ message: "Token y contraseña son requeridos" }, { status: 400 });
+      return NextResponse.json({ message: "Link do resetowania i nowe hasło są wymagane." }, { status: 400 });
     }
 
     // Busca el token
@@ -16,13 +16,13 @@ export async function POST(req: Request) {
     });
 
     if (!vt) {
-      return NextResponse.json({ message: "Token inválido" }, { status: 400 });
+      return NextResponse.json({ message: "Link do resetowania hasła jest nieprawidłowy." }, { status: 400 });
     }
 
     if (vt.expires < new Date()) {
       // Limpia el token caducado
       await prisma.verificationToken.delete({ where: { token } });
-      return NextResponse.json({ message: "Token caducado" }, { status: 400 });
+      return NextResponse.json({ message: "Link do resetowania hasła wygasł. Poproś o nowy link." }, { status: 400 });
     }
 
     // vt.identifier = email al que mandaste el enlace
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     if (!user) {
       // Limpia el token por seguridad
       await prisma.verificationToken.delete({ where: { token } });
-      return NextResponse.json({ message: "Usuario no encontrado" }, { status: 400 });
+      return NextResponse.json({ message: "Nie znaleziono użytkownika." }, { status: 400 });
     }
 
     // Actualiza contraseña
@@ -46,9 +46,9 @@ export async function POST(req: Request) {
     // Borra el token usado
     await prisma.verificationToken.delete({ where: { token } });
 
-    return NextResponse.json({ message: "Password has been reset" });
+    return NextResponse.json({ message: "Hasło zostało zresetowane." });
   } catch (e) {
     console.error("RESET → error:", e);
-    return NextResponse.json({ message: "Error interno" }, { status: 500 });
+    return NextResponse.json({ message: "Wystąpił błąd. Spróbuj ponownie później." }, { status: 500 });
   }
 }
