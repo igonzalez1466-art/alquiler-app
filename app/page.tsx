@@ -64,27 +64,30 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-8 text-center">
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <div className="text-4xl mb-3">📸</div>
-              <h3 className="font-semibold mb-2">Znajdź lub wystaw ubranie</h3>
+              <h3 className="font-semibold mb-2">Wybierz</h3>
               <p className="text-gray-600 text-sm">
-                Przeglądaj ubrania albo dodaj własne zdjęcia, opis i cenę najmu.
+                Znajdź ubranie, sprawdź szczegóły i wybierz termin.
               </p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <div className="text-4xl mb-3">🤝</div>
-              <h3 className="font-semibold mb-2">Wyślij prośbę o rezerwację</h3>
+              <h3 className="font-semibold mb-2">Wypożycz</h3>
               <p className="text-gray-600 text-sm">
-                Właściciel akceptuje prośbę, a najemca opłaca rezerwację.
+                Wyślij prośbę o rezerwację, zapłać po akceptacji i sprawdź przedmiot przy odbiorze.
               </p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <div className="text-4xl mb-3">♻️</div>
-              <h3 className="font-semibold mb-2">Odbierz i zwróć</h3>
+              <h3 className="font-semibold mb-2">Zwróć</h3>
               <p className="text-gray-600 text-sm">
-                Ustalcie dostawę, potwierdźcie odbiór i zakończcie zwrot w rezerwacji.
+                Uzgodnij zwrot i zapisz szczegóły w rezerwacji. Właściciel potwierdzi odbiór.
               </p>
             </div>
+          </div>
+          <div className="mt-7 text-center">
+            <Link href="/jak-to-dziala" className="inline-flex rounded-xl border border-violet-200 bg-white px-5 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-50">Zobacz, jak to działa →</Link>
           </div>
         </section>
 

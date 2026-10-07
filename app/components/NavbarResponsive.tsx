@@ -8,8 +8,9 @@ import ChatBell from "@/app/components/ChatBell";
 
 /* Links base (para todos) */
 const navLinks = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Start" },
   { href: "/listing", label: "Ogłoszenia" },
+  { href: "/jak-to-dziala", label: "Jak to działa?" },
   { href: "/bookings", label: "Rezerwacje" },
 ];
 
@@ -51,13 +52,13 @@ export default function NavbarResponsive({
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="inline-flex items-center justify-center rounded-md border px-2 py-1 text-sm md:hidden"
+          className="inline-flex items-center justify-center rounded-md border px-2 py-1 text-sm lg:hidden"
         >
           {open ? "✕" : "☰"}
         </button>
 
         {/* Menú escritorio */}
-        <div className="hidden items-center gap-4 md:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -96,7 +97,7 @@ export default function NavbarResponsive({
 
       {/* Menú móvil */}
       {open && (
-        <div className="border-t bg-white md:hidden">
+        <div className="border-t bg-white lg:hidden">
           <div className="mx-auto flex max-w-5xl flex-col px-4 py-2 space-y-1">
             {navLinks.map((link) => (
               <Link
