@@ -11,7 +11,7 @@ type IncidentBooking = Pick<Booking,
   "depositDecisionAt" | "settlementCompletedAt" | "shippedAt" | "returnShippedAt" |
   "deliveredAt" | "deliveryConfirmedAt" | "returnDeliveredAt" | "returnConfirmedAt" |
   "depositRefundedAt" | "depositRetainedCents" | "depositCents"
-> & { incidents?: { stage: string; status: string; proposedById: string | null; reason: string; createdAt?: Date; description?: string; resolvedAt?: Date | null; resolution?: string | null; evidence?: { uploaderId: string; text: string; createdAt: Date }[] }[] };
+> & { incidents?: { stage: string; status: string; proposedById: string | null; reason: string; createdAt?: Date; description?: string; resolvedAt?: Date | null; acceptedAt?: Date | null; resolution?: string | null; evidence?: { uploaderId: string; text: string; createdAt: Date }[] }[] };
 
 export type IncidentEvent = { at: Date; title: string; detail?: string };
 
@@ -100,7 +100,10 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
       const action = evidence.text.startsWith("Propozycja:") ? "nowa propozycja" : evidence.text.startsWith("Zaakceptowano") ? "akceptacja propozycji" : evidence.text.startsWith("Odrzucono") ? "odrzucenie propozycji" : evidence.text.startsWith("Poproszono") ? "prośba o wyjaśnienie" : evidence.text.startsWith("Ponowiono") ? "sprawdzenie rozliczenia" : "komentarz / dowód";
       add(evidence.createdAt, `${stage} · ${actor}: ${action}`, formatIncidentEvidenceText(evidence.text));
     }
-    add(incident.resolvedAt, `${stage}: zgłoszenie zakończone`, incident.resolution ?? undefined);
+    const resolutionSummary = incident.stage === "DELIVERY" && incident.acceptedAt && incident.resolution?.startsWith("Prośba o anulowanie rezerwacji i zwrot 100% najmu. Komentarz:")
+      ? "Prośba o anulowanie rezerwacji i zwrot 100% najmu zaakceptowana"
+      : incident.resolution ?? undefined;
+    add(incident.resolvedAt, `${stage}: zgłoszenie zakończone`, resolutionSummary);
   }
   const delivery = readIssue(booking.deliveryIssue);
   const returned = readIssue(booking.returnIssue);

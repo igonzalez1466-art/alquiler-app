@@ -29,6 +29,10 @@ assert.match(incidentState({...booking,incidents:[{...incident,status:'AGREEMENT
 const photoSet=[1,2,3].map(n=>({stage:'DELIVERY',uploaderId:'renter',createdAt:date(n)}));
 let photoEvents=incidentPhotoEvents(booking,photoSet);assert.equal(photoEvents.length,1);assert.equal(photoEvents[0].title,'Najemca dodał 3 zdjęcia');assert.equal(photoEvents[0].at.getTime(),date(3).getTime());assert.equal(photoEvents[0].detail,'Dostawa');
 photoEvents=incidentPhotoEvents(booking,[...photoSet,{stage:'RETURN',uploaderId:'renter',createdAt:date(4)},{stage:'RETURN',uploaderId:'owner',createdAt:date(5)}]);assert.equal(photoEvents.length,3);assert.equal(photoEvents[1].title,'Najemca dodał 1 zdjęcie');assert.equal(photoEvents[1].detail,'Zwrot');assert.equal(photoEvents[2].title,'Właściciel dodał 1 zdjęcie');assert.equal(photoSet.length,3);assert.equal(incidentPhotoEvents(booking,[]).length,0);
+const cancelledCase={...incident,status:'RESOLVED',acceptedAt:date(4),resolvedAt:date(5),resolution:'Prośba o anulowanie rezerwacji i zwrot 100% najmu. Komentarz: anulacja'};
+assert.equal(incidentTimeline({...booking,incidents:[cancelledCase]}).at(-1).detail,'Prośba o anulowanie rezerwacji i zwrot 100% najmu zaakceptowana');
+assert.equal(incidentTimeline({...booking,incidents:[{...cancelledCase,acceptedAt:null}]}).at(-1).detail,cancelledCase.resolution);
+assert.equal(incidentTimeline({...booking,incidents:[{...cancelledCase,resolution:'Inne rozwiązanie'}]}).at(-1).detail,'Inne rozwiązanie');
 let expanded=false;
 const jsx=(type,props)=>({type,props});
 const Timeline=load('app/account/incidents/[id]/IncidentTimeline.tsx',{'react':{useState:()=>[expanded,fn=>{expanded=fn(expanded)}]},'react/jsx-runtime':{jsx,jsxs:jsx}}).default;
