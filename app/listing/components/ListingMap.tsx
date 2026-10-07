@@ -113,7 +113,7 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
         center={center}
         zoom={zoom}
         className="w-full h-full"
-        scrollWheelZoom={false}
+        scrollWheelZoom={true}
       >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
