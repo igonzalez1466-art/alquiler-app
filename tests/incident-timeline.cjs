@@ -37,10 +37,12 @@ const trackingNumber='620999674851505432540710';
 const shipmentBooking={...booking,shippedAt:date(0),carrier:'InPost',trackingNumber,incidents:[{...incident,evidence:[{uploaderId:'renter',createdAt:date(1),text:'Numer przesyłki przy zgłoszeniu: '+trackingNumber},...incident.evidence]}]};
 const shipmentEvents=incidentTimeline(shipmentBooking);assert.equal(shipmentEvents[0].title,'Właściciel wysłał artykuł');assert.equal(shipmentEvents[0].detail,'Numer przesyłki InPost: '+trackingNumber);assert(!shipmentEvents.some(event=>event.detail?.startsWith('Numer przesyłki przy zgłoszeniu:')));
 assert(incidentTimeline({...shipmentBooking,trackingNumber:'different'}).some(event=>event.detail==='Numer przesyłki przy zgłoszeniu: '+trackingNumber));
-const handoverEvent=incidentTimeline({...shipmentBooking,carrier:'Odbiór osobisty',trackingNumber:null})[0];assert.equal(handoverEvent.title,'Właściciel przekazał artykuł');assert.equal(handoverEvent.detail,undefined);
+const handoverEvent=incidentTimeline({...shipmentBooking,carrier:'Odbiór osobisty',trackingNumber:null})[0];assert.equal(handoverEvent.title,'Właściciel przekazał artykuł osobiście');assert.equal(handoverEvent.detail,undefined);
 const reasons=load('app/lib/incidentPolicy.ts').incidentReasons;
 for(const [reason,label] of Object.entries(reasons)){const opening=incidentTimeline({...booking,incidents:[{...incident,reason,description:'brudny',evidence:[]}]}).find(event=>event.title==='Dostawa: otwarto zgłoszenie');assert.equal(opening.detail,'Powód: '+label+'\nOpis: brudny');}
 assert.equal(incidentTimeline({...booking,incidents:[{...incident,stage:'RETURN',reason:'LATE_RETURN',description:'',evidence:[]}]}).find(event=>event.title==='Zwrot: otwarto zgłoszenie').detail,'Powód: Zwrot po terminie');
+const personalEvents=incidentTimeline({...shipmentBooking,carrier:'Odbiór osobisty',trackingNumber});assert.equal(personalEvents[0].detail,undefined);assert(!personalEvents.some(event=>event.detail?.includes(trackingNumber)));
+const personalWithoutTracking=incidentTimeline({...shipmentBooking,carrier:'Odbiór osobisty',trackingNumber:null});assert(!personalWithoutTracking.some(event=>event.detail?.includes(trackingNumber)));
 let expanded=false;
 const jsx=(type,props)=>({type,props});
 const Timeline=load('app/account/incidents/[id]/IncidentTimeline.tsx',{'react':{useState:()=>[expanded,fn=>{expanded=fn(expanded)}]},'react/jsx-runtime':{jsx,jsxs:jsx}}).default;

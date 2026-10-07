@@ -97,7 +97,7 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
     const reason = incidentReasons[incident.reason as keyof typeof incidentReasons] ?? incidentReasons.OTHER;
     add(incident.createdAt, `${stage}: otwarto zgłoszenie`, `Powód: ${reason}${incident.description ? "\nOpis: " + incident.description : ""}`);
     for (const evidence of incident.evidence ?? []) {
-      if (incident.stage === "DELIVERY" && booking.shippedAt && booking.trackingNumber && evidence.text === "Numer przesyłki przy zgłoszeniu: " + booking.trackingNumber) continue;
+      if (incident.stage === "DELIVERY" && booking.shippedAt && evidence.text.startsWith("Numer przesyłki przy zgłoszeniu: ") && (booking.carrier === "Odbiór osobisty" || booking.trackingNumber && evidence.text === "Numer przesyłki przy zgłoszeniu: " + booking.trackingNumber)) continue;
       const actor = evidence.uploaderId === booking.ownerId ? "Właściciel" : "Najemca";
       const action = evidence.text.startsWith("Propozycja:") ? "nowa propozycja" : evidence.text.startsWith("Zaakceptowano") ? "akceptacja propozycji" : evidence.text.startsWith("Odrzucono") ? "odrzucenie propozycji" : evidence.text.startsWith("Poproszono") ? "prośba o wyjaśnienie" : evidence.text.startsWith("Ponowiono") ? "sprawdzenie rozliczenia" : "komentarz / dowód";
       add(evidence.createdAt, `${stage} · ${actor}: ${action}`, formatIncidentEvidenceText(evidence.text));
@@ -113,7 +113,7 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
   if (booking.deliveryIssue !== null || booking.incidents?.some(i => i.stage === "DELIVERY")) {
     const handover = booking.carrier === "Odbiór osobisty";
     const trackingDetail = !handover && booking.trackingNumber ? `${booking.carrier === "InPost" ? "Numer przesyłki InPost" : "Numer przesyłki"}: ${booking.trackingNumber}` : undefined;
-    add(booking.shippedAt, handover ? "Właściciel przekazał artykuł" : "Właściciel wysłał artykuł", trackingDetail);
+    add(booking.shippedAt, handover ? "Właściciel przekazał artykuł osobiście" : "Właściciel wysłał artykuł", trackingDetail);
     add(booking.deliveredAt, "Odbiór dostawy zapisano w aplikacji");
     if (!booking.incidents?.some(i => i.stage === "DELIVERY")) add(delivery?.reportedAt, "Najemca zgłosił problem z dostawą", delivery ? issueReasonLabel(delivery.reason) : undefined);
     if (!booking.incidents?.some(i => i.stage === "DELIVERY")) add(delivery?.resolvedAt, "Problem z dostawą został zamknięty");
