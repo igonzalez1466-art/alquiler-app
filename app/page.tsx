@@ -28,6 +28,18 @@ export default function Home() {
                 <span className="text-xs bg-gray-100 rounded-full px-3 py-1">💸 Dodatkowy zarobek</span>
                 <span className="text-xs bg-gray-100 rounded-full px-3 py-1">♻️ Drugie życie ubrań</span>
                 <span className="text-xs bg-gray-100 rounded-full px-3 py-1">🌿 Mniej kupowania</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" className="h-4 w-4 text-gray-800" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="16" cy="8" r="3.5" />
+                      <circle cx="6.5" cy="10" r="3" />
+                      <circle cx="25.5" cy="10" r="3" />
+                      <path d="M9 28v-5a7 7 0 0 1 14 0v5H9Z" />
+                      <path d="M8 15.5A5.5 5.5 0 0 0 1 21v3h5M24 15.5a5.5 5.5 0 0 1 7 5.5v3h-5" />
+                    </svg>
+                  </span>
+                  Zaufana społeczność
+                </span>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
