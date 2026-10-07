@@ -46,7 +46,10 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
   return <section id="incident-section" className="space-y-4 rounded-2xl border bg-white p-5 sm:p-6 scroll-mt-24">
     <h2 className="text-lg font-semibold">Zgłoszenia i uzgodnienia</h2>
     <p className="text-sm">Przed potwierdzeniem odbioru problem z dostawą wstrzymuje wypłatę. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia. Problemy ze zwrotem nie zmniejszają należnego wynagrodzenia.</p>
-    {cases.map(c => <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-4 rounded-xl border p-4 scroll-mt-24">
+    {cases.map(c => {
+      const canRespond = !!c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status);
+      const canRequestCancellation = !isOwner && c.stage === "DELIVERY" && c.reason === "NOT_AS_DESCRIBED";
+      return <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-4 rounded-xl border p-4 scroll-mt-24">
       <h3 className="font-semibold">{c.stage === "DELIVERY" ? "Dostawa" : "Zwrot"}: {incidentReasons[c.reason]}</h3>
       <p className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-900">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
       <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
@@ -61,14 +64,17 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
           {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {formatIncidentMoney(rentCents)})<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
           <ClaimActionButton disabled={pending} className={`${button} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700`}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
-        {c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status) && <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="accept" />
-            {c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="mb-2 block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}
-            <ClaimActionButton disabled={pending} className={button + " border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700"}>{isOwner && c.stage === "DELIVERY" && c.refundCents === rentCents ? "Akceptuję anulowanie i zwrot 100%" : "Akceptuję rozwiązanie"}</ClaimActionButton>
-          </form>
-          <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "reject" }))}>Odrzucam propozycję</button>
-        </div>}
-        {!isOwner && c.stage === "DELIVERY" && c.reason === "NOT_AS_DESCRIBED" && <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "request_cancel" }))}>Poproś o anulowanie rezerwacji</button>}
+        {(canRespond || canRequestCancellation) && <form action={d => run(d)} className="space-y-3">
+          <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="accept" />
+          {canRespond && c.stage === "DELIVERY" && (c.refundCents ?? 0) < rentCents && <label className="block text-sm"><input type="checkbox" required name="receivedAndAccepted" value="yes" /> Otrzymałem przedmiot i akceptuję najem po uzgodnionej cenie.</label>}
+          <div className="flex flex-wrap items-center gap-2">
+            {canRespond && <>
+              <ClaimActionButton disabled={pending} className={button + " border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700"}>{isOwner && c.stage === "DELIVERY" && c.refundCents === rentCents ? "Akceptuję anulowanie i zwrot 100%" : "Akceptuję rozwiązanie"}</ClaimActionButton>
+              <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "reject" }))}>Odrzucam propozycję</button>
+            </>}
+            {canRequestCancellation && <button type="button" disabled={pending} className={button} onClick={() => setResponseMode(current => ({ ...current, [c.id]: "request_cancel" }))}>Poproś o anulowanie rezerwacji</button>}
+          </div>
+        </form>}
         {responseMode[c.id] && <form action={d => run(d)} className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value={responseMode[c.id]} />
           <p className="text-sm font-semibold">{responseMode[c.id] === "reject" ? "Dlaczego odrzucasz propozycję?" : "Prośba o anulowanie i pełny zwrot"}</p>
@@ -79,7 +85,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       </fieldset>}
       {c.status === "AGREEMENT_REACHED" && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="retry" /><p className="text-sm">Oczekujemy na rozliczenie Stripe. W razie opóźnienia można ponowić tę samą operację.</p><ClaimActionButton disabled={pending} className={button}>Sprawdź / ponów rozliczenie</ClaimActionButton></form>}
       {c.stage === "RETURN" && <p className="text-xs text-gray-600">MojaSzafa zachowuje zgłoszenie i dowody do analizy historii konta. Nie ustala odszkodowania ani winy. Roszczenia dotyczące przedmiotu strony kierują poza platformą; dane mogą być udostępnione właściwym organom na podstawie ważnego żądania i obowiązujących zasad.</p>}
-    </article>)}
+    </article>; })}
     {(["DELIVERY", "RETURN"] as const).map(stage => (stage === "DELIVERY" ? canOpenDelivery : canOpenReturn) && !cases.some(c => c.stage === stage) && <details id={`incident-${stage.toLowerCase()}`} key={stage} className="rounded border p-3 scroll-mt-24">
       <summary className="cursor-pointer font-medium">Zgłoś problem — {stage === "DELIVERY" ? "dostawa" : "zwrot"}</summary>
       <form action={d => run(d, true)} className="mt-3 space-y-3">
