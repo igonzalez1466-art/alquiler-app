@@ -1,5 +1,6 @@
 "use client";
 
+import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
@@ -26,7 +27,7 @@ export default function BookingForm({
   listingId,
   isLoggedIn,
   pricePerDay,
-  minimumRentalDays,
+  minimumRentalDays: listingMinimumRentalDays,
   fianza,
   phoneVerified,
   occupiedRanges,
@@ -39,6 +40,7 @@ export default function BookingForm({
   phoneVerified: boolean;
   occupiedRanges: { start: string; end: string }[];
 }) {
+  const minimumRentalDays = effectiveMinimumRentalDays(listingMinimumRentalDays);
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
 

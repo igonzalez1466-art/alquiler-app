@@ -51,7 +51,7 @@ model Listing {
   id          String       @id @default(cuid())
   title       String
   description String?
-  minimumRentalDays Int @default(1)
+  minimumRentalDays Int @default(3)
   pricePerDay Int
   city        String?
   createdAt   DateTime     @default(now())

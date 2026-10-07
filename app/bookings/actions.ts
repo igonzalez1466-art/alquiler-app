@@ -1,5 +1,7 @@
 "use server";
 
+import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
+
 import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
@@ -160,7 +162,7 @@ export async function createBookingAction(input: {
 
   // Los importes quedan guardados en la reserva.
   const days = diffDaysInclusive(start, end);
-  if (days < listing.minimumRentalDays) throw new Error(`Minimalny okres wynajmu: ${listing.minimumRentalDays} dni.`);
+  if (days < effectiveMinimumRentalDays(listing.minimumRentalDays)) throw new Error(`Minimalny okres wynajmu: ${effectiveMinimumRentalDays(listing.minimumRentalDays)} dni.`);
   const pricePerDay = listing.pricePerDay;
   const deposit = DEPOSITS_ENABLED ? (listing.fianza ?? 0) : 0;
 

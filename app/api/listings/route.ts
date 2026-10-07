@@ -1,3 +1,4 @@
+import { MINIMUM_RENTAL_DAYS, MAXIMUM_RENTAL_DAYS } from "@/app/lib/minimumRentalDays";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { Estado, Gender, MetodoEnvio, GarmentType } from "@prisma/client";
@@ -15,6 +16,7 @@ const listingSchema = z.object({
   title: z.string().min(3),
   description: z.string().optional(),
   pricePerDay: z.coerce.number().int().positive(),
+  minimumRentalDays: z.coerce.number().int().min(MINIMUM_RENTAL_DAYS).max(MAXIMUM_RENTAL_DAYS).default(MINIMUM_RENTAL_DAYS),
   city: z.string().optional(),
   estado: z.nativeEnum(Estado),
   fianza: z.coerce.number().int().min(0).optional(),

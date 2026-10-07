@@ -30,6 +30,8 @@ function load(file) {
     if (id === '@/app/lib/prisma') return { prisma };
     if (id === '@/app/lib/auth') return { getSession: async () => ({ user: { id: 'owner' } }) };
     if (id === '@/app/lib/mailer') return { sendMail: async () => { throw Error('Unexpected email'); } };
+    if (id === './MinimumRentalDaysField') return 'MinimumRentalDaysField';
+    if (id === '@/app/lib/minimumRentalDays') return load('app/lib/minimumRentalDays.ts');
     if (id === '@/app/lib/listingAttributes') return load('app/lib/listingAttributes.ts');
     if (id === '@/app/components/GarmentTypeFields') return 'GarmentTypeFields';
     if (id === '@/app/lib/features') return { DEPOSITS_ENABLED: false };
@@ -51,7 +53,7 @@ function find(node, type) {
 }
 function form(changes = {}) {
   const data = new FormData();
-  const values = { title: 'Sukienka', description: 'Opis, którego nie wolno zgubić', pricePerDay: '50', minimumRentalDays: '2', marca: 'Mango', city: '', lat: '', lng: '', postalCode: '', gender: 'WOMAN', pregnancy: 'yes', color: 'CZARNY', material: 'BAWELNA', garmentType: 'VESTIDO', size: 'M', estado: 'USADO', metodoEnvio: 'RECOGIDA_LOCAL', ...changes };
+  const values = { title: 'Sukienka', description: 'Opis, którego nie wolno zgubić', pricePerDay: '50', minimumRentalDays: '3', marca: 'Mango', city: '', lat: '', lng: '', postalCode: '', gender: 'WOMAN', pregnancy: 'yes', color: 'CZARNY', material: 'BAWELNA', garmentType: 'VESTIDO', size: 'M', estado: 'USADO', metodoEnvio: 'RECOGIDA_LOCAL', ...changes };
   for (const [k, v] of Object.entries(values)) data.set(k, v);
   for (let i = 0; i < 3; i++) data.append('photos', new File(['photo'], `photo${i}.jpg`, { type: 'image/jpeg' }));
   return data;
@@ -89,6 +91,8 @@ function form(changes = {}) {
   assert.equal(created, 1); assert.equal(uploads, 3); assert.equal(saved.city, 'Warszawa');
   const error = await action(form({ city: 'Warszawa', lat: '52', lng: '21', pricePerDay: '-1' }));
   assert.match(error.error, /Cena za dzień/); assert.equal(created, 1);
+  for (const value of ['0','1','2','2.5','','2147483648']) { const result = await action(form({ minimumRentalDays: value })); assert.equal(result.field,'minimumRentalDays'); assert.equal(created,1); }
+  for (const value of ['3','7','10']) { await assert.rejects(action(form({ minimumRentalDays:value,city:'Warszawa',lat:'52',lng:'21' })),e=>e.digest==='NEXT_REDIRECT;/listing?ok=1'); assert.equal(saved.minimumRentalDays,Number(value)); }
   console.log('PASS: invalid/missing coordinates, in-place errors, preserved listing fields and photos, duplicate-submit lock, corrected location publication and other validation errors. No real uploads, emails or database writes.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
 

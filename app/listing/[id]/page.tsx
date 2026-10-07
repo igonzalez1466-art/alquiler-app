@@ -1,3 +1,4 @@
+import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 // app/listing/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import { sportLabel, accessoryLabel } from "@/app/lib/listingAttributes";
@@ -206,7 +207,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
       {error && <p role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
         {error === "zbyt-krotki-okres"
-          ? `Minimalny okres wynajmu tego przedmiotu: ${listing.minimumRentalDays} ${listing.minimumRentalDays === 1 ? "dzień" : "dni"}. Wybierz dłuższy okres.`
+          ? `Minimalny okres wynajmu tego przedmiotu: ${effectiveMinimumRentalDays(listing.minimumRentalDays)} ${effectiveMinimumRentalDays(listing.minimumRentalDays) === 1 ? "dzień" : "dni"}. Wybierz dłuższy okres.`
           : ({
               "termin-jest-zajety": "Wybrany termin jest już zajęty. Wybierz inne daty.",
               "brak-danych": "Uzupełnij datę rozpoczęcia i zakończenia rezerwacji.",
@@ -342,7 +343,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
           {/* Price card */}
           <section className="border rounded-xl bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold mb-3">Cena</h2>
-            <p className="mb-3 text-sm"><strong>Minimalny okres wynajmu:</strong> {listing.minimumRentalDays} {listing.minimumRentalDays === 1 ? "dzień" : "dni"}</p>
+            <p className="mb-3 text-sm"><strong>Minimalny okres wynajmu:</strong> {effectiveMinimumRentalDays(listing.minimumRentalDays)} {effectiveMinimumRentalDays(listing.minimumRentalDays) === 1 ? "dzień" : "dni"}</p>
 
             <div className={`grid grid-cols-1 ${DEPOSITS_ENABLED ? "sm:grid-cols-2" : ""} gap-3`}>
               <div className="rounded-lg border bg-gray-50 p-3">
@@ -376,7 +377,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 listingId={listing.id}
                 isLoggedIn={!!session?.user?.id}
                 pricePerDay={listing.pricePerDay}
-                minimumRentalDays={listing.minimumRentalDays}
+                minimumRentalDays={effectiveMinimumRentalDays(listing.minimumRentalDays)}
                 fianza={DEPOSITS_ENABLED ? listing.fianza ?? 0 : 0}
                 phoneVerified={phoneVerified}
                 occupiedRanges={occupiedRanges}

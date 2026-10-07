@@ -1,5 +1,7 @@
 "use server";
 
+import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
+
 import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
@@ -234,7 +236,7 @@ export async function createBookingAction(
   ========================================================== */
 
   const days = diffDaysInclusive(startDate, endDate);
-  if (days < listing.minimumRentalDays) redirect(`/listing/${listingId}?blad=zbyt-krotki-okres`);
+  if (days < effectiveMinimumRentalDays(listing.minimumRentalDays)) redirect(`/listing/${listingId}?blad=zbyt-krotki-okres`);
 
   if (days <= 0) {
     redirect(
