@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
-import { hasIncident, incidentState, incidentTimeline, incidentTopics } from "@/app/lib/incidentCase";
+import { hasIncident, incidentState, incidentTimeline, incidentTopics, incidentPhotoEvents } from "@/app/lib/incidentCase";
 import { canViewBookingEvidencePhoto } from "@/app/lib/bookingEvidenceVisibility";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
 import { canClaimNotReturned, claimReasonFromReturnIssue, isNotReturnedClaimReason, readDepositClaim } from "@/app/lib/depositClaim";
@@ -36,7 +36,7 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
   const state = incidentState(booking, userId);
   const timeline = [
     ...incidentTimeline(booking),
-    ...visiblePhotos.map(photo => ({ at: photo.createdAt, title: `${photo.uploaderId === booking.ownerId ? "Właściciel" : "Najemca"} dodał zdjęcie`, detail: photo.stage === "DELIVERY" ? "Dostawa" : "Zwrot" })),
+    ...incidentPhotoEvents(booking, visiblePhotos),
   ].sort((a, b) => b.at.getTime() - a.at.getTime());
   const deliveryCompleted = booking.shippingStatus === "DELIVERED" && ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus);
   const returnCompleted = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);

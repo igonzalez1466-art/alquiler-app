@@ -126,3 +126,21 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
   add(booking.depositRefundedAt, "Zwrot kaucji został zlecony", (booking.depositRetainedCents ?? 0) > 0 ? "Część kaucji została zatrzymana." : undefined);
   return events.sort((a, b) => a.at.getTime() - b.at.getTime());
 }
+
+/** Summarize the saved photo set once per participant and incident stage. */
+export function incidentPhotoEvents(booking: { ownerId: string }, photos: { stage: string; uploaderId: string; createdAt: Date }[]): IncidentEvent[] {
+  const groups = new Map<string, { stage: string; uploaderId: string; at: Date; count: number }>();
+  for (const photo of photos) {
+    const key = JSON.stringify([photo.stage, photo.uploaderId]);
+    const group = groups.get(key);
+    if (group) {
+      group.count++;
+      if (photo.createdAt > group.at) group.at = photo.createdAt;
+    } else groups.set(key, { stage: photo.stage, uploaderId: photo.uploaderId, at: photo.createdAt, count: 1 });
+  }
+  return Array.from(groups.values(), group => {
+    const actor = group.uploaderId === booking.ownerId ? "Właściciel" : "Najemca";
+    const noun = group.count === 1 ? "zdjęcie" : group.count % 10 >= 2 && group.count % 10 <= 4 && !(group.count % 100 >= 12 && group.count % 100 <= 14) ? "zdjęcia" : "zdjęć";
+    return { at: group.at, title: actor + " dodał " + group.count + " " + noun, detail: group.stage === "DELIVERY" ? "Dostawa" : "Zwrot" };
+  });
+}

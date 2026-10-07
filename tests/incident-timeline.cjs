@@ -6,7 +6,7 @@ function load(file,mocks={}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:id=>mocks[id]??(id.startsWith('@/')?load(id.slice(2)+'.ts'):require(id)),Date,Intl,Number});
   return cache[file]=exports;
 }
-const {incidentTimeline,incidentState}=load('app/lib/incidentCase.ts');
+const {incidentTimeline,incidentState,incidentPhotoEvents}=load('app/lib/incidentCase.ts');
 const {formatIncidentMoney,formatIncidentEvidenceText}=load('app/lib/incidentFormatting.ts');
 assert.equal(formatIncidentMoney(6000).replaceAll('\u00a0',' '),'60,00 zł');
 assert.equal(formatIncidentMoney(6001).replaceAll('\u00a0',' '),'60,01 zł');
@@ -26,6 +26,9 @@ assert.equal(incidentTimeline({...booking,incidents:[legacyProposal]}).at(-1).de
 assert.equal(incidentState(booking,'owner').needsAction,true);
 assert.equal(incidentState(booking,'renter').label,'Czeka na właściciela');
 assert.match(incidentState({...booking,incidents:[{...incident,status:'AGREEMENT_REACHED'}]},'owner').next,/Obie strony zaakceptowały/);
+const photoSet=[1,2,3].map(n=>({stage:'DELIVERY',uploaderId:'renter',createdAt:date(n)}));
+let photoEvents=incidentPhotoEvents(booking,photoSet);assert.equal(photoEvents.length,1);assert.equal(photoEvents[0].title,'Najemca dodał 3 zdjęcia');assert.equal(photoEvents[0].at.getTime(),date(3).getTime());assert.equal(photoEvents[0].detail,'Dostawa');
+photoEvents=incidentPhotoEvents(booking,[...photoSet,{stage:'RETURN',uploaderId:'renter',createdAt:date(4)},{stage:'RETURN',uploaderId:'owner',createdAt:date(5)}]);assert.equal(photoEvents.length,3);assert.equal(photoEvents[1].title,'Najemca dodał 1 zdjęcie');assert.equal(photoEvents[1].detail,'Zwrot');assert.equal(photoEvents[2].title,'Właściciel dodał 1 zdjęcie');assert.equal(photoSet.length,3);assert.equal(incidentPhotoEvents(booking,[]).length,0);
 let expanded=false;
 const jsx=(type,props)=>({type,props});
 const Timeline=load('app/account/incidents/[id]/IncidentTimeline.tsx',{'react':{useState:()=>[expanded,fn=>{expanded=fn(expanded)}]},'react/jsx-runtime':{jsx,jsxs:jsx}}).default;
