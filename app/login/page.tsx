@@ -1,11 +1,15 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { loginDestination } from "@/app/lib/loginDestination";
 import Link from "next/link";
 import GoogleSignInButton from "@/app/components/GoogleSignInButton";
 
-export default function LoginPage() {
+function LoginScreen() {
+  const searchParams = useSearchParams();
+  const callbackUrl = loginDestination(searchParams.get("callbackUrl"), typeof window === "undefined" ? undefined : window.location.origin);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -20,30 +24,35 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
 
-    setLoading(false);
 
-    if (res?.error) {
-      if (res.error === "EMAIL_NOT_VERIFIED") {
-        setError("Musisz najpierw zweryfikować swój adres e-mail.");
+      if (res?.error) {
+        if (res.error === "EMAIL_NOT_VERIFIED") {
+          setError("Musisz najpierw zweryfikować swój adres e-mail.");
+          return;
+        }
+
+        if (res.error === "CredentialsSignin") {
+          setError("Nieprawidłowy adres e-mail lub hasło.");
+          return;
+        }
+
+        setError("Wystąpił nieoczekiwany błąd.");
         return;
       }
 
-      if (res.error === "CredentialsSignin") {
-        setError("Nieprawidłowy adres e-mail lub hasło.");
-        return;
-      }
-
-      setError("Wystąpił nieoczekiwany błąd.");
-      return;
-    }
-
-    window.location.href = "/";
+      if (!res?.ok) { setError("Nie udało się zalogować. Spróbuj ponownie."); return; }
+      window.location.href = callbackUrl;
+    } catch {
+      setError("Nie udało się połączyć z serwerem. Spróbuj ponownie.");
+    } finally { setLoading(false); }
   }
 
   return (
@@ -52,7 +61,7 @@ export default function LoginPage() {
 
       {error && <p className="mb-3 text-red-600">{error}</p>}
 
-      <GoogleSignInButton />
+      <GoogleSignInButton callbackUrl={callbackUrl} />
 
       <div className="my-5 flex items-center gap-3 text-xs text-gray-500" aria-hidden="true">
         <span className="h-px flex-1 bg-gray-200" />
@@ -166,4 +175,8 @@ export default function LoginPage() {
       </form>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return <Suspense fallback={<p role="status" className="py-8">Wczytywanie logowania…</p>}><LoginScreen /></Suspense>;
 }

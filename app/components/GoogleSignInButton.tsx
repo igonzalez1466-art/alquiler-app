@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRef, useState } from "react";
 
-export default function GoogleSignInButton() {
+export default function GoogleSignInButton({ callbackUrl = "/" }: { callbackUrl?: string }) {
   const locked = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,7 +14,7 @@ export default function GoogleSignInButton() {
     setLoading(true);
     setError("");
     try {
-      await signIn("google", { callbackUrl: "/" });
+      await signIn("google", { callbackUrl });
     } catch {
       locked.current = false;
       setLoading(false);

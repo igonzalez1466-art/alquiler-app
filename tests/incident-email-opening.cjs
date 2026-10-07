@@ -1,0 +1,25 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),ts=require('typescript'),assert=require('node:assert/strict');const root=path.resolve(__dirname,'..');
+const jsx=(type,props)=>({type,props});let search='/account/incidents/test',calls=[],authResult={ok:true},state=[],stateIndex=0;
+const window={location:{origin:'https://stagingmojaszafa.eu',href:'unchanged'}};
+class Form extends FormData{constructor(){super();this.set('email','USER@example.test');this.set('password','secret');}}
+function load(file,mocks={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,Date,URL,Number,console,window,FormData:Form,require:id=>id in mocks?mocks[id]:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='react'?{Suspense:'Suspense',useRef:initial=>({current:initial}),useState:initial=>{const i=stateIndex++;state[i]=initial;return[initial,value=>{state[i]=value}]}}:id==='next/navigation'?{useSearchParams:()=>({get:()=>search})}:id==='next-auth/react'?{signIn:async(...args)=>{calls.push(args);return authResult}}:id==='next/link'?{default:'Link'}:id==='@/app/components/GoogleSignInButton'?{default:'GoogleSignInButton'}:id.startsWith('@/')?load(id.slice(2)+'.ts'):{}});return exports;}
+const {loginDestination}=load('app/lib/loginDestination.ts');
+for(const bad of [null,'https://evil.test/path','//evil.test/path','/\\evil.test','javascript:alert(1)','/login','/api/auth/signin','/auth/error',' /account','/account\n'])assert.equal(loginDestination(bad,window.location.origin),'/');
+assert.equal(loginDestination('/account/incidents/test?x=1#incident-section'),'/account/incidents/test?x=1#incident-section');assert.equal(loginDestination('https://stagingmojaszafa.eu/account/incidents/test',window.location.origin),'/account/incidents/test');
+const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
+(async()=>{
+ const Login=load('app/login/page.tsx').default;let rootNode=Login();stateIndex=0;let tree=nodes(rootNode.props.children.type());assert.equal(tree.find(n=>n.type==='GoogleSignInButton').props.callbackUrl,search);
+ await tree.find(n=>n.type==='form').props.onSubmit({preventDefault(){},currentTarget:{}});assert.equal(calls[0][1].callbackUrl,search);assert.equal(window.location.href,search);assert.equal(state[0],false);
+ authResult={ok:false,error:'CredentialsSignin'};window.location.href='unchanged';await tree.find(n=>n.type==='form').props.onSubmit({preventDefault(){},currentTarget:{}});assert.equal(window.location.href,'unchanged');assert.match(state[1],/Nieprawidłowy/);
+ const Google=load('app/components/GoogleSignInButton.tsx').default;stateIndex=0;await nodes(Google({callbackUrl:search})).find(n=>n.type==='button').props.onClick();assert.equal(calls.at(-1)[0],'google');assert.equal(calls.at(-1)[1].callbackUrl,search);
+ const b={ownerId:'owner',renterId:'renter',paymentStatus:'PAID',status:'CONFIRMED',deliveryIssue:{},rentAmountCents:6000,incidents:[]};let photoQuery;
+ const BookingIncidents=load('app/bookings/[id]/_components/BookingIncidents.tsx',{'@/app/lib/prisma':{prisma:{booking:{findUnique:async()=>b},bookingEvidencePhoto:{findMany:async q=>{photoQuery=q;assert(q.select,'Do not load the binary photo data in page rendering');return[{id:'photo',uploaderId:'renter',stage:'DELIVERY',createdAt:new Date('2026-01-01'),data:new Uint8Array(1024)}]}}}},'@/app/lib/bookingEvidence':{canUploadBookingEvidence:()=>false},'@/app/lib/bookingEvidenceVisibility':{canViewBookingEvidencePhoto:()=>true},'./BookingEvidencePhotos':{default:'Photos'},'./IncidentPanel':{default:'Panel'}}).default;
+ for(const userId of ['owner','renter']){const panel=await BookingIncidents({bookingId:'b',userId});assert.equal(photoQuery.select.data,undefined);assert.deepEqual(Object.keys(panel.props.deliveryPhotos.props.photos[0]).sort(),['createdAt','id','uploaderId']);}
+ assert.equal(await BookingIncidents({bookingId:'b',userId:'stranger'}),null);
+ const {createInlinedDataReadableStream}=require('next/dist/server/app-render/use-flight-response');
+ const renderChunk=bytes=>new Response(createInlinedDataReadableStream(new ReadableStream({start(controller){controller.enqueue(bytes);controller.close();}}),null,null)).text();
+ await assert.rejects(renderChunk(new Uint8Array(256*1024).fill(255)),/Maximum call stack size exceeded/);
+ const metadata=new TextEncoder().encode(JSON.stringify({id:'photo',uploaderId:'renter',createdAt:'2026-01-01T00:00:00.000Z'}));assert.match(await renderChunk(metadata),/photo/);
+ console.log('Reproduced the installed Next.js direct-page binary overflow; metadata-only response renders successfully.');
+ console.log('Email opening checks passed: local callback preserved after password/Google login, foreign destinations blocked, owner/renter photo metadata only, authorization preserved.');
+})().catch(error=>{console.error(error);process.exitCode=1});
