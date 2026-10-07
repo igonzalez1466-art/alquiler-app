@@ -11,7 +11,7 @@ type IncidentBooking = Pick<Booking,
   "depositDecisionAt" | "settlementCompletedAt" | "shippedAt" | "returnShippedAt" |
   "deliveredAt" | "deliveryConfirmedAt" | "returnDeliveredAt" | "returnConfirmedAt" |
   "depositRefundedAt" | "depositRetainedCents" | "depositCents"
-> & { incidents?: { stage: string; status: string; proposedById: string | null; reason: string; createdAt?: Date; description?: string; resolvedAt?: Date | null; acceptedAt?: Date | null; resolution?: string | null; evidence?: { uploaderId: string; text: string; createdAt: Date }[] }[] };
+> & { carrier?: Booking["carrier"]; trackingNumber?: Booking["trackingNumber"]; incidents?: { stage: string; status: string; proposedById: string | null; reason: string; createdAt?: Date; description?: string; resolvedAt?: Date | null; acceptedAt?: Date | null; resolution?: string | null; evidence?: { uploaderId: string; text: string; createdAt: Date }[] }[] };
 
 export type IncidentEvent = { at: Date; title: string; detail?: string };
 
@@ -96,6 +96,7 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
     const stage = incident.stage === "DELIVERY" ? "Dostawa" : "Zwrot";
     add(incident.createdAt, `${stage}: otwarto zgłoszenie`, incident.description);
     for (const evidence of incident.evidence ?? []) {
+      if (incident.stage === "DELIVERY" && booking.shippedAt && booking.trackingNumber && evidence.text === "Numer przesyłki przy zgłoszeniu: " + booking.trackingNumber) continue;
       const actor = evidence.uploaderId === booking.ownerId ? "Właściciel" : "Najemca";
       const action = evidence.text.startsWith("Propozycja:") ? "nowa propozycja" : evidence.text.startsWith("Zaakceptowano") ? "akceptacja propozycji" : evidence.text.startsWith("Odrzucono") ? "odrzucenie propozycji" : evidence.text.startsWith("Poproszono") ? "prośba o wyjaśnienie" : evidence.text.startsWith("Ponowiono") ? "sprawdzenie rozliczenia" : "komentarz / dowód";
       add(evidence.createdAt, `${stage} · ${actor}: ${action}`, formatIncidentEvidenceText(evidence.text));
@@ -108,8 +109,10 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
   const delivery = readIssue(booking.deliveryIssue);
   const returned = readIssue(booking.returnIssue);
   const claim = readDepositClaim(booking.depositClaim);
-  if (booking.deliveryIssue !== null) {
-    add(booking.shippedAt, "Właściciel oznaczył dostawę jako wysłaną");
+  if (booking.deliveryIssue !== null || booking.incidents?.some(i => i.stage === "DELIVERY")) {
+    const handover = booking.carrier === "Odbiór osobisty";
+    const trackingDetail = !handover && booking.trackingNumber ? `${booking.carrier === "InPost" ? "Numer przesyłki InPost" : "Numer przesyłki"}: ${booking.trackingNumber}` : undefined;
+    add(booking.shippedAt, handover ? "Właściciel przekazał artykuł" : "Właściciel wysłał artykuł", trackingDetail);
     add(booking.deliveredAt, "Odbiór dostawy zapisano w aplikacji");
     if (!booking.incidents?.some(i => i.stage === "DELIVERY")) add(delivery?.reportedAt, "Najemca zgłosił problem z dostawą", delivery ? issueReasonLabel(delivery.reason) : undefined);
     if (!booking.incidents?.some(i => i.stage === "DELIVERY")) add(delivery?.resolvedAt, "Problem z dostawą został zamknięty");

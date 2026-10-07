@@ -35,7 +35,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
       id: true, bookingNumber: true, createdAt: true, startDate: true, endDate: true, ownerId: true, renterId: true,
       status: true, deliveryIssue: true, returnIssue: true, depositClaim: true,
       deliveryConfirmationStatus: true, returnConfirmationStatus: true, depositStatus: true,
-      depositDecisionAt: true, settlementCompletedAt: true, shippedAt: true, deliveredAt: true, deliveryConfirmedAt: true,
+      depositDecisionAt: true, settlementCompletedAt: true, shippedAt: true, carrier: true, trackingNumber: true, deliveredAt: true, deliveryConfirmedAt: true,
       returnShippedAt: true, returnDeliveredAt: true, returnConfirmedAt: true,
       depositRefundedAt: true, depositRetainedCents: true, depositCents: true,
       incidents: { include: { evidence: { orderBy: { createdAt: "asc" } } } },
