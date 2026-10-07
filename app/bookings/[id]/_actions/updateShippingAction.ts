@@ -163,6 +163,7 @@ export async function updateShippingAction(formData: FormData) {
       const title = booking.listing?.title ?? "Przedmiot";
       const s = fmt(booking.startDate);
       const e = fmt(booking.endDate);
+      const isPersonalDelivery = carrier === "Odbiór osobisty";
       const inpostNumber = carrier === "InPost" ? normalizeInpostNumber(trackingNumber) : null;
       const inpostTrackingUrl = inpostNumber
         ? `https://inpost.pl/sledzenie-przesylek?number=${inpostNumber}`
@@ -170,13 +171,15 @@ export async function updateShippingAction(formData: FormData) {
 
       await sendMail({
         to: renterEmail,
-        subject: `Przedmiot wysłany ${ref}: ${title}`,
+        subject: `${isPersonalDelivery ? "Przedmiot przekazany osobiście" : "Przedmiot wysłany"} ${ref}: ${title}`,
         html: `
 <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111; line-height:1.5;">
 
   <p>Cześć ${booking.renter?.name ?? ""},</p>
 
-  <p>Właściciel oznaczył przedmiot jako <strong>wysłany</strong>.</p>
+  <p>${isPersonalDelivery
+    ? "Właściciel przekazał przedmiot <strong>osobiście</strong>."
+    : "Właściciel oznaczył przedmiot jako <strong>wysłany</strong>."}</p>
 
   <div style="margin:16px 0; padding:16px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">
     <p style="margin:0 0 8px 0; font-size:16px; font-weight:600;">
@@ -195,14 +198,14 @@ export async function updateShippingAction(formData: FormData) {
       carrier
         ? `
     <p style="margin:4px 0;">
-      <strong>Przewoźnik:</strong> ${carrier}
+      <strong>${isPersonalDelivery ? "Sposób przekazania" : "Przewoźnik"}:</strong> ${carrier}
     </p>
     `
         : ""
     }
 
     ${
-      trackingNumber
+      !isPersonalDelivery && trackingNumber
         ? `
     <p style="margin:4px 0;">
       <strong>Numer śledzenia:</strong> ${trackingNumber}
@@ -222,7 +225,9 @@ export async function updateShippingAction(formData: FormData) {
   ` : ""}
 
   <p>
-    Gdy otrzymasz przedmiot, zaloguj się do panelu i potwierdź odbiór przedmiotu.
+    ${isPersonalDelivery
+      ? "Zaloguj się do panelu i potwierdź odbiór przekazanego przedmiotu."
+      : "Gdy otrzymasz przedmiot, zaloguj się do panelu i potwierdź odbiór przedmiotu."}
   </p>
 
   <p>
