@@ -3,7 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
-import { markChatAsRead } from "./actions";
+import ChatReadReceipt from "./ChatReadReceipt";
 import SendMessageForm from "./SendMessageForm";
 import { formatChatDateTime } from "@/app/lib/chatDateTime";
 
@@ -48,8 +48,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
     return <p className="p-6">Brak uprawnień do tego czatu.</p>;
   }
 
-  // ✅ Marca como leído para el usuario que abre el chat
-  await markChatAsRead(id);
+
 
   const other = userId === convo.buyerId ? convo.seller : convo.buyer;
 
@@ -59,6 +58,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 sm:px-6">
+      <ChatReadReceipt conversationId={id} readThrough={convo.messages.at(-1)?.createdAt.toISOString() ?? null} />
       <Link href="/chat" className="inline-flex text-sm font-medium text-indigo-700 hover:underline">← Wróć do czatów</Link>
 
       <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

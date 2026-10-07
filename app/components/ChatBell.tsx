@@ -1,7 +1,7 @@
 // app/components/ChatBell.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getPusherClient } from "@/app/lib/pusher-client";
@@ -12,19 +12,27 @@ export default function ChatBell({ userId }: Props) {
   const [total, setTotal] = useState<number>(0);
   const router = useRouter();
 
+  const requestVersion = useRef(0);
+
   // Pide al server el total de no leídos
-  const fetchUnread = async () => {
+  const fetchUnread = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
       const res = await fetch("/api/chat/unread-total", { cache: "no-store" });
+      if (!res.ok) return;
       const data = await res.json();
-      setTotal(typeof data.total === "number" ? data.total : 0);
+      if (version === requestVersion.current && typeof data.total === "number" && Number.isInteger(data.total) && data.total >= 0) setTotal(data.total);
     } catch {
       // opcional: console.error
     }
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
+    const versions = requestVersion;
+
+    const onRead = () => { if (mounted) void fetchUnread(); };
+    window.addEventListener("mojaszafa:chat-read", onRead);
 
     // Carga inicial
     fetchUnread();
@@ -40,6 +48,8 @@ export default function ChatBell({ userId }: Props) {
 
       return () => {
         mounted = false;
+        versions.current++;
+        window.removeEventListener("mojaszafa:chat-read", onRead);
         clearInterval(id);
       };
     }
@@ -57,13 +67,15 @@ export default function ChatBell({ userId }: Props) {
 
     return () => {
       mounted = false;
+      versions.current++;
+      window.removeEventListener("mojaszafa:chat-read", onRead);
       channel.unbind("message:new", onNewMessage);
       pusher.unsubscribe(channelName);
 
       // ⚠️ No desconectes el singleton aquí: puede haber otros componentes usando Pusher.
       // pusher.disconnect();
     };
-  }, [userId, router]);
+  }, [userId, router, fetchUnread]);
 
   return (
     <Link href="/chat" className="relative inline-flex items-center gap-2">

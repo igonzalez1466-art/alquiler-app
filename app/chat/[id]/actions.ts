@@ -257,28 +257,29 @@ export async function sendMessageAction(
 }
 
 // =========================
-// markChatAsRead (sin cambios)
+// Mark displayed messages as read for the current participant.
 // =========================
-export async function markChatAsRead(conversationId: string): Promise<void> {
+export async function markChatAsRead(conversationId: string, readThrough?: string): Promise<boolean> {
   const session = await getServerSession(authConfig);
   const userId = getUserIdFromSession(session);
-  if (!userId) return;
-
+  if (!userId) return false;
+  const readAt = readThrough ? new Date(readThrough) : new Date();
+  if (!Number.isFinite(readAt.getTime()) || readAt.getTime() > Date.now()) return false;
   const conv = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    select: { buyerId: true, sellerId: true },
+    where: { id: conversationId }, select: { buyerId: true, sellerId: true },
   });
-  if (!conv) return;
-
+  if (!conv || userId !== conv.buyerId && userId !== conv.sellerId) return false;
+  // Older tabs must not move the read marker backwards.
   if (userId === conv.buyerId) {
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { buyerLastReadAt: new Date() },
+    await prisma.conversation.updateMany({
+      where: { id: conversationId, buyerId: userId, OR: [{ buyerLastReadAt: null }, { buyerLastReadAt: { lt: readAt } }] },
+      data: { buyerLastReadAt: readAt },
     });
-  } else if (userId === conv.sellerId) {
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { sellerLastReadAt: new Date() },
+  } else {
+    await prisma.conversation.updateMany({
+      where: { id: conversationId, sellerId: userId, OR: [{ sellerLastReadAt: null }, { sellerLastReadAt: { lt: readAt } }] },
+      data: { sellerLastReadAt: readAt },
     });
   }
+  return true;
 }
