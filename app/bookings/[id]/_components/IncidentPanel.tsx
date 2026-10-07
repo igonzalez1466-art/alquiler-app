@@ -1,4 +1,5 @@
 "use client";
+import { formatCalendarDate, warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { userMessage } from "@/app/lib/userMessage";
 
 import { useRef, useState, type ReactNode } from "react";
@@ -10,7 +11,7 @@ import { incidentAction, openIncidentAction } from "../_actions/incidentActions"
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
 import { incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
 
-type Case = { id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
+type Case = { reportedDeliveryDate?: string | null; lateDelivery?: { delayDays: number; totalDays: number; refundCents: number } | null; id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
 export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos }: {
   bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode;
@@ -54,6 +55,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <p className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-900">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
       <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
       <p className="rounded-lg bg-slate-50 p-3 text-sm font-medium">{c.status === "RESOLVED" ? c.acceptedAt ? "Rozwiązanie zaakceptowane przez obie strony. Zgłoszenie zakończone." : "Zgłoszenie zakończone." : c.status === "AGREEMENT_REACHED" ? "Rozwiązanie zaakceptowane. Rozliczenie w toku." : canActOnIncident(c, isOwner) ? "Twoja kolej — odpowiedz poniżej." : `Czekamy na odpowiedź ${canActOnIncident(c, true) ? "właściciela" : "najemcy"}.`}</p>
+      {c.reportedDeliveryDate && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm"><p><strong>Data odbioru podana przez najemcę:</strong> {formatCalendarDate(c.reportedDeliveryDate)}</p>{c.lateDelivery && <><p><strong>Sugerowany zwrot za opóźnienie: {formatIncidentMoney(c.lateDelivery.refundCents)}</strong></p><p>Opóźnienie: {c.lateDelivery.delayDays} {c.lateDelivery.delayDays === 1 ? "dzień" : "dni"}. Kwota najmu × dni opóźnienia / dni rezerwacji ({c.lateDelivery.totalDays}), maksymalnie 100%.</p><p>To sugestia do uzgodnienia. Zwrot wymaga akceptacji obu stron.</p></>}</div>}
       {c.resolution && <p className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {formatIncidentMoney(c.refundCents ?? 0)}</>}</p>}
       {c.evidence.length > 0 && <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">Historia zgłoszenia ({c.evidence.length})</summary><div className="mt-3 space-y-2">{[...c.evidence].reverse().map(e => <p key={e.id} className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-sm">{formatIncidentEvidenceText(e.text)} · {new Date(e.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>)}</div></details>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
@@ -61,7 +63,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-2">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="propose" />
           <label className="block text-sm">Komentarz<textarea name="resolution" required maxLength={2000} className="block w-full rounded border p-2" /></label>
-          {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {formatIncidentMoney(rentCents)})<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue="0" className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
+          {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {formatIncidentMoney(rentCents)})<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue={c.lateDelivery ? (c.lateDelivery.refundCents / 100).toFixed(2) : "0"} className="block rounded border p-2" /></label> : <input type="hidden" name="refundCents" value="0" />}
           <ClaimActionButton disabled={pending} className={`${button} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700`}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
         {(canRespond || canRequestCancellation) && <form action={d => run(d)} className="space-y-3">
@@ -91,6 +93,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <form action={d => run(d, true)} className="mt-3 space-y-3">
         <input type="hidden" name="stage" value={stage} />
         <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded border p-2">{reasonsForStage[stage].map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
+        {stage === "DELIVERY" && selectedReasons[stage] === "LATE_DELIVERY" && <label className="block text-sm">Data odbioru przedmiotu (wymagana)<input name="reportedDeliveryDate" type="date" required max={warsawCalendarDate(new Date())} className="mt-1 block rounded border p-2" /><span className="mt-1 block text-xs text-slate-600">Podaj dzień, w którym rzeczywiście otrzymałeś przedmiot. Właściciel zobaczy datę i sugerowany zwrot za dni opóźnienia.</span></label>}
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded border p-2" /></label>
         <IncidentPhotoPicker required={incidentRequiresPhotos(stage, selectedReasons[stage])} disabled={pending} />
         <ClaimActionButton disabled={pending} className={button}>Wyślij zgłoszenie</ClaimActionButton>

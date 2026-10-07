@@ -13,7 +13,7 @@ export const incidentReasons: Record<IncidentReason, string> = {
   OTHER: "Inny problem",
 };
 export const reasonsForStage: Record<IncidentStage, IncidentReason[]> = {
-  DELIVERY: ["NOT_SHIPPED", "NOT_RECEIVED", "NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL", "LATE_DELIVERY", "OTHER"],
+  DELIVERY: ["NOT_SHIPPED", "NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL", "LATE_DELIVERY"],
   RETURN: ["RETURN_NOT_RECEIVED", "DAMAGED_ON_RETURN", "LATE_RETURN", "NOT_RETURNED", "OTHER"],
 };
 export function rentalAmounts(rent: number, fee: number, owner: number, refund: number) {

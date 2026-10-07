@@ -1,5 +1,7 @@
 "use server";
 
+import { validateLateDeliveryDate } from "@/app/lib/lateDelivery";
+import { formatCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { formatIncidentMoney } from "@/app/lib/incidentFormatting";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
@@ -47,11 +49,16 @@ export async function openIncidentAction(data: FormData) {
     if (stage === "RETURN" && !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus)) throw new Error("Najpierw potwierdź dostawę.");
     if (reason === "NOT_SHIPPED" && b.shippedAt) throw new Error("Przedmiot oznaczono już jako wysłany.");
     if ((reason === "NOT_RETURNED" || reason === "LATE_RETURN") && new Date() < b.endDate) throw new Error("Termin zwrotu jeszcze nie upłynął.");
+    const lateDelivery = stage === "DELIVERY" && reason === "LATE_DELIVERY"
+      ? validateLateDeliveryDate(String(data.get("reportedDeliveryDate") ?? ""), b.startDate, b.endDate, b.rentAmountCents ?? b.amountCents ?? 0) : null;
+    const lateDeliveryDetail = lateDelivery ? `Data odbioru podana przez najemcę: ${formatCalendarDate(String(data.get("reportedDeliveryDate")))}. Opóźnienie: ${lateDelivery.delayDays} ${lateDelivery.delayDays === 1 ? "dzień" : "dni"}. Sugerowany zwrot najmu: ${formatIncidentMoney(lateDelivery.refundCents)} (${lateDelivery.delayDays} / ${lateDelivery.totalDays} dni, maksymalnie 100%). Kwota wymaga zgody obu stron.` : "";
     const incident = await tx.incident.create({ data: {
       bookingId, stage, reason, description: text, openedById: userId,
+      reportedDeliveryDate: lateDelivery?.date ?? null,
       againstUserId: stage === "DELIVERY" ? b.ownerId : b.renterId,
       status: stage === "DELIVERY" ? "AWAITING_OWNER" : "AWAITING_RENTER",
     } });
+    if (lateDeliveryDetail) await tx.incidentEvidence.create({ data: { incidentId: incident.id, uploaderId: userId, text: lateDeliveryDetail } });
     const now = new Date();
     const issue = { reason: reason === "DAMAGED_ON_ARRIVAL" || reason === "DAMAGED_ON_RETURN" ? "DAMAGED" : reason === "NOT_AS_DESCRIBED" ? "WRONG_ITEM" : reason === "RETURN_NOT_RECEIVED" || reason === "NOT_RETURNED" || reason === "NOT_SHIPPED" ? "NOT_RECEIVED" : reason,
       description: text, reportedById: userId, reportedAt: now.toISOString(), resolvedById: null, resolvedAt: null };
@@ -65,7 +72,7 @@ export async function openIncidentAction(data: FormData) {
     const slots = [1, 2, 3].filter(slot => !existing.some(p => p.slot === slot));
     if (slots.length < photos.length) throw new Error("Limit zdjęć dla tego etapu został wykorzystany.");
     if (photos.length) await tx.bookingEvidencePhoto.createMany({ data: photos.map((p, i) => ({ ...p, bookingId, stage, uploaderId: userId, slot: slots[i] })) });
-    await queueIncidentEmail(tx, incident, "opened", userId, `opened:${incident.id}`, `${text}${photos.length ? ` · Dodano ${photos.length} zdjęcia.` : ""}`);
+    await queueIncidentEmail(tx, incident, "opened", userId, `opened:${incident.id}`, `${text}${lateDeliveryDetail ? " · " + lateDeliveryDetail : ""}${photos.length ? ` · Dodano ${photos.length} zdjęcia.` : ""}`);
   });
   await sendPendingIncidentEmails(bookingId);
   refresh(bookingId);

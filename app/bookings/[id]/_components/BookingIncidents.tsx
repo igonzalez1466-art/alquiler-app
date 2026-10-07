@@ -1,3 +1,5 @@
+import { lateDeliverySuggestion } from "@/app/lib/lateDelivery";
+import { rentalCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { prisma } from "@/app/lib/prisma";
 import BookingEvidencePhotos from "./BookingEvidencePhotos";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
@@ -19,5 +21,5 @@ export default async function BookingIncidents({ bookingId, userId }: { bookingI
   return <IncidentPanel deliveryPhotos={deliveryPhotos} bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}
     canOpenDelivery={paid && b.renterId === userId && !received && !b.rentSettlement && !b.ownerTransferId && b.deliveryIssue === null}
     canOpenReturn={paid && b.ownerId === userId && received && b.returnIssue === null}
-    cases={b.incidents.map(i => ({ ...i, createdAt: i.createdAt.toISOString(), resolvedAt: i.resolvedAt?.toISOString() ?? null, evidence: i.evidence.map(e => ({ ...e, createdAt: e.createdAt.toISOString() })) }))} />;
+    cases={b.incidents.map(i => ({ ...i, reportedDeliveryDate: i.reportedDeliveryDate ? rentalCalendarDate(i.reportedDeliveryDate) : null, lateDelivery: i.reason === "LATE_DELIVERY" && i.reportedDeliveryDate ? lateDeliverySuggestion(b.startDate, b.endDate, rentalCalendarDate(i.reportedDeliveryDate), b.rentAmountCents ?? b.amountCents ?? 0) : null, createdAt: i.createdAt.toISOString(), resolvedAt: i.resolvedAt?.toISOString() ?? null, evidence: i.evidence.map(e => ({ ...e, createdAt: e.createdAt.toISOString() })) }))} />;
 }

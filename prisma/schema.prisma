@@ -625,6 +625,7 @@ model Incident {
   description String
   createdAt DateTime @default(now())
   responseDueAt DateTime?
+  reportedDeliveryDate DateTime? @db.Date
   resolvedAt DateTime?
   resolution String?
   refundCents Int?

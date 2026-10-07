@@ -91,9 +91,9 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   await test('concurrent payout requests share frozen decision and operations', async () => { await Promise.all([settle('b'), settle('b')]); assert.equal(transfers, 1); await settle('b'); assert.equal(transfers, 1); });
   await test('external refund blocks payout', async () => { refunded = 1000; await assert.rejects(settle('b')); assert.equal(transfers, 0); });
   await test('legacy deposit money is preserved', async () => { b.depositCents = 10000; b.depositStatus = 'PAID'; await assert.rejects(settle('b')); assert.equal(stripeCalls, 0); });
-  await test('delivery incident cannot be opened after receipt', async () => { await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }))); assert.equal(inc, null); });
-  await test('delivery reporter must be renter', async () => { user = 'owner'; b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }))); });
-  await test('opening incident and payout cannot race past receipt boundary', async () => { const result = await Promise.allSettled([settle('b'), actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }))]); assert.equal(result[1].status, 'rejected'); assert.equal(transfers, 1); });
+  await test('delivery incident cannot be opened after receipt', async () => { await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }))); assert.equal(inc, null); });
+  await test('delivery reporter must be renter', async () => { user = 'owner'; b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }))); });
+  await test('opening incident and payout cannot race past receipt boundary', async () => { const result = await Promise.allSettled([settle('b'), actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }))]); assert.equal(result[1].status, 'rejected'); assert.equal(transfers, 1); });
   await test('return incident accepts zero only and requires bilateral agreement', async () => {
     user = 'owner'; await actions.openIncidentAction(form({ stage: 'RETURN', reason: 'NOT_RETURNED', description: 'Brak zwrotu' }));
     user = 'renter'; await assert.rejects(actions.incidentAction(form({ operation: 'propose', refundCents: 1000, resolution: 'Zwrot' })));
@@ -102,7 +102,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     user = 'owner'; await actions.incidentAction(form({ operation: 'accept' })); assert.equal(inc.status, 'RESOLVED'); assert.equal(refunds, 0); assert.equal(b.rentRefundedCents ?? 0, 0);
   });
   await test('delivery proposal needs other party and receipt acknowledgement', async () => {
-    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
     await assert.rejects(actions.incidentAction(form({ operation: 'propose', refundCents: 4000, resolution: 'Rabat' })));
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', refundCents: 4000, resolution: 'Rabat' }));
     await assert.rejects(actions.incidentAction(form({ operation: 'accept' })));
@@ -130,7 +130,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   });
   await test('delivery actions follow the active party and stale proposals cannot overwrite', async () => {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
     for (const operation of ['evidence', 'escalate', 'propose']) await assert.rejects(actions.incidentAction(form({ operation, evidence: 'Komentarz', resolution: 'Propozycja', refundCents: 0 })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
     user = 'owner';
     await actions.incidentAction(form({ operation: 'evidence', evidence: 'Komentarz właściciela' }));
@@ -164,7 +164,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   });
   await test('concurrent photo batches save exactly one batch under booking lock', async () => {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 1000 }));
     user = 'renter'; const result = await Promise.allSettled([addPhotos(photoForm('DELIVERY', 2)), addPhotos(photoForm('DELIVERY'))]);
     assert.equal(result.filter(r => r.status === 'fulfilled').length, 1); assert.equal(photoRecords.length, 2);
@@ -177,7 +177,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   });
   await test('actions queue event snapshots and completion email only after confirmed settlement', async () => {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'OTHER', description: 'Problem' }));
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
     assert.equal(notificationEvents.at(-1).event, 'opened');
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
     assert.equal(notificationEvents.at(-1).event, 'proposed');
@@ -195,6 +195,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
     const report = form({ stage: 'DELIVERY', reason, description: 'Problem' });
     if (policy.incidentRequiresPhotos('DELIVERY', reason)) report.append('photos', new File(['mock photo'], 'photo.jpg', { type: 'image/jpeg' }));
+    if (reason === 'LATE_DELIVERY') { b.startDate = new Date('2020-01-01'); b.endDate = new Date('2020-01-05'); report.set('reportedDeliveryDate', '2020-01-03'); }
     await actions.openIncidentAction(report);
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
     user = 'renter';
@@ -247,6 +248,35 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
       await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' }));
       assert.equal(inc.status, 'RESOLVED'); assert.equal(b.rentRefundedCents, 4000);
     }
+  });
+  await test('removed delivery reasons are rejected for new reports but return OTHER remains available', () => {
+    for (const reason of ['NOT_RECEIVED', 'OTHER']) assert.throws(() => policy.validateIncidentReason('DELIVERY', reason));
+    assert.equal(policy.validateIncidentReason('RETURN', 'OTHER'), 'OTHER');
+  });
+  await test('late delivery requires valid past receipt date after start, persisted without confirming receipt or refunding', async () => {
+    b.startDate = new Date('2020-01-01'); b.endDate = new Date('2020-01-05'); b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+    for (const value of ['', '2020-02-30', '2020-01-01', '2019-12-31', '2099-01-03']) {
+      await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'LATE_DELIVERY', description: 'Spóźnienie', reportedDeliveryDate: value })));
+      assert.equal(inc, null); assert.equal(b.deliveryIssue, null);
+    }
+    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'LATE_DELIVERY', description: 'Spóźnienie', reportedDeliveryDate: '2020-01-03' }));
+    assert.equal(inc.reportedDeliveryDate.toISOString(), '2020-01-03T00:00:00.000Z'); assert.equal(inc.refundCents, null);
+    assert.match(notificationEvents.at(-1).detail, /3\.01\.2020/); assert.match(notificationEvents.at(-1).detail, /72,00/);
+    assert.equal(b.deliveryConfirmedAt, null); assert.equal(b.deliveryConfirmationStatus, 'DISPUTED');
+    await assert.rejects(settle('b')); assert.equal(refunds, 0); assert.equal(transfers, 0);
+    user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Zwrot za opóźnienie', refundCents: 7200 }));
+    assert.equal(inc.status, 'AWAITING_RENTER'); assert.equal(refunds, 0);
+    user = 'renter'; await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' }));
+    assert.equal(b.rentRefundedCents, 7200); assert.equal(refunds, 1); assert.equal(transfers, 1);
+  });
+  await test('late delivery suggestion uses inclusive calendar days and caps refunds, including DST and rounding', () => {
+    const {validateLateDeliveryDate: validate} = load('app/lib/lateDelivery.ts');
+    const now = new Date('2026-10-07T22:30:00Z');
+    const suggestion = validate('2026-03-30', new Date('2026-03-28'), new Date('2026-04-01'), 10000, now);
+    assert.equal(suggestion.totalDays, 5); assert.equal(suggestion.delayDays, 2); assert.equal(suggestion.refundCents, 4000);
+    assert.equal(validate('2026-04-15', new Date('2026-03-28'), new Date('2026-04-01'), 10000, now).refundCents, 10000);
+    assert.equal(validate('2026-03-29', new Date('2026-03-28'), new Date('2026-03-30'), 10000, now).refundCents, 3333);
+    assert.equal(validate('2026-10-08', new Date('2026-10-07'), new Date('2026-10-10'), 10000, now).refundCents, 2500);
   });
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });
