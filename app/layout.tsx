@@ -1,4 +1,5 @@
 import "./globals.css";
+import GuidedHelp from "./components/GuidedHelp";
 import PolishFormValidation from "./components/PolishFormValidation";
 import NavbarWrapper from "./components/NavbarWrapper";
 import CookieBanner from "./components/CookieBanner";
@@ -27,6 +28,7 @@ export default function RootLayout({
 
         {/* Footer con enlace y botón para cookies */}
         <Footer />
+        <GuidedHelp />
 
         {/* Banner de cookies */}
         <CookieBanner />
