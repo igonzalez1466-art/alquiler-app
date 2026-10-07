@@ -59,6 +59,7 @@ async function compressPhoto(file: File, budget: number): Promise<File> {
 
 export default function PhotosField() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const pickerRef = useRef<HTMLButtonElement>(null);
   const version = useRef(0);
   const previewUrls = useRef<string[]>([]);
   const selectedFiles = useRef<File[]>([]);
@@ -171,7 +172,7 @@ export default function PhotosField() {
       <label htmlFor="photos" className="sr-only">Dodaj co najmniej 3 zdjęcia</label>
       <input
         ref={inputRef}
-        id="photos" type="file" name="photos"
+        id="photos" type="file" name="photos" tabIndex={-1}
         accept="image/jpeg,image/png,image/webp" multiple required disabled={busy}
         aria-describedby="photos-hint photos-status photos-error"
         aria-invalid={!!error}
@@ -180,10 +181,19 @@ export default function PhotosField() {
           if (!input.validationMessage || input.validity.valueMissing) {
             input.setCustomValidity(error || MIN_MESSAGE);
           }
+          event.preventDefault();
+          setError(input.validationMessage || MIN_MESSAGE);
+          pickerRef.current?.focus();
         }}
         onChange={(event) => { addFiles(event.currentTarget); }}
-        className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200"
+        className="sr-only"
       />
+      <button ref={pickerRef} type="button" disabled={busy} onClick={() => inputRef.current?.click()} aria-describedby="photos-hint photos-status photos-error" className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/60 p-6 text-center transition hover:border-indigo-500 hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-wait disabled:opacity-60">
+        <svg aria-hidden="true" className="h-10 w-10 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5L14.5 4Z" /><circle cx="12" cy="13" r="4" /></svg>
+        <span className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white">{busy && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}{busy ? "Przygotowywanie zdjęć…" : count > 0 ? "Dodaj kolejne zdjęcia" : "Dodaj zdjęcia"}</span>
+        <span className="text-sm text-indigo-900">Kliknij tutaj i wybierz zdjęcia z telefonu lub komputera.</span>
+        <span className="text-xs text-slate-600">Dodaj co najmniej 3 wyraźne zdjęcia. JPG, PNG lub WebP.</span>
+      </button>
       <p id="photos-hint" className="mt-2 text-xs text-gray-500">
         Wybrane zdjęcia: {count} z wymaganych minimum 3. Możesz dodawać zdjęcia w kilku krokach. Zdjęcia JPG, PNG i WebP zostaną automatycznie zmniejszone.
       </p>
