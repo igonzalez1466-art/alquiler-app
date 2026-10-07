@@ -1,6 +1,6 @@
 import { formatIncidentEvidenceText } from "@/app/lib/incidentFormatting";
 import type { Booking } from "@prisma/client";
-import { canActOnIncident } from "@/app/lib/incidentPolicy";
+import { canActOnIncident, incidentReasons } from "@/app/lib/incidentPolicy";
 import { claimReasons, readDepositClaim } from "@/app/lib/depositClaim";
 import { issueReasonLabel, readIssue } from "@/app/lib/logisticsIssue";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
@@ -94,7 +94,8 @@ export function incidentTimeline(booking: IncidentBooking): IncidentEvent[] {
   };
   for (const incident of booking.incidents ?? []) {
     const stage = incident.stage === "DELIVERY" ? "Dostawa" : "Zwrot";
-    add(incident.createdAt, `${stage}: otwarto zgłoszenie`, incident.description);
+    const reason = incidentReasons[incident.reason as keyof typeof incidentReasons] ?? incidentReasons.OTHER;
+    add(incident.createdAt, `${stage}: otwarto zgłoszenie`, `Powód: ${reason}${incident.description ? "\nOpis: " + incident.description : ""}`);
     for (const evidence of incident.evidence ?? []) {
       if (incident.stage === "DELIVERY" && booking.shippedAt && booking.trackingNumber && evidence.text === "Numer przesyłki przy zgłoszeniu: " + booking.trackingNumber) continue;
       const actor = evidence.uploaderId === booking.ownerId ? "Właściciel" : "Najemca";
