@@ -12,7 +12,17 @@ export default function MinimumRentalDaysField() {
       <input type="radio" name="minimumRentalDaysChoice" value={option.value} checked={choice === option.value} onChange={() => setChoice(option.value)} className="peer sr-only" />
       <span className="flex min-h-14 items-center justify-center rounded-xl border border-slate-300 px-2 py-3 text-sm font-semibold text-slate-700 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 peer-checked:text-indigo-800 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-600">{option.label}</span>
     </label>)}</div>
-    {choice === "custom" ? <label className="block text-sm">Liczba dni (minimum 3)<input id="minimumRentalDays" name="minimumRentalDays" type="number" min={MINIMUM_RENTAL_DAYS} max={MAXIMUM_RENTAL_DAYS} step={1} required value={custom} onChange={event => setCustom(event.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+    {choice === "custom" ? <label className="block text-sm">Liczba dni (minimum 3)<input id="minimumRentalDays" name="minimumRentalDays" type="number" min={MINIMUM_RENTAL_DAYS} max={MAXIMUM_RENTAL_DAYS} step={1} required value={custom} onInvalid={event => {
+        const input = event.currentTarget;
+        input.setCustomValidity("");
+        if (input.validity.valueMissing) input.setCustomValidity("Wpisz liczbę dni (minimum 3).");
+        else if (input.validity.rangeUnderflow) input.setCustomValidity("Minimalny okres wynajmu to 3 dni.");
+        else if (input.validity.rangeOverflow) input.setCustomValidity("Maksymalna liczba dni to 2147483647.");
+        else input.setCustomValidity("Wpisz pełną liczbę dni (minimum 3).");
+      }} onChange={event => {
+        event.target.setCustomValidity("");
+        setCustom(event.target.value);
+      }} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
       : <input type="hidden" name="minimumRentalDays" value={choice} />}
     <ListingFieldError name="minimumRentalDays" />
     <p className="text-xs leading-relaxed text-slate-500">Minimum 3 dni. Najemca nie może wybrać krótszego okresu. Liczymy dzień rozpoczęcia i zakończenia. Uzgodnij termin wysyłki, aby przedmiot dotarł na czas.</p>

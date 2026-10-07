@@ -16,7 +16,11 @@ const text=n=>Array.isArray(n)?n.map(text).join(' '):n&&typeof n==='object'?text
  const Selector=load('app/listing/new/MinimumRentalDaysField.tsx').default;const render=()=>{cursor=0;return nodes(Selector())};
  let tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'3');
  tree.find(n=>n.props?.type==='radio'&&n.props.value==='7').props.onChange();tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'7');
- tree.find(n=>n.props?.type==='radio'&&n.props.value==='custom').props.onChange();tree=render();let input=tree.find(n=>n.props?.name==='minimumRentalDays');assert.equal(input.props.min,3);assert(input.props.required);input.props.onChange({target:{value:'10'}});
+ tree.find(n=>n.props?.type==='radio'&&n.props.value==='custom').props.onChange();tree=render();let input=tree.find(n=>n.props?.name==='minimumRentalDays');assert.equal(input.props.min,3);assert(input.props.required);let validationMessage='';
+ for(const [validity,message] of [[{rangeUnderflow:true},'Minimalny okres wynajmu to 3 dni.'],[{valueMissing:true},'Wpisz liczbę dni (minimum 3).'],[{stepMismatch:true},'Wpisz pełną liczbę dni (minimum 3).'],[{rangeOverflow:true},'Maksymalna liczba dni to 2147483647.']]){
+  input.props.onInvalid({currentTarget:{validity,setCustomValidity:message=>{validationMessage=message}}});assert.equal(validationMessage,message);
+ }
+ input.props.onChange({target:{value:'10',setCustomValidity:message=>{validationMessage=message}}});assert.equal(validationMessage,'');
  tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'10');
  const Booking=load('app/listing/[id]/_components/BookingForm.tsx').default;
  for(const [minimum,end,blocked] of [[1,'2026-11-02',true],[3,'2026-11-03',false],[7,'2026-11-06',true],[7,'2026-11-07',false]]){
