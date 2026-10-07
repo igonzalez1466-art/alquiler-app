@@ -8,7 +8,7 @@ export default function MinimumRentalDaysField() {
   const [custom, setCustom] = useState("3");
   return <fieldset className="space-y-3">
     <legend className="text-sm font-medium text-slate-700">Minimalny okres wynajmu</legend>
-    <div className="grid grid-cols-3 gap-2">{[{ value: "3", label: "3 dni" }, { value: "7", label: "7 dni" }, { value: "custom", label: "Własny" }].map(option => <label key={option.value} className="cursor-pointer">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ value: "3", label: "3 dni" }, { value: "5", label: "5 dni" }, { value: "7", label: "7 dni" }, { value: "custom", label: "Własny" }].map(option => <label key={option.value} className="cursor-pointer">
       <input type="radio" name="minimumRentalDaysChoice" value={option.value} checked={choice === option.value} onChange={() => setChoice(option.value)} className="peer sr-only" />
       <span className="flex min-h-14 items-center justify-center rounded-xl border border-slate-300 px-2 py-3 text-sm font-semibold text-slate-700 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 peer-checked:text-indigo-800 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-indigo-600">{option.label}</span>
     </label>)}</div>

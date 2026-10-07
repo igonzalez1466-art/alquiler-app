@@ -15,6 +15,7 @@ const text=n=>Array.isArray(n)?n.map(text).join(' '):n&&typeof n==='object'?text
  const policy=load('app/lib/minimumRentalDays.ts');for(const n of [0,1,2,2.5,NaN,Infinity,2147483648])assert(!policy.isValidMinimumRentalDays(n));for(const n of [3,7,10])assert(policy.isValidMinimumRentalDays(n));assert.equal(policy.effectiveMinimumRentalDays(1),3);assert.equal(policy.effectiveMinimumRentalDays(7),7);
  const Selector=load('app/listing/new/MinimumRentalDaysField.tsx').default;const render=()=>{cursor=0;return nodes(Selector())};
  let tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'3');
+ tree.find(n=>n.props?.type==='radio'&&n.props.value==='5').props.onChange();tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'5');
  tree.find(n=>n.props?.type==='radio'&&n.props.value==='7').props.onChange();tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'7');
  tree.find(n=>n.props?.type==='radio'&&n.props.value==='custom').props.onChange();tree=render();let input=tree.find(n=>n.props?.name==='minimumRentalDays');assert.equal(input.props.min,3);assert(input.props.required);let validationMessage='';
  for(const [validity,message] of [[{rangeUnderflow:true},'Minimalny okres wynajmu to 3 dni.'],[{valueMissing:true},'Wpisz liczbę dni (minimum 3).'],[{stepMismatch:true},'Wpisz pełną liczbę dni (minimum 3).'],[{rangeOverflow:true},'Maksymalna liczba dni to 2147483647.']]){
