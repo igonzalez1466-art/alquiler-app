@@ -59,9 +59,11 @@ export default function AccountNextActions() {
     {tasks && visible.length === 0 && !error && <p className="text-sm text-gray-700">Nie masz teraz zadań do wykonania.</p>}
     {visible.length > 0 && <ul className="space-y-2">{visible.map(task => <li key={task.id}>
       <Link href={task.href} prefetch={false} className="block rounded-lg border bg-white p-3 hover:border-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
-        <span className="font-semibold text-indigo-800">{task.title} →</span>
+        {task.badge && <span className="mb-1.5 inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800">{task.badge}</span>}
+        <span className="block font-semibold text-indigo-800">{task.title} →</span>
         <span className="block text-xs text-gray-600">{task.bookingNumber === null ? "Mój profil" : `#${task.bookingNumber} · ${task.listing}`}</span>
         <span className="block text-sm text-gray-700">{task.description}</span>
+        {task.actionLabel && <span className="mt-2 block text-sm font-semibold text-indigo-700">{task.actionLabel} →</span>}
         {task.deadline && <span className="block pt-1 text-xs font-semibold text-rose-700">Termin: {new Date(task.deadline).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</span>}
       </Link>
     </li>)}</ul>}

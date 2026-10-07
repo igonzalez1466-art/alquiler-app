@@ -15,6 +15,11 @@ for (const [stage, status, who] of [
   check(b, who, 'deliveryIssue'); check(b, who === 'owner' ? 'renter' : 'owner', null);
   assert.equal(task({...base,...b}, who, now).href, '/account/incidents/b');
 }
+const ownerDeliveryTask=task({...base,incidents:[{stage:'DELIVERY',status:'OPEN'}]},'owner',now);
+assert.equal(ownerDeliveryTask.title,'Najemca zgłosił problem z dostawą');assert.match(ownerDeliveryTask.description,/odpowiedz najemcy/);assert.equal(ownerDeliveryTask.badge,'Twoja kolej');assert.equal(ownerDeliveryTask.actionLabel,'Zobacz zgłoszenie');
+const renterDeliveryTask=task({...base,incidents:[{stage:'DELIVERY',status:'AWAITING_RENTER'}]},'renter',now);assert.match(renterDeliveryTask.description,/odpowiedź właściciela/);
+const agreedTask=task({...base,incidents:[{stage:'DELIVERY',status:'AGREEMENT_REACHED'}]},'owner',now);assert.match(agreedTask.description,/Obie strony zaakceptowały/);assert(!agreedTask.description.includes('do uzgodnienia'));
+const returnTask=task({...base,incidents:[{stage:'RETURN',status:'OPEN'}]},'renter',now);assert.match(returnTask.title,/Właściciel/);assert.match(returnTask.description,/Należny najem pozostaje bez zmian/);
 const incidentCase = load('app/lib/incidentCase.ts');
 for (const stage of ['DELIVERY','RETURN']) {
   const who = stage === 'DELIVERY' ? 'owner' : 'renter';

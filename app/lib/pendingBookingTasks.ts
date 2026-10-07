@@ -7,7 +7,7 @@ import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
-export type PendingTask = { id: string; bookingNumber: number | null; listing: string | null; title: string; description: string; href: string; deadline: string | null; priority: number };
+export type PendingTask = { id: string; bookingNumber: number | null; listing: string | null; title: string; description: string; href: string; deadline: string | null; priority: number; badge?: string; actionLabel?: string };
 export type TaskBooking = Pick<Booking, "id" | "bookingNumber" | "ownerId" | "renterId" | "status" | "paymentStatus" | "paymentDueAt" | "createdAt" | "startDate" | "endDate" | "cancelledAt" | "shippingStatus" | "deliveryConfirmationStatus" | "returnStatus" | "returnConfirmationStatus" | "returnConfirmedAt" | "depositStatus" | "depositCents" | "depositClaim" | "settlementDecision" | "settlementCompletedAt" | "deliveryIssue" | "returnIssue" | "settlementLegacyReview" | "depositDecisionAt"> & { incidents?: { stage: string; status: string }[]; listing: { title: string } };
 export function bookingTask(b: TaskBooking, userId: string, now = new Date()): PendingTask | null {
   const owner = b.ownerId === userId, renter = b.renterId === userId;
@@ -29,7 +29,18 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
   const activeIncident = b.incidents?.find(i => i.status !== "RESOLVED");
   if (activeIncident) {
     const mine = canActOnIncident(activeIncident, owner);
-    return mine || activeIncident.status === "AGREEMENT_REACHED" && owner ? task("deliveryIssue", "Sprawdź zgłoszenie i uzgodnienie", activeIncident.stage === "DELIVERY" ? "Wypłata oczekuje na uzgodnienie i rozliczenie dostawy." : "Wyjaśnij zwrot. Należny najem pozostaje bez zmian.", 1) : null;
+    if (!mine && !(activeIncident.status === "AGREEMENT_REACHED" && owner)) return null;
+    const delivery = activeIncident.stage === "DELIVERY";
+    const agreed = activeIncident.status === "AGREEMENT_REACHED";
+    const title = agreed ? "Sprawdź rozliczenie zgłoszenia"
+      : delivery ? owner ? "Najemca zgłosił problem z dostawą" : "Odpowiedz na zgłoszenie dostawy"
+      : owner ? "Odpowiedz na zgłoszenie zwrotu" : "Właściciel zgłosił problem ze zwrotem";
+    const description = agreed ? "Obie strony zaakceptowały rozwiązanie. Sprawdź status rozliczenia i w razie potrzeby ponów operację."
+      : delivery ? owner ? "Sprawdź opis problemu i odpowiedz najemcy. Wypłata najmu jest wstrzymana do uzgodnienia rozwiązania."
+        : "Sprawdź odpowiedź właściciela i odpowiedz na zgłoszenie. Wypłata najmu jest wstrzymana do uzgodnienia rozwiązania."
+      : owner ? "Sprawdź odpowiedź najemcy i uzgodnij rozwiązanie. Należny najem pozostaje bez zmian."
+        : "Sprawdź opis problemu i odpowiedz właścicielowi. Należny najem pozostaje bez zmian.";
+    return { ...task("deliveryIssue", title, description, 1), badge: "Twoja kolej", actionLabel: "Zobacz zgłoszenie" };
   }
   const claim = readDepositClaim(b.depositClaim);
   if (b.depositClaim !== null) {
