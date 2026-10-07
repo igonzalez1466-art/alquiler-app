@@ -33,7 +33,7 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
     const delivery = activeIncident.stage === "DELIVERY";
     const agreed = activeIncident.status === "AGREEMENT_REACHED";
     const title = agreed ? "Sprawdź rozliczenie zgłoszenia"
-      : delivery ? owner ? "Najemca zgłosił problem z dostawą" : "Odpowiedz na zgłoszenie dostawy"
+      : delivery ? owner ? "Najemca zgłosił problem z dostawą" : "Odpowiedz na zgłoszenie"
       : owner ? "Odpowiedz na zgłoszenie zwrotu" : "Właściciel zgłosił problem ze zwrotem";
     const description = agreed ? "Obie strony zaakceptowały rozwiązanie. Sprawdź status rozliczenia i w razie potrzeby ponów operację."
       : delivery ? owner ? "Sprawdź opis problemu i odpowiedz najemcy. Wypłata najmu jest wstrzymana do uzgodnienia rozwiązania."
