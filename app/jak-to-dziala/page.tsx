@@ -60,8 +60,9 @@ export default function HowItWorks() {
     </div>
 
     <section className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5 sm:p-7">
-      <h2 className="text-xl font-bold">Sprawdź przed potwierdzeniem odbioru</h2>
-      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">Potwierdzaj odbiór dopiero po otrzymaniu i sprawdzeniu przedmiotu. Przy problemie z dostawą najpierw otwórz zgłoszenie. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia za uszkodzenie lub brak zwrotu.</p>
+      <h2 className="text-xl font-bold">Najpierw sprawdź, potem potwierdź odbiór</h2>
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">Potwierdź odbiór dopiero wtedy, gdy przedmiot dotrze do Ciebie i sprawdzisz jego stan. Jeśli wystąpi problem z dostawą, zgłoś go przed potwierdzeniem odbioru.</p>
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">Pamiętaj: po potwierdzeniu odbioru najem nie stanowi zabezpieczenia na wypadek uszkodzenia lub braku zwrotu przedmiotu.</p>
     </section>
 
     <section id="pytania" className="scroll-mt-24">
