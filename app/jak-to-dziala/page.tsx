@@ -16,7 +16,7 @@ const renterSteps = [
 const ownerSteps = [
   ["Przygotuj ogłoszenie", "Dodaj co najmniej 3 wyraźne zdjęcia, opis, rozmiar, lokalizację i cenę. Wybierz preferowaną dostawę oraz minimalny czas najmu: 3, 5, 7 dni lub własny, nie krótszy niż 3 dni."],
   ["Zaakceptuj rezerwację", "Sprawdź termin i zaakceptuj prośbę najemcy. Poczekaj na potwierdzenie płatności, zanim wyślesz lub przekażesz przedmiot."],
-  ["Wyślij lub przekaż przedmiot", "Uzgodnij szczegóły na czacie. W rezerwacji wybierz InPost i podaj numer przesyłki albo zaznacz odbiór osobisty. Następnie wybierz „Wysłano / Przekazano”."],
+  ["Wyślij lub przekaż przedmiot", "Uzgodnij szczegóły na czacie. W rezerwacji wybierz InPost i podaj numer przesyłki albo zaznacz odbiór osobisty. Następnie zaktualizuj status wybierając „Wysłano / Przekazano”."],
   ["Poczekaj na potwierdzenie odbioru", "Wypłata najmu jest wstrzymana do potwierdzenia odbioru przez najemcę lub uzgodnionego rozwiązania problemu z dostawą. Do otrzymywania wypłat uzupełnij dane do rozliczeń w „Moje konto”."],
   ["Potwierdź zwrot", "Po otrzymaniu przedmiotu sprawdź go i wybierz „Otrzymałem zwrot”. Jeśli jest problem ze zwrotem, zgłoś go na stronie rezerwacji."],
 ];
