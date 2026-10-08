@@ -5,6 +5,7 @@ import { userMessage } from "@/app/lib/userMessage";
 import { useRef, useState, type ReactNode } from "react";
 import { formatIncidentMoney, formatIncidentEvidenceText } from "@/app/lib/incidentFormatting";
 import IncidentPhotoPicker from "./IncidentPhotoPicker";
+import IncidentFinancialAgreement from "./IncidentFinancialAgreement";
 import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
@@ -13,8 +14,8 @@ import { incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCI
 
 type Case = { reportedDeliveryDate?: string | null; lateDelivery?: { delayDays: number; totalDays: number; refundCents: number } | null; id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
-export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos }: {
-  bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode;
+export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos, finance }: {
+  bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode; finance?: { platformFeeCents: number | null; ownerPayoutCents: number | null; settlementCompleted: boolean };
 }) {
   const router = useRouter();
   const busy = useRef(false);
@@ -54,9 +55,10 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <h3 className="font-semibold">{c.stage === "DELIVERY" ? "Dostawa" : "Zwrot"}: {incidentReasons[c.reason]}</h3>
       <p className="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-900">{statusLabels[c.status]} · {new Date(c.createdAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>
       <p className="rounded-xl border-l-4 border-violet-500 bg-violet-50 p-4 text-sm font-medium text-violet-950">{c.status === "RESOLVED" ? c.acceptedAt ? "Rozwiązanie zaakceptowane przez obie strony. Zgłoszenie zakończone." : "Zgłoszenie zakończone." : c.status === "AGREEMENT_REACHED" ? "Rozwiązanie zaakceptowane. Rozliczenie w toku." : canActOnIncident(c, isOwner) ? "Twoja kolej — odpowiedz poniżej." : `Czekamy na odpowiedź ${canActOnIncident(c, true) ? "właściciela" : "najemcy"}.`}</p>
-      {c.resolution && <p className="whitespace-pre-wrap rounded-2xl border border-violet-200 bg-violet-50 p-5 text-sm leading-7"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {formatIncidentMoney(c.refundCents ?? 0)}</>}</p>}
+      {c.resolution && !(c.acceptedAt && ["RESOLVED", "AGREEMENT_REACHED"].includes(c.status)) && <p className="whitespace-pre-wrap rounded-2xl border border-violet-200 bg-violet-50 p-5 text-sm leading-7"><strong>{["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) ? "Uzgodnione rozwiązanie: " : "Ostatnia propozycja: "}</strong> {c.resolution}{c.stage === "DELIVERY" && <> · Zwrot: {formatIncidentMoney(c.refundCents ?? 0)}</>}</p>}
+      <IncidentFinancialAgreement stage={c.stage} status={c.status} acceptedAt={c.acceptedAt} resolution={c.resolution} rentCents={rentCents} refundCents={c.refundCents} finance={finance} />
       <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
-      {c.reportedDeliveryDate && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm"><p><strong>Data odbioru podana przez najemcę:</strong> {formatCalendarDate(c.reportedDeliveryDate)}</p>{c.lateDelivery && <><p><strong>Sugerowany zwrot za opóźnienie: {formatIncidentMoney(c.lateDelivery.refundCents)}</strong></p><p>Opóźnienie: {c.lateDelivery.delayDays} {c.lateDelivery.delayDays === 1 ? "dzień" : "dni"}. Kwota najmu × dni opóźnienia / dni rezerwacji ({c.lateDelivery.totalDays}), maksymalnie 100%.</p><p>To sugestia do uzgodnienia. Zwrot wymaga akceptacji obu stron.</p></>}</div>}
+      {c.reportedDeliveryDate && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm"><p><strong>Data odbioru podana przez najemcę:</strong> {formatCalendarDate(c.reportedDeliveryDate)}</p>{c.lateDelivery && !(c.acceptedAt && ["RESOLVED", "AGREEMENT_REACHED"].includes(c.status)) && <><p><strong>Sugerowany zwrot za opóźnienie: {formatIncidentMoney(c.lateDelivery.refundCents)}</strong></p><p>Opóźnienie: {c.lateDelivery.delayDays} {c.lateDelivery.delayDays === 1 ? "dzień" : "dni"}. Kwota najmu × dni opóźnienia / dni rezerwacji ({c.lateDelivery.totalDays}), maksymalnie 100%.</p><p>To sugestia do uzgodnienia. Zwrot wymaga akceptacji obu stron.</p></>}</div>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && <fieldset disabled={pending || !canActOnIncident(c, isOwner)} className="space-y-4 disabled:opacity-50">
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-4 rounded-2xl bg-slate-50 p-4 sm:p-5">

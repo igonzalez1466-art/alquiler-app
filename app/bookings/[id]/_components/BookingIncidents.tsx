@@ -19,6 +19,7 @@ export default async function BookingIncidents({ bookingId, userId }: { bookingI
       canUpload={canUploadBookingEvidence(b, "DELIVERY", userId)}
       photos={visiblePhotos.map(photo => ({ id: photo.id, uploaderId: photo.uploaderId, createdAt: photo.createdAt.toISOString() }))} /> : null;
   return <IncidentPanel deliveryPhotos={deliveryPhotos} bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}
+    finance={{ platformFeeCents: b.platformFeeCents, ownerPayoutCents: b.ownerPayoutCents, settlementCompleted: !!b.settlementCompletedAt }}
     canOpenDelivery={paid && b.renterId === userId && !received && !b.rentSettlement && !b.ownerTransferId && b.deliveryIssue === null}
     canOpenReturn={paid && b.ownerId === userId && received && b.returnIssue === null}
     cases={b.incidents.map(i => ({ ...i, reportedDeliveryDate: i.reportedDeliveryDate ? rentalCalendarDate(i.reportedDeliveryDate) : null, lateDelivery: i.reason === "LATE_DELIVERY" && i.reportedDeliveryDate ? lateDeliverySuggestion(b.startDate, b.endDate, rentalCalendarDate(i.reportedDeliveryDate), b.rentAmountCents ?? b.amountCents ?? 0) : null, createdAt: i.createdAt.toISOString(), resolvedAt: i.resolvedAt?.toISOString() ?? null, evidence: i.evidence.map(e => ({ ...e, createdAt: e.createdAt.toISOString() })) }))} />;
