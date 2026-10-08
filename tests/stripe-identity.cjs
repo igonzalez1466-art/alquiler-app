@@ -38,6 +38,16 @@ const event=(type,id='vs_1',live=false)=>({id:'evt_test',object:'event',type,liv
  state.identityStartedAt=new Date(Date.now()-120000);state.identityStatus='verified';state.identityLivemode=true;state.identityVerifiedAt=new Date();assert.ok(Badge({user:state}));
  const protectedLive=await lib.beginIdentity('user1');assert.equal(protectedLive.url,null);assert.equal(created,1);assert.equal(state.identityLivemode,true);
  env.STRIPE_IDENTITY_ENABLED='false';await assert.rejects(()=>lib.beginIdentity('user1'));
+
+ env.STRIPE_IDENTITY_ENABLED='true';
+ for(const badUrl of [undefined, 'http://localhost:3000', 'invalid']) {
+  env.APP_URL=badUrl;
+  assert.equal((await actions.identityAction('start')).ok,false);
+  assert.equal(diagnostics.at(-1)[1].code,'identity_return_url');
+ }
+ env.APP_URL='https://stagingmojaszafa.eu';
+ assert.throws(()=>lib.identitySessionState({...sessions.get('vs_1'),redaction:null,client_reference_id:'wrong'},'user1','vs_1',false),error=>error.code==='identity_session_owner');
+ assert.throws(()=>lib.safeIdentityUrl('https://evil.test/'),error=>error.code==='identity_redirect_url');
  const originalTransaction=prisma.$transaction;
  prisma.$transaction=async()=>{throw Object.assign(new Error('PRIVATE_SECRET_VALUE'),{name:'PrismaClientKnownRequestError',code:'P2028'});};
  assert.equal((await actions.identityAction('refresh')).ok,false);

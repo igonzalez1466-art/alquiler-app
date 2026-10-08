@@ -15,9 +15,9 @@ export async function identityAction(operation: "start" | "refresh") {
   } catch (error) {
     // Log only allowlisted diagnostic identifiers, never the error or its message.
     const failure = error as { type?: string; name?: string; code?: string; statusCode?: number } | null;
-    const allowedTypes = ["StripeAuthenticationError", "StripePermissionError", "StripeInvalidRequestError", "StripeConnectionError", "StripeAPIError", "StripeRateLimitError", "PrismaClientKnownRequestError", "PrismaClientInitializationError", "PrismaClientValidationError"];
+    const allowedTypes = ["IdentityValidationError", "Error", "TypeError", "RangeError", "StripeAuthenticationError", "StripePermissionError", "StripeInvalidRequestError", "StripeConnectionError", "StripeAPIError", "StripeRateLimitError", "PrismaClientKnownRequestError", "PrismaClientInitializationError", "PrismaClientValidationError"];
     const candidateType = failure?.type ?? failure?.name;
-    const allowedCodes = ["api_key_expired", "invalid_api_key", "permission_denied", "resource_missing", "parameter_unknown", "parameter_invalid_empty", "P1001", "P1002", "P2021", "P2022", "P2024", "P2028", "P2010"];
+    const allowedCodes = ["identity_key_mode", "identity_session_mode", "identity_session_owner", "identity_session_options", "identity_disabled", "identity_return_url", "identity_retry_limit", "identity_redirect_url", "api_key_expired", "invalid_api_key", "permission_denied", "resource_missing", "parameter_unknown", "parameter_invalid_empty", "P1001", "P1002", "P2021", "P2022", "P2024", "P2028", "P2010"];
     console.error("[Stripe Identity] action failed", {
       operation,
       type: candidateType && allowedTypes.includes(candidateType) ? candidateType : "unknown",
