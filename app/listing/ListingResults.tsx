@@ -37,6 +37,7 @@ type Listing = {
   id: string;
   title: string;
   available: boolean;
+  isDraft?: boolean;
   city: string | null;
   postalCode: string | null;
   pricePerDay: number; // ✅ PRECIO DIARIO
@@ -62,7 +63,7 @@ export default function ListingResults({ listings, showStatus = false }: { listi
     {listings.map(l => <article key={l.id} className="surface-card group overflow-hidden transition hover:border-violet-200 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
       <div className="relative">
         <ListingPhotoGallery cover photos={l.images} title={l.title} />
-        {showStatus && <span className={`pointer-events-none absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${l.available ? "bg-white text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{l.available ? "Aktywne" : "Nieaktywne"}</span>}
+        {showStatus && <span className={`pointer-events-none absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${l.available ? "bg-white text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{l.isDraft ? "Szkic — prywatny" : l.available ? "Aktywne" : "Nieaktywne"}</span>}
       </div>
       <Link href={`/listing/${l.id}`} className="block space-y-2.5 p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
         <p className="text-xs text-slate-500">{(l.garmentType === "OTRO" ? l.otherGarmentType : l.accessoryType === "INNE" ? l.otherAccessoryType : null) || accessoryLabel(l.accessoryType) || label(l.garmentType)}{l.size ? ` · Rozmiar ${l.size}` : ""}</p>

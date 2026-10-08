@@ -30,6 +30,8 @@ export default function BookingForm({
   minimumRentalDays: listingMinimumRentalDays,
   fianza,
   phoneVerified,
+  identityVerified,
+  ownerIdentityVerified,
   occupiedRanges,
 }: {
   listingId: string;
@@ -38,6 +40,8 @@ export default function BookingForm({
   minimumRentalDays: number;
   fianza: number;
   phoneVerified: boolean;
+  identityVerified: boolean;
+  ownerIdentityVerified: boolean;
   occupiedRanges: { start: string; end: string }[];
 }) {
   const minimumRentalDays = effectiveMinimumRentalDays(listingMinimumRentalDays);
@@ -115,6 +119,9 @@ export default function BookingForm({
       </button>
     );
   }
+
+  if (!identityVerified) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-3"><p>Przed wysłaniem prośby o rezerwację zweryfikuj tożsamość.</p><Link href={`/account?returnTo=${encodeURIComponent(`/listing/${listingId}`)}#tozsamosc`} className="ui-btn ui-btn-primary">Zweryfikuj tożsamość</Link></div>;
+  if (!ownerIdentityVerified) return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Właściciel musi zweryfikować tożsamość, zanim będzie można zarezerwować ten przedmiot.</p>;
 
   if (!phoneVerified) {
     return <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">

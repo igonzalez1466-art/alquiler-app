@@ -1,3 +1,4 @@
+import { accountIdentityUrl, getRequiredIdentity, IDENTITY_REQUIRED_MESSAGE, OWNER_IDENTITY_REQUIRED_MESSAGE } from "@/app/lib/identityRequirement";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
@@ -63,6 +64,8 @@ export async function POST(request: Request) {
           };
         }
 
+        if (!await getRequiredIdentity(booking.renterId)) return { error: IDENTITY_REQUIRED_MESSAGE, status: 403, code: "IDENTITY_REQUIRED", verifyUrl: accountIdentityUrl(`/bookings/${id}/pay`) };
+        if (!await getRequiredIdentity(booking.ownerId)) return { error: OWNER_IDENTITY_REQUIRED_MESSAGE, status: 403, code: "OWNER_IDENTITY_REQUIRED" };
         await assertBookingAccountsAvailable(booking.ownerId, booking.renterId);
         if (
           booking.status !== "AWAITING_PAYMENT" ||
@@ -188,6 +191,8 @@ export async function POST(request: Request) {
         maxWait: 5000,
       }
     );
+
+    if ("error" in result && "code" in result) return NextResponse.json({ error: result.error, code: result.code, verifyUrl: "verifyUrl" in result ? result.verifyUrl : undefined }, { status: result.status });
 
     if ("error" in result) {
       return new NextResponse(result.error, {

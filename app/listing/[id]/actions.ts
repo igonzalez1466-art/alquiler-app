@@ -1,5 +1,6 @@
 "use server";
 
+import { accountIdentityUrl, getRequiredIdentity } from "@/app/lib/identityRequirement";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 
 import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
@@ -91,6 +92,9 @@ export async function startChatAction(formData: FormData) {
     redirect("/");
   }
 
+  const chatListing = await prisma.listing.findUnique({ where: { id: listingId }, select: { userId: true, isDraft: true } });
+  if (!chatListing || chatListing.isDraft || chatListing.userId !== ownerId) throw new Error("Nie znaleziono ogłoszenia.");
+
   const existing = await prisma.conversation.findUnique({
     where: {
       listingId_buyerId: {
@@ -151,6 +155,7 @@ export async function createBookingAction(
     redirect("/login");
   }
 
+  if (!await getRequiredIdentity(renterId)) redirect(accountIdentityUrl(`/listing/${formData.get("listingId")?.toString() ?? ""}`));
   await assertBookingAccountsAvailable(renterId);
   const renterContact = await prisma.user.findUnique({ where: { id: renterId }, select: { phoneVerifiedAt: true } });
   if (!renterContact?.phoneVerifiedAt) {
@@ -203,6 +208,7 @@ export async function createBookingAction(
       fianza: true,
       userId: true,
       available: true,
+      isDraft: true,
       user: {
         select: {
           email: true,
@@ -225,7 +231,9 @@ export async function createBookingAction(
     );
   }
 
-  if (listing.available === false) {
+  if (!await getRequiredIdentity(listing.userId)) redirect(`/listing/${listingId}?blad=tozsamosc-wlasciciela`);
+
+  if (listing.isDraft || listing.available === false) {
     redirect(
       `/listing/${listingId}?blad=ogloszenie-niedostepne`
     );

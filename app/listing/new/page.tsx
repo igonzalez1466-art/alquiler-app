@@ -1,3 +1,5 @@
+import { accountIdentityUrl, getRequiredIdentity, IDENTITY_REQUIRED_MESSAGE } from "@/app/lib/identityRequirement";
+import Link from "next/link";
 import { validateOtherListingFields } from "@/app/lib/listingAttributes";
 import MinimumRentalDaysField from "./MinimumRentalDaysField";
 import { MINIMUM_RENTAL_DAYS, isValidMinimumRentalDays } from "@/app/lib/minimumRentalDays";
@@ -137,6 +139,7 @@ export default async function NewListingPage({
   const session = await getSession();
   if (!session?.user?.id) redirect("/login?callbackUrl=/listing/new");
 
+  const identityVerified = await getRequiredIdentity(session.user.id);
   const sp = (await searchParams) ?? {};
   const errorMsg = sp.error;
 
@@ -148,6 +151,9 @@ export default async function NewListingPage({
     const session = await getSession();
     const userId = session?.user?.id;
     if (!userId) redirect("/login?callbackUrl=/listing/new");
+
+    const isDraft = formData.get("intent") === "draft";
+    if (!isDraft && !await getRequiredIdentity(userId)) return { error: IDENTITY_REQUIRED_MESSAGE, verifyUrl: accountIdentityUrl("/listing/new") };
 
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
@@ -286,12 +292,15 @@ export default async function NewListingPage({
         materials: [material],
         estado,
         metodoEnvio,
-        available: true,
+        available: !isDraft,
+        isDraft,
         images: { create: uploadedImages },
         user: { connect: { id: userId } },
       },
       select: { id: true, title: true },
     });
+
+    if (isDraft) redirect(`/listing/${listing.id}`);
 
     /* ===== EMAIL (opcional) ===== */
     const owner = await prisma.user.findUnique({
@@ -377,6 +386,8 @@ export default async function NewListingPage({
           Uzupełnij dane ogłoszenia i dodaj zdjęcia.
         </p>
       </div>
+
+      {!identityVerified && <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-3"><p>Możesz przygotować ogłoszenie i zapisać je jako prywatny szkic. Przed publikacją zweryfikuj tożsamość. Zapisz szkic, aby zachować dane i zdjęcia przed przejściem do weryfikacji.</p><Link href={accountIdentityUrl("/listing/new")} className="ui-btn ui-btn-primary">Zweryfikuj tożsamość</Link></div>}
 
       {errorMsg && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -645,7 +656,7 @@ export default async function NewListingPage({
         </div>
 
 </section>
-<div className="rounded-2xl border bg-white p-5 sm:p-6"><p className="mb-4 text-sm text-slate-600">Sprawdź dane i zdjęcia przed publikacją.</p><PublishButton /></div>
+<div className="rounded-2xl border bg-white p-5 sm:p-6"><p className="mb-4 text-sm text-slate-600">Sprawdź dane i zdjęcia przed publikacją.</p><PublishButton identityVerified={identityVerified} /></div>
       </PublishForm>
     </div>
   );

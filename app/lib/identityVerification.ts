@@ -44,13 +44,15 @@ export async function syncIdentity(userId: string) {
     return identityView(updated);
   }, { timeout: 20000 });
 }
-export async function beginIdentity(userId: string) {
+export async function beginIdentity(userId: string, returnTo?: string | null) {
   const config = identityConfig();
   if (!config.enabled) throw identityError("identity_disabled", "Weryfikacja tożsamości jest chwilowo niedostępna.");
   const base = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
   let validBase = false;
   try { validBase = !!base && new URL(base).protocol === "https:"; } catch { /* Do not expose the configured URL. */ }
   if (!validBase || !base) throw identityError("identity_return_url", "Weryfikacja tożsamości jest chwilowo niedostępna.");
+  const safeReturn = typeof returnTo === "string" && /^\/(?:listing\/(?:new|[A-Za-z0-9_-]+)|bookings\/[A-Za-z0-9_-]+(?:\/pay)?)$/.test(returnTo) ? returnTo : null;
+  const returnQuery = safeReturn ? "&returnTo=" + encodeURIComponent(safeReturn) : "";
   const stripe = identityStripe();
   return prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
@@ -65,7 +67,7 @@ export async function beginIdentity(userId: string) {
       }
     }
     if (user.identityStartedAt && Date.now() - user.identityStartedAt.getTime() < 60000) throw identityError("identity_retry_limit", "Poczekaj chwilę przed ponowną próbą.");
-    const session = await stripe.identity.verificationSessions.create({ type: "document", client_reference_id: userId, metadata: { userId }, return_url: `${base.replace(/\/$/, "")}/account?identity=return#tozsamosc`, options: { document: { require_matching_selfie: true, require_live_capture: true, allowed_types: ["driving_license", "id_card", "passport"] } } }, { idempotencyKey: `mojaszafa-identity-${config.live ? "live" : "test"}-${userId}-${user.identityAttempt}` });
+    const session = await stripe.identity.verificationSessions.create({ type: "document", client_reference_id: userId, metadata: { userId }, return_url: `${base.replace(/\/$/, "")}/account?identity=return${returnQuery}#tozsamosc`, options: { document: { require_matching_selfie: true, require_live_capture: true, allowed_types: ["driving_license", "id_card", "passport"] } } }, { idempotencyKey: `mojaszafa-identity-${config.live ? "live" : "test"}-${userId}-${user.identityAttempt}` });
     const status = identitySessionState(session, userId, session.id, config.live);
     const updated = await tx.user.update({ where: { id: userId }, data: { identitySessionId: session.id, identityStatus: status, identityLivemode: config.live, identityVerifiedAt: null, identityStartedAt: new Date(), identityAttempt: { increment: 1 } }, select: identitySelect });
     return { ...identityView(updated), url: safeIdentityUrl(session.url) };

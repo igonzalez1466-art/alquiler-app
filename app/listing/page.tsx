@@ -122,7 +122,7 @@ export default async function ListingPage({
   const session: any = await getServerSession(authConfig as any);
 
   const p = (await searchParams) ?? {};
-  const tab = p.tab ?? "all";
+  const tab = p.tab === "my" ? "my" : "all";
   const userId: string | undefined = session?.user?.id;
 
 
@@ -167,6 +167,7 @@ export default async function ListingPage({
 
   if (tab === "all") {
     where.available = true;
+    where.isDraft = false;
   }
 
   if (tab === "my") {
@@ -229,6 +230,7 @@ export default async function ListingPage({
       id: true,
       title: true,
       available: true,
+      isDraft: true,
       pricePerDay: true,
       city: true,
       postalCode: true,

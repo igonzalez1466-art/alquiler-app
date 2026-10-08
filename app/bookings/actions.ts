@@ -1,5 +1,6 @@
 "use server";
 
+import { hasRequiredIdentity, getRequiredIdentity, IDENTITY_REQUIRED_MESSAGE, OWNER_IDENTITY_REQUIRED_MESSAGE } from "@/app/lib/identityRequirement";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 
 import { assertBookingAccountsAvailable } from "@/app/lib/bookingRestrictions";
@@ -97,6 +98,7 @@ export async function createBookingAction(input: {
     throw new Error("Zaloguj się, aby kontynuować.");
   }
 
+  if (!await getRequiredIdentity(renterId)) throw new Error(IDENTITY_REQUIRED_MESSAGE);
   await assertBookingAccountsAvailable(renterId);
   const renterContact = await prisma.user.findUnique({ where: { id: renterId }, select: { phoneVerifiedAt: true } });
   if (!renterContact?.phoneVerifiedAt) throw new Error("Przed rezerwacją zweryfikuj numer telefonu w sekcji „Moje konto”.");
@@ -114,6 +116,8 @@ export async function createBookingAction(input: {
     throw new Error("Nie znaleziono ogłoszenia.");
   }
 
+  if (listing.isDraft || !listing.available) throw new Error("Ten przedmiot nie jest obecnie dostępny do rezerwacji.");
+  if (!hasRequiredIdentity(listing.user)) throw new Error(OWNER_IDENTITY_REQUIRED_MESSAGE);
   await assertBookingAccountsAvailable(listing.userId);
   if (listing.userId === renterId) {
     throw new Error("Nie możesz zarezerwować własnego przedmiotu.");

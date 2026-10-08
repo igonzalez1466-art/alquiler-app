@@ -6,6 +6,8 @@ import { prisma } from "@/app/lib/prisma";
 import { startStripeConnectOnboarding } from "./connectActions";
 import PhoneVerification from "./PhoneVerification";
 import IdentityVerification from "./IdentityVerification";
+import { hasRequiredIdentity } from "@/app/lib/identityRequirement";
+import { safeIdentityReturn } from "@/app/lib/identityRequirement";
 import { identityView } from "@/app/lib/identityVerification";
 import PreferredInpostPointForm from "./PreferredInpostPointForm";
 import { maskPhone } from "@/app/lib/phoneVerification";
@@ -99,7 +101,7 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
 
       <PhoneVerification verified={!!user.phoneVerifiedAt} maskedPhone={maskPhone(user.phone)} returnTo={returnTo} />
 
-      <IdentityVerification initial={identityView(user)} />
+      <IdentityVerification initial={identityView(user)} returnTo={safeIdentityReturn(returnTo)} requirementSatisfied={hasRequiredIdentity(user)} />
 
       <PreferredInpostPointForm code={user.preferredInpostPointCode} address={user.preferredInpostPointAddress} geowidgetToken={process.env.INPOST_GEOWIDGET_TOKEN?.trim() || null} />
 

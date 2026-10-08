@@ -8,6 +8,8 @@ import Link from "next/link";
 import IdentityBadge from "@/app/components/IdentityBadge";
 import type { Metadata } from "next";
 import { getSession } from "@/app/lib/auth";
+import { accountIdentityUrl, hasRequiredIdentity, OWNER_IDENTITY_REQUIRED_MESSAGE } from "@/app/lib/identityRequirement";
+import { notFound } from "next/navigation";
 import BookingForm from "./_components/BookingForm";
 import { startChatAction } from "./actions";
 import { toggleListingAvailable } from "@/app/listing/actions";
@@ -127,6 +129,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         metodoEnvio: true,
         marca: true,
         available: true,
+        isDraft: true,
         images: true,
         gender: true,
         sport: true,
@@ -143,9 +146,9 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
     }),
     getSession(),
   ]);
-  const phoneVerified = session?.user?.id
-    ? !!(await prisma.user.findUnique({ where: { id: session.user.id }, select: { phoneVerifiedAt: true } }))?.phoneVerifiedAt
-    : false;
+  const renterAccount = session?.user?.id ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { phoneVerifiedAt: true, identityStatus: true, identityVerifiedAt: true, identityLivemode: true } }) : null;
+  const phoneVerified = !!renterAccount?.phoneVerifiedAt;
+  const identityVerified = hasRequiredIdentity(renterAccount);
 
   if (!listing) {
     return (
@@ -159,6 +162,8 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
   }
 
   const isOwner = session?.user?.id === listing.userId;
+  if (listing.isDraft && !isOwner) notFound();
+  const ownerIdentityVerified = hasRequiredIdentity(listing.user);
 
   const today = new Date().toISOString().slice(0, 10);
   const occupiedBookings = !isOwner && phoneVerified ? await prisma.booking.findMany({
@@ -189,6 +194,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
   return (
     <div className="max-w-6xl mx-auto p-6">
+      {listing.isDraft && <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-3"><p><strong>Szkic — widoczny tylko dla Ciebie.</strong> Dane i zdjęcia zostały zapisane. Aby udostępnić ogłoszenie, zweryfikuj tożsamość i wybierz „Opublikuj ogłoszenie”.</p>{!ownerIdentityVerified && <Link href={accountIdentityUrl(`/listing/${listing.id}`)} className="ui-btn ui-btn-primary">Zweryfikuj tożsamość</Link>}</div>}
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
         <Link href="/listing" className="text-blue-600 underline">
@@ -213,6 +219,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         {error === "zbyt-krotki-okres"
           ? `Minimalny okres wynajmu tego przedmiotu: ${effectiveMinimumRentalDays(listing.minimumRentalDays)} ${effectiveMinimumRentalDays(listing.minimumRentalDays) === 1 ? "dzień" : "dni"}. Wybierz dłuższy okres.`
           : ({
+              "tozsamosc-wlasciciela": OWNER_IDENTITY_REQUIRED_MESSAGE,
               "termin-jest-zajety": "Wybrany termin jest już zajęty. Wybierz inne daty.",
               "brak-danych": "Uzupełnij datę rozpoczęcia i zakończenia rezerwacji.",
               "nieprawidlowe-daty": "Podano nieprawidłowe daty. Wybierz termin ponownie.",
@@ -248,7 +255,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                   {listing.estado && pill(`Stan: ${estadoLabels[listing.estado]}`)}
                   {listing.metodoEnvio && pill(`Preferowana dostawa: ${envioLabels[listing.metodoEnvio]}`)}
                   {pill(
-                    listing.available ? "Aktywne" : "Nieaktywne",
+                    listing.isDraft ? "Szkic — prywatny" : listing.available ? "Aktywne" : "Nieaktywne",
                     listing.available
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : "bg-rose-50 text-rose-700 border-rose-200"
@@ -323,7 +330,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
               <div className="text-sm text-gray-700">
                 Status ogłoszenia:{" "}
-                <strong>{listing.available ? "Aktywne" : "Nieaktywne"}</strong>
+                <strong>{listing.isDraft ? "Szkic — prywatny" : listing.available ? "Aktywne" : "Nieaktywne"}</strong>
               </div>
 
               <form action={toggleListingAvailable}>
@@ -336,7 +343,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                       : "bg-emerald-600 hover:bg-emerald-700"
                   }`}
                 >
-                  {listing.available ? "Dezaktywuj" : "Aktywuj"} ogłoszenie
+                  {listing.isDraft ? "Opublikuj" : listing.available ? "Dezaktywuj" : "Aktywuj"} ogłoszenie
                 </button>
               </form>
             </section>
@@ -385,6 +392,8 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                 minimumRentalDays={effectiveMinimumRentalDays(listing.minimumRentalDays)}
                 fianza={DEPOSITS_ENABLED ? listing.fianza ?? 0 : 0}
                 phoneVerified={phoneVerified}
+                identityVerified={identityVerified}
+                ownerIdentityVerified={ownerIdentityVerified}
                 occupiedRanges={occupiedRanges}
               />
             </section>
@@ -402,12 +411,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const listing = await prisma.listing.findUnique({
     where: { id },
-    select: { title: true, city: true, postalCode: true },
+    select: { title: true, city: true, postalCode: true, isDraft: true },
   });
 
   return {
-    title: listing ? `${listing.title} | Ogłoszenia` : "Ogłoszenie",
-    description: listing?.city
+    title: listing && !listing.isDraft ? `${listing.title} | Ogłoszenia` : "Ogłoszenie",
+    description: listing && !listing.isDraft && listing.city
       ? listing.postalCode
         ? `Ogłoszenie w ${listing.city} (${listing.postalCode})`
         : `Ogłoszenie w ${listing.city}`

@@ -6,7 +6,7 @@ import { identityAction } from "./identityActions";
 
 type View = { status: string; verifiedAt: string | null; testMode: boolean; enabled: boolean };
 const labels: Record<string, string> = { unverified: "Niezweryfikowana", requires_input: "Wymaga uzupełnienia", processing: "Weryfikacja w toku", verified: "Tożsamość zweryfikowana", canceled: "Weryfikacja anulowana", redacted: "Dane weryfikacji usunięte" };
-export default function IdentityVerification({ initial }: { initial: View }) {
+export default function IdentityVerification({ initial, returnTo, requirementSatisfied }: { initial: View; returnTo: string | null; requirementSatisfied: boolean }) {
   const [view, setView] = useState(initial);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ export default function IdentityVerification({ initial }: { initial: View }) {
     if (busy.current) return;
     busy.current = true; setPending(true); setError("");
     try {
-      const result = await identityAction(operation);
+      const result = await identityAction(operation, returnTo);
       if (!result.ok) { setError(result.message); return; }
       setView(result);
       if (result.url) window.location.assign(result.url);
@@ -45,6 +45,8 @@ export default function IdentityVerification({ initial }: { initial: View }) {
     <h2 className="text-lg font-semibold">Weryfikacja tożsamości</h2>
     {view.testMode && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Tryb testowy — wynik jest symulowany i nie potwierdza rzeczywistej tożsamości.</p>}
     <p role="status" className={`rounded-xl p-3 text-sm font-semibold ${view.status === "verified" ? "bg-emerald-50 text-emerald-800" : "bg-slate-50 text-slate-700"}`}>{labels[view.status] ?? labels.unverified}{view.status === "verified" && view.testMode ? " (test)" : ""}</p>
+    <p className="text-sm leading-6 text-slate-600">Weryfikacja tożsamości jest wymagana przed publikacją ogłoszenia, wysłaniem prośby o rezerwację i rozpoczęciem płatności.</p>
+    {requirementSatisfied && returnTo && <Link href={returnTo} className="ui-btn ui-btn-primary">Wróć i kontynuuj</Link>}
     <p className="text-sm leading-6 text-slate-600">Stripe sprawdzi dokument tożsamości i porówna go ze zdjęciem twarzy. Jedna weryfikacja służy zarówno najemcy, jak i właścicielowi. Nie musisz zakładać konta Stripe.</p>
     <p className="text-sm leading-6 text-slate-600">MojaSzafa zapisuje status, datę i identyfikator weryfikacji. Nie pobieramy kopii dokumentu ani zdjęć. Druga strona widzi wyłącznie oznaczenie zweryfikowanej tożsamości. Dostęp upoważnionej obsługi do danych w Stripe opisuje <Link href="/polityka-prywatnosci" className="underline">polityka prywatności</Link>.</p>
     <div className="flex flex-wrap gap-3">

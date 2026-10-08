@@ -1,3 +1,4 @@
+import { accountIdentityUrl, getRequiredIdentity, IDENTITY_REQUIRED_MESSAGE } from "@/app/lib/identityRequirement";
 import { MINIMUM_RENTAL_DAYS, MAXIMUM_RENTAL_DAYS } from "@/app/lib/minimumRentalDays";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
@@ -47,6 +48,8 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: "Brak uprawnień." }, { status: 401 });
     }
+
+    if (!await getRequiredIdentity(userId)) return NextResponse.json({ error: IDENTITY_REQUIRED_MESSAGE, code: "IDENTITY_REQUIRED", verifyUrl: accountIdentityUrl("/listing/new") }, { status: 403 });
 
     const body = await req.json();
 

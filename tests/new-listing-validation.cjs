@@ -27,6 +27,7 @@ function load(file) {
     if (id === 'react') return react;
     if (id === 'next/link') return 'Link';
     if (id === 'next/navigation') return { redirect };
+    if (id === '@/app/lib/identityRequirement') return { getRequiredIdentity: async () => true, accountIdentityUrl: () => '/account#tozsamosc', IDENTITY_REQUIRED_MESSAGE: 'Zweryfikuj tożsamość.' };
     if (id === '@/app/lib/prisma') return { prisma };
     if (id === '@/app/lib/auth') return { getSession: async () => ({ user: { id: 'owner' } }) };
     if (id === '@/app/lib/mailer') return { sendMail: async () => { throw Error('Unexpected email'); } };
@@ -41,7 +42,7 @@ function load(file) {
     if (id.startsWith('./')) return load(path.join(path.dirname(file), id + (['./PublishForm', './ListingFieldErrors'].includes(id) ? '.tsx' : '.ts')));
     throw Error(id);
   }
-  vm.runInNewContext(code, { exports, require: req, FormData: BrowserFormData, File, HTMLElement: FieldControl, console, process: { env: {} } });
+  vm.runInNewContext(code, { exports, require: req, FormData: BrowserFormData, File, HTMLElement: FieldControl, HTMLButtonElement: FieldControl, console, process: { env: {} } });
   cache.set(file, exports); return exports;
 }
 function find(node, type) {
@@ -81,7 +82,7 @@ function form(changes = {}) {
   assert.equal(transitions.length, 1, 'Repeated submit is blocked while pending');
   await Promise.all(transitions);
   assert.equal(states[0], location.LOCATION_MESSAGE);
-  assert.equal(states[2].city, location.LOCATION_MESSAGE);
+  assert.equal(states[3].city, location.LOCATION_MESSAGE);
   assert.equal(locationControl.focused, true); assert.equal(locationControl.scrolled, true);
   assert.equal(locationControl.attributes["aria-describedby"], "listing-error-city");
   assert.equal(resets, 0); assert.equal(prevented, 2);

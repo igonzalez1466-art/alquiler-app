@@ -2,6 +2,7 @@
 import { userMessage } from "@/app/lib/userMessage";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import PayForm from "./PayForm";
 
 export default function PayBookingPage({
@@ -12,6 +13,7 @@ export default function PayBookingPage({
   const { id: bookingId } = use(params);
 
   const [loading, setLoading] = useState(true);
+  const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<{
     clientSecret: string;
@@ -30,7 +32,14 @@ export default function PayBookingPage({
           body: JSON.stringify({ bookingId }),
         });
 
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+          if (res.headers.get("content-type")?.includes("application/json")) {
+            const failure = await res.json();
+            if (failure.code === "IDENTITY_REQUIRED") setVerifyUrl(`/account?returnTo=${encodeURIComponent(`/bookings/${bookingId}/pay`)}#tozsamosc`);
+            throw new Error(failure.error);
+          }
+          throw new Error(await res.text());
+        }
 
         const json = await res.json();
         setData(json);
@@ -45,7 +54,7 @@ export default function PayBookingPage({
   }, [bookingId]);
 
   if (loading) return <p>Trwa ładowanie płatności…</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (error) return <div className="surface-card max-w-lg p-6 space-y-4"><p role="alert" className="text-rose-700">{error}</p>{verifyUrl && <Link href={verifyUrl} className="ui-btn ui-btn-primary">Zweryfikuj tożsamość</Link>}<Link href={`/bookings/${bookingId}`} className="block underline">Wróć do rezerwacji</Link></div>;
   if (!data) return <p>Nie udało się załadować danych płatności.</p>;
 
   const formatMoney = (cents: number) =>

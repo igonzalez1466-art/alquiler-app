@@ -5,15 +5,16 @@ import Link from "next/link";
 import { ListingErrorsContext } from "./ListingFieldErrors";
 
 const PublishingContext = createContext(false);
-export type PublishResult = { error: string; field?: string } | void;
+export type PublishResult = { error: string; field?: string; verifyUrl?: string } | void;
 
-export function PublishButton() {
+export function PublishButton({ identityVerified = true }: { identityVerified?: boolean }) {
   const pending = useContext(PublishingContext);
   return <div className="space-y-2">
-    <button type="submit" disabled={pending} className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-white font-semibold hover:bg-indigo-700 active:bg-indigo-800 transition disabled:opacity-60 disabled:cursor-wait">
+    <button type="submit" name="intent" value="publish" disabled={pending || !identityVerified} className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-white font-semibold hover:bg-indigo-700 active:bg-indigo-800 transition disabled:opacity-60 disabled:cursor-wait">
       {pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
       {pending ? "Publikowanie…" : "Opublikuj"}
     </button>
+    <button type="submit" name="intent" value="draft" disabled={pending} className="ui-btn ml-0 md:ml-3">{pending ? "Zapisywanie…" : "Zapisz szkic"}</button>
     <p role="status" aria-live="polite" className="text-sm text-gray-600">{pending ? "Zapisujemy ogłoszenie i zdjęcia. Poczekaj na zakończenie." : ""}</p>
   </div>;
 }
@@ -27,6 +28,7 @@ export default function PublishForm({ action, children, className }: {
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [error, setError] = useState("");
   const [uncertain, setUncertain] = useState(false);
+  const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
   return <PublishingContext.Provider value={pending}><ListingErrorsContext.Provider value={fieldErrors}>
@@ -52,12 +54,15 @@ export default function PublishForm({ action, children, className }: {
       busy.current = true;
       const form = event.currentTarget;
       const data = new FormData(form);
-      setError(""); setUncertain(false); setFieldErrors({});
+      const submitter = (event.nativeEvent as SubmitEvent | undefined)?.submitter;
+      data.set("intent", submitter instanceof HTMLButtonElement ? submitter.value : "publish");
+      setError(""); setUncertain(false); setVerifyUrl(null); setFieldErrors({});
       startTransition(async () => {
         try {
           const result = await action(data);
           if (result?.error) {
             setError(result.error);
+            setVerifyUrl(result.verifyUrl ?? null);
             if (result.field) {
               setFieldErrors({ [result.field]: result.error });
               const control = result.field === "city" ? form.querySelector?.("#listing-location") : form.elements?.namedItem(result.field);
@@ -77,7 +82,7 @@ export default function PublishForm({ action, children, className }: {
       });
     }}>
       {children}
-      {error && <p ref={errorRef} role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}{uncertain && <> <Link href="/listing?tab=my" className="underline">Moje ogłoszenia</Link></>}</p>}
+      {error && <p ref={errorRef} role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}{verifyUrl && <> <Link href={verifyUrl} className="underline">Zweryfikuj tożsamość</Link></>}{uncertain && <> <Link href="/listing?tab=my" className="underline">Moje ogłoszenia</Link></>}</p>}
     </form>
   </ListingErrorsContext.Provider></PublishingContext.Provider>;
 }

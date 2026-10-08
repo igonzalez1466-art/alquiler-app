@@ -1,5 +1,6 @@
 "use server";
 
+import { accountIdentityUrl, getRequiredIdentity } from "@/app/lib/identityRequirement";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -19,6 +20,7 @@ export async function createListing(formData: FormData): Promise<void> {
 
   // ✅ Asegura tipo string (evita "any" y ayuda a Prisma)
   const uid: string = userId;
+  if (!await getRequiredIdentity(uid)) redirect(accountIdentityUrl("/listing/new"));
 
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -93,15 +95,18 @@ export async function toggleListingAvailable(formData: FormData): Promise<void> 
 
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
-    select: { userId: true, available: true },
+    select: { userId: true, available: true, isDraft: true, _count: { select: { images: true } } },
   });
 
   if (!listing) throw new Error("Nie znaleziono ogłoszenia.");
   if (listing.userId !== uid) throw new Error("Brak uprawnień.");
 
+  if (!listing.available && !await getRequiredIdentity(uid)) redirect(accountIdentityUrl(`/listing/${listingId}`));
+  if (listing.isDraft && listing._count.images < 3) throw new Error("Dodaj co najmniej 3 zdjęcia przed publikacją.");
+
   await prisma.listing.update({
     where: { id: listingId },
-    data: { available: !listing.available },
+    data: { available: !listing.available, isDraft: false },
   });
 
   // Revalidar páginas afectadas
