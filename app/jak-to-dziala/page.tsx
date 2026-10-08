@@ -36,7 +36,8 @@ export default function HowItWorks() {
     <section className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-rose-50 p-6 sm:p-10">
       <p className="text-sm font-semibold text-violet-700">MojaSzafa krok po kroku</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Jak to działa?</h1>
-      <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">Ubranie na wyjątkową okazję albo dodatkowy zarobek z własnej szafy. Sprawdź, co zrobić od rezerwacji aż po zwrot.</p>
+      <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">Szukasz stylizacji na wyjątkową okazję? Nie musisz kupować czegoś, co założysz tylko raz. Wypożycz, zachwyć i oddaj — z korzyścią dla portfela i planety. Na naszej platformie łączymy osoby, które chcą dzielić się modą i dawać ubraniom kolejne życie.</p>
+      <p className="mt-4 text-base text-slate-900"><strong>Zobacz, jak to działa</strong></p>
       <nav aria-label="Wybierz swoją rolę" className="mt-6 flex flex-wrap gap-3">
         <a href="#dla-najemcy" className="rounded-xl bg-violet-700 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700">Chcę wypożyczyć ↓</a>
         <a href="#dla-wlasciciela" className="rounded-xl border border-violet-300 bg-white px-5 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700">Chcę udostępnić ↓</a>
