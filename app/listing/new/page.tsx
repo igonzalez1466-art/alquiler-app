@@ -1,3 +1,4 @@
+import { validateOtherListingFields } from "@/app/lib/listingAttributes";
 import MinimumRentalDaysField from "./MinimumRentalDaysField";
 import { MINIMUM_RENTAL_DAYS, isValidMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 import GarmentTypeFields from "@/app/components/GarmentTypeFields";
@@ -225,6 +226,8 @@ export default async function NewListingPage({
     if (garmentType === "ACCESORIO" && !isAccessoryCode(accessoryRaw)) return { error: "Wybierz rodzaj akcesorium.", field: "accessoryType" };
     const accessoryType = garmentType === "ACCESORIO" ? accessoryRaw : null;
     const sport = sportEnabled ? sportRaw : null;
+    const otherFields = validateOtherListingFields({ garmentType, accessoryType, sport, otherGarmentType: String(formData.get("otherGarmentType") ?? ""), otherAccessoryType: String(formData.get("otherAccessoryType") ?? ""), otherSport: String(formData.get("otherSport") ?? "") });
+    if ("error" in otherFields) return otherFields;
 
     if (!size) return { error: "Rozmiar jest obowiązkowy", field: "size" };
     const estado = CONDITION_OPTIONS.find(
@@ -279,6 +282,7 @@ export default async function NewListingPage({
         color,
         garmentType,
         accessoryType,
+        ...otherFields.values,
         materials: [material],
         estado,
         metodoEnvio,
@@ -444,7 +448,7 @@ export default async function NewListingPage({
               />
             </div>
 
-            <ListingAttributesFields inputClassName={inputBase} labelClassName={labelBase} /><ListingFieldError name="gender" /><ListingFieldError name="sport" /><ListingFieldError name="pregnancy" />
+            <ListingAttributesFields inputClassName={inputBase} labelClassName={labelBase} /><ListingFieldError name="gender" /><ListingFieldError name="sport" /><ListingFieldError name="otherSport" /><ListingFieldError name="pregnancy" />
 
             <div>
               <label className={labelBase} htmlFor="size">
@@ -514,7 +518,7 @@ export default async function NewListingPage({
 <ListingFieldError name="color" />
             </div>
 
-            <GarmentTypeFields required className="md:col-span-2" inputClassName={`${inputBase} mt-1`} /><ListingFieldError name="garmentType" /><ListingFieldError name="accessoryType" />
+            <GarmentTypeFields required className="md:col-span-2" inputClassName={`${inputBase} mt-1`} /><ListingFieldError name="garmentType" /><ListingFieldError name="accessoryType" /><ListingFieldError name="otherGarmentType" /><ListingFieldError name="otherAccessoryType" />
 
             <div className="md:col-span-2">
               <label className={labelBase} htmlFor="material">

@@ -43,6 +43,9 @@ type Listing = {
   marca: string | null;
   gender: string | null;
   sport: string | null;
+  otherGarmentType?: string | null;
+  otherAccessoryType?: string | null;
+  otherSport?: string | null;
   pregnancy: boolean;
   size: string | null;
   color: string | null;
@@ -62,10 +65,10 @@ export default function ListingResults({ listings, showStatus = false }: { listi
         {showStatus && <span className={`pointer-events-none absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${l.available ? "bg-white text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{l.available ? "Aktywne" : "Nieaktywne"}</span>}
       </div>
       <Link href={`/listing/${l.id}`} className="block space-y-2.5 p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
-        <p className="text-xs text-slate-500">{accessoryLabel(l.accessoryType) ?? label(l.garmentType)}{l.size ? ` · Rozmiar ${l.size}` : ""}</p>
+        <p className="text-xs text-slate-500">{(l.garmentType === "OTRO" ? l.otherGarmentType : l.accessoryType === "INNE" ? l.otherAccessoryType : null) || accessoryLabel(l.accessoryType) || label(l.garmentType)}{l.size ? ` · Rozmiar ${l.size}` : ""}</p>
         <h2 className="line-clamp-2 font-semibold text-slate-900 group-hover:text-violet-700">{l.title}</h2>
         <p className="text-sm text-slate-500">{[l.marca, l.city].filter(Boolean).join(" · ") || "Lokalizacja niepodana"}</p>
-        {(l.sport || l.pregnancy) && <p className="text-xs text-indigo-700">{[sportLabel(l.sport), l.pregnancy ? "Odzież ciążowa" : null].filter(Boolean).join(" · ")}</p>}
+        {(l.sport || l.pregnancy) && <p className="text-xs text-indigo-700">{[l.sport === "INNY" ? l.otherSport || sportLabel(l.sport) : sportLabel(l.sport), l.pregnancy ? "Odzież ciążowa" : null].filter(Boolean).join(" · ")}</p>}
         <p className="border-t border-slate-100 pt-3 text-xl font-semibold text-slate-900">{new Intl.NumberFormat("pl-PL").format(l.pricePerDay)} zł <span className="text-sm font-normal text-slate-500">/ dzień</span></p>
       </Link>
     </article>)}

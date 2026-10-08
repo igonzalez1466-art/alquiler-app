@@ -93,6 +93,18 @@ function form(changes = {}) {
   assert.match(error.error, /Cena za dzień/); assert.equal(created, 1);
   for (const value of ['0','1','2','2.5','','2147483648']) { const result = await action(form({ minimumRentalDays: value })); assert.equal(result.field,'minimumRentalDays'); assert.equal(created,1); }
   for (const value of ['3','7','10']) { await assert.rejects(action(form({ minimumRentalDays:value,city:'Warszawa',lat:'52',lng:'21' })),e=>e.digest==='NEXT_REDIRECT;/listing?ok=1'); assert.equal(saved.minimumRentalDays,Number(value)); }
+  for (const [selection, field] of [[{garmentType:'OTRO'},'otherGarmentType'],[{garmentType:'ACCESORIO',accessoryType:'INNE'},'otherAccessoryType'],[{isSport:'yes',sport:'INNY'},'otherSport']]) {
+    for (const value of ['', '   ', 'x'.repeat(121)]) {
+      const beforeCreated=created, beforeUploads=uploads;
+      const data=form({city:'Warszawa',lat:'52',lng:'21',...selection,[field]:value});
+      const before=Array.from(data);const result=await action(data);
+      assert.equal(result.field,field);assert.equal(created,beforeCreated);assert.equal(uploads,beforeUploads);assert.deepEqual(Array.from(data),before);
+    }
+    await assert.rejects(action(form({city:'Warszawa',lat:'52',lng:'21',...selection,[field]:'  Własny rodzaj  '})),e=>e.digest==='NEXT_REDIRECT;/listing?ok=1');
+    assert.equal(saved[field],'Własny rodzaj');
+  }
+  await assert.rejects(action(form({city:'Warszawa',lat:'52',lng:'21',otherGarmentType:'ignored',otherAccessoryType:'ignored',otherSport:'ignored'})),e=>e.digest==='NEXT_REDIRECT;/listing?ok=1');
+  for(const field of ['otherGarmentType','otherAccessoryType','otherSport'])assert.equal(saved[field],null);
   console.log('PASS: invalid/missing coordinates, in-place errors, preserved listing fields and photos, duplicate-submit lock, corrected location publication and other validation errors. No real uploads, emails or database writes.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
 

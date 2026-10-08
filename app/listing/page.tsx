@@ -182,6 +182,9 @@ export default async function ListingPage({
         { marca: { contains: q } },
         { city: { contains: q } },
         { postalCode: { contains: q } },
+        { otherGarmentType: { contains: q } },
+        { otherAccessoryType: { contains: q } },
+        { otherSport: { contains: q } },
       ],
     });
   }
@@ -234,6 +237,9 @@ export default async function ListingPage({
       marca: true,
       gender: true,
       sport: true,
+      otherGarmentType: true,
+      otherAccessoryType: true,
+      otherSport: true,
       pregnancy: true,
       size: true,
       color: true,

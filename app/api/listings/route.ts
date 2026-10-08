@@ -2,7 +2,7 @@ import { MINIMUM_RENTAL_DAYS, MAXIMUM_RENTAL_DAYS } from "@/app/lib/minimumRenta
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { Estado, Gender, MetodoEnvio, GarmentType } from "@prisma/client";
-import { isSportCode, isAccessoryCode } from "@/app/lib/listingAttributes";
+import { isSportCode, isAccessoryCode, validateOtherListingFields } from "@/app/lib/listingAttributes";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -25,8 +25,13 @@ const listingSchema = z.object({
   garmentType: z.nativeEnum(GarmentType).optional(),
   accessoryType: z.string().refine(isAccessoryCode, "Wybierz rodzaj akcesorium").optional(),
   sport: z.string().refine(isSportCode, "Wybierz sport").optional(),
+  otherGarmentType: z.string().optional(),
+  otherAccessoryType: z.string().optional(),
+  otherSport: z.string().optional(),
   pregnancy: z.boolean().optional().default(false),
 }).superRefine((data, context) => {
+  const otherFields = validateOtherListingFields(data);
+  if ("error" in otherFields) context.addIssue({ code: "custom", path: [otherFields.field], message: otherFields.error });
   if (data.garmentType === "ACCESORIO" && !data.accessoryType) context.addIssue({ code: "custom", path: ["accessoryType"], message: "Wybierz rodzaj akcesorium." });
   if (data.garmentType !== "ACCESORIO" && data.accessoryType) context.addIssue({ code: "custom", path: ["accessoryType"], message: "Rodzaj akcesorium wymaga kategorii Akcesoria." });
   if (data.pregnancy && data.gender !== "WOMAN") {
@@ -47,10 +52,13 @@ export async function POST(req: Request) {
 
     // 👉 valida el body
     const data = listingSchema.parse(body);
+    const otherFields = validateOtherListingFields(data);
+    if ("error" in otherFields) return NextResponse.json({ error: otherFields.error }, { status: 400 });
 
     const listing = await prisma.listing.create({
       data: {
         ...data,
+        ...otherFields.values,
         fianza: DEPOSITS_ENABLED ? data.fianza : null,
         userId, // ✅ desde sesión, no desde body
       },

@@ -46,3 +46,21 @@ export const ACCESSORY_OPTIONS = [
 ] as const;
 export function isAccessoryCode(value: string): boolean { return ACCESSORY_OPTIONS.some(o => o.value === value); }
 export function accessoryLabel(value: string | null | undefined): string | null { return ACCESSORY_OPTIONS.find(o => o.value === value)?.label ?? null; }
+
+export type OtherListingInput = { garmentType?: string | null; accessoryType?: string | null; sport?: string | null; otherGarmentType?: string | null; otherAccessoryType?: string | null; otherSport?: string | null };
+type OtherField = "otherGarmentType" | "otherAccessoryType" | "otherSport";
+export function validateOtherListingFields(data: OtherListingInput): { error: string; field: OtherField } | { values: Record<OtherField, string | null> } {
+  const values: Record<OtherField, string | null> = { otherGarmentType: null, otherAccessoryType: null, otherSport: null };
+  const required: [OtherField, boolean, string][] = [
+    ["otherGarmentType", data.garmentType === "OTRO", "Podaj, jaki to przedmiot."],
+    ["otherAccessoryType", data.garmentType === "ACCESORIO" && data.accessoryType === "INNE", "Podaj rodzaj akcesorium."],
+    ["otherSport", data.sport === "INNY", "Podaj nazwę dyscypliny sportu."],
+  ];
+  for (const [field, active, message] of required) {
+    if (!active) continue;
+    const value = (data[field] ?? "").trim();
+    if (!value || value.length > 120) return { error: !value ? message : "Opis rodzaju może mieć maksymalnie 120 znaków.", field };
+    values[field] = value;
+  }
+  return { values };
+}

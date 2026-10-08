@@ -68,6 +68,9 @@ model Listing {
   color       Color?
   garmentType GarmentType?
   accessoryType String?
+  otherGarmentType String?
+  otherAccessoryType String?
+  otherSport String?
   gender      Gender?
   sport       String?
   pregnancy   Boolean @default(false)

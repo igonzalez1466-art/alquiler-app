@@ -4,6 +4,8 @@ import { ACCESSORY_OPTIONS } from "@/app/lib/listingAttributes";
 export default function GarmentTypeFields({ garmentType = "", accessoryType = "", required = false, className = "", inputClassName = "w-full border rounded-lg px-3 py-2 text-sm" }: { garmentType?: string; accessoryType?: string; required?: boolean; className?: string; inputClassName?: string }) {
   const [garment, setGarment] = useState(garmentType);
   const [accessory, setAccessory] = useState(accessoryType);
+  const [otherGarment, setOtherGarment] = useState("");
+  const [otherAccessory, setOtherAccessory] = useState("");
   return <div className={className}><div className="grid grid-cols-1 md:grid-cols-2 gap-3">
     <label className="text-sm"><span className="block text-xs text-gray-600 mb-1">Rodzaj przedmiotu</span>
       <select name="garmentType" required={required} value={garment} onChange={e => { setGarment(e.target.value); setAccessory(""); }} className={inputClassName}>
@@ -32,5 +34,7 @@ export default function GarmentTypeFields({ garmentType = "", accessoryType = ""
         <option value="">{required ? "Wybierz akcesorium" : "Wszystkie akcesoria"}</option>
         {ACCESSORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select></label>}
+    {required && garment === "OTRO" && <label className="text-sm"><span className="mb-1 block text-xs text-slate-600">Jaki to przedmiot? (wymagane)</span><input name="otherGarmentType" type="text" required maxLength={120} pattern=".*\S.*" title="Podaj, jaki to przedmiot." value={otherGarment} onChange={e => setOtherGarment(e.target.value)} className={inputClassName} placeholder="Np. kamizelka, strój sceniczny" /></label>}
+    {required && garment === "ACCESORIO" && accessory === "INNE" && <label className="text-sm"><span className="mb-1 block text-xs text-slate-600">Jakie to akcesorium? (wymagane)</span><input name="otherAccessoryType" type="text" required maxLength={120} pattern=".*\S.*" title="Podaj rodzaj akcesorium." value={otherAccessory} onChange={e => setOtherAccessory(e.target.value)} className={inputClassName} placeholder="Np. broszka, ozdoba do butów" /></label>}
   </div></div>;
 }

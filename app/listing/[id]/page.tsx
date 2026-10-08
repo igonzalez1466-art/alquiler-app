@@ -134,6 +134,9 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         color: true,
         garmentType: true,
         accessoryType: true,
+        otherGarmentType: true,
+        otherAccessoryType: true,
+        otherSport: true,
         materials: true,
       },
     }),
@@ -282,9 +285,10 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
             <div className="flex flex-wrap gap-2">
               {pill(`Marka: ${listing.marca ?? "—"}`)}
               {pill(`Kategoria: ${labelEnum(listing.garmentType)}`)}
-              {accessoryLabel(listing.accessoryType) && pill(`Akcesorium: ${accessoryLabel(listing.accessoryType)}`)}
+              {accessoryLabel(listing.accessoryType) && pill(`Akcesorium: ${listing.accessoryType === "INNE" && listing.otherAccessoryType ? listing.otherAccessoryType : accessoryLabel(listing.accessoryType)}`)}
               {pill(`Płeć: ${labelEnum(listing.gender)}`)}
-              {listing.sport && pill(`Sport: ${sportLabel(listing.sport) ?? listing.sport}`)}
+              {listing.garmentType === "OTRO" && listing.otherGarmentType && pill(`Przedmiot: ${listing.otherGarmentType}`)}
+              {listing.sport && pill(`Sport: ${listing.sport === "INNY" && listing.otherSport ? listing.otherSport : sportLabel(listing.sport) ?? listing.sport}`)}
               {listing.pregnancy && pill("Odzież ciążowa")}
               {pill(`Rozmiar: ${listing.size ?? "—"}`)}
 
