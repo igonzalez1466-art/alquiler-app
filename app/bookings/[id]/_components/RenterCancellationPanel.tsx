@@ -16,13 +16,13 @@ export default function RenterCancellationPanel({ bookingId, deadline, paid, amo
   if (!canCancel && !status) return null;
   const amount = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(amountCents / 100);
   const retry = isRenter && status === "PENDING";
-  return <section className="space-y-3 rounded border bg-white p-4" aria-labelledby="renter-cancel-title">
+  return <section className="surface-card space-y-3 p-5 sm:p-6" aria-labelledby="renter-cancel-title">
     <h2 id="renter-cancel-title" className="font-semibold">{status ? "Rezerwacja anulowana przez najemcę" : "Anulowanie rezerwacji"}</h2>
     {status ? <p className="text-sm">{status === "NONE" ? "Rezerwacja nie była opłacona. Nie ma środków do zwrotu." : status === "SUCCEEDED" ? `Zwrot 100% (${amount}) potwierdzony przez Stripe. Termin zaksięgowania zależy od banku.` : status === "FAILED" ? `Zwrot 100% (${amount}) wymaga pomocy obsługi serwisu. Skontaktuj się z nami.` : `Rezerwacja została anulowana. Pełny zwrot (100%): ${amount}. Zwrot oczekuje na potwierdzenie Stripe.`}</p> : <>
       <p className="text-sm">Możesz anulować rezerwację najpóźniej 7 dni przed rozpoczęciem — do {new Date(deadline).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}. {paid ? `Otrzymasz pełny zwrot (100%) zapłaconej kwoty: ${amount}.` : "Jeśli rezerwacja zostanie opłacona, anulowanie w tym terminie zapewnia zwrot 100% płatności."}</p>
       <p className="text-xs text-gray-600">Obie strony otrzymają wiadomość email o anulowaniu.</p>
     </>}
-    {canCancel && !confirming && <button type="button" onClick={() => setConfirming(true)} className="rounded border border-rose-300 px-4 py-2 text-rose-700">Anuluj rezerwację</button>}
+    {canCancel && !confirming && <button type="button" onClick={() => setConfirming(true)} className="ui-btn border-rose-300 text-rose-700 hover:bg-rose-50">Anuluj rezerwację</button>}
     {(confirming || retry) && <form onSubmit={async event => {
       event.preventDefault(); if (busy.current) return; busy.current = true; setPending(true); setError("");
       const data = new FormData(); data.set("bookingId", bookingId); data.set("confirm", "yes");
@@ -31,8 +31,8 @@ export default function RenterCancellationPanel({ bookingId, deadline, paid, amo
       finally { busy.current = false; setPending(false); }
     }} className="space-y-3">
       {!retry && <p className="text-sm font-medium">Czy na pewno chcesz anulować tę rezerwację?</p>}
-      <div className="flex flex-wrap gap-2"><button disabled={pending} className="inline-flex items-center gap-2 rounded bg-rose-700 px-4 py-2 text-white disabled:opacity-50">{pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}{pending ? "Przetwarzanie…" : retry ? "Sprawdź / ponów zwrot" : "Tak, anuluj rezerwację"}</button>
-        {!retry && <button disabled={pending} type="button" onClick={() => setConfirming(false)} className="rounded border px-4 py-2">Nie, zachowaj rezerwację</button>}</div>
+      <div className="flex flex-wrap gap-2"><button disabled={pending} className="ui-btn border-rose-700 bg-rose-700 text-white hover:bg-rose-800">{pending && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}{pending ? "Przetwarzanie…" : retry ? "Sprawdź / ponów zwrot" : "Tak, anuluj rezerwację"}</button>
+        {!retry && <button disabled={pending} type="button" onClick={() => setConfirming(false)} className="ui-btn">Nie, zachowaj rezerwację</button>}</div>
     </form>}
     {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
   </section>;

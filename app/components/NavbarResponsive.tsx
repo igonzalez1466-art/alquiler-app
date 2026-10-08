@@ -34,11 +34,11 @@ export default function NavbarResponsive({
   const isAdmin = isLoggedIn && userRole === "ADMIN";
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
-      <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 md:px-6">
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-violet-700 text-sm font-bold text-white">
             M
           </span>
           <span className="text-base font-semibold tracking-tight">
@@ -65,7 +65,7 @@ export default function NavbarResponsive({
               href={link.href}
               className={`text-sm px-3 py-1.5 rounded-full transition ${
                 isActive(link.href)
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-violet-50 text-violet-800"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
             >

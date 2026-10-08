@@ -8,7 +8,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="mt-10 border-t py-6 text-center text-sm text-gray-600">
+    <footer className="mt-16 border-t border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600">
       <div className="flex flex-col items-center gap-4 md:flex-row md:flex-wrap md:justify-center md:gap-x-6 md:gap-y-3">
 
         <Link href="/jak-to-dziala" className="underline hover:text-gray-800">

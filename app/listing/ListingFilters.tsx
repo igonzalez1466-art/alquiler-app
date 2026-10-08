@@ -116,7 +116,7 @@ export default function ListingFilters({
 
       <form
         method="GET"
-        className={`rounded-2xl border bg-white p-4 space-y-3 shadow-sm ${
+        className={`surface-card p-5 space-y-4 ${
           open ? "block" : "hidden"
         } md:block`}
       >

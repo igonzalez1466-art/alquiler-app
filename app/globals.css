@@ -4,20 +4,33 @@
 :root {
   --font-sans: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
-
-  --background: #ffffff;
-  --foreground: #111111;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@layer base {
+  *, ::before, ::after { border-color: #e2e8f0; }
+  body { background: var(--background); color: var(--foreground); line-height: 1.6; }
+  h1, h2, h3 { letter-spacing: -0.025em; }
+  button, summary, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), summary { cursor: pointer; }
+  :where(button, a, summary):focus-visible { outline: 2px solid #7c3aed; outline-offset: 3px; }
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]), select, textarea) { border-color: #cbd5e1; border-radius: .75rem; background-color: white; min-height: 44px; }
+  :where(input, select, textarea):focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
+  :where(input[type="checkbox"], input[type="radio"]) { accent-color: #7c3aed; }
+  :where(input, select, textarea):disabled { background-color: #f1f5f9; }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+@layer components {
+  .surface-card { border: 1px solid #e2e8f0; border-radius: 1.5rem; background-color: white; box-shadow: 0 2px 8px rgb(15 23 42 / .035); }
+  .ui-btn { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: .5rem; border: 1px solid #e2e8f0; border-radius: .875rem; padding: .65rem 1.15rem; font-size: .875rem; font-weight: 600; background-color: white; color: #334155; transition: background-color .15s, border-color .15s, box-shadow .15s; }
+  .ui-btn:hover { background-color: #f8fafc; border-color: #c4b5fd; }
+  .ui-btn:disabled { cursor: not-allowed; opacity: .5; }
+  .ui-btn-primary { background-color: #6d28d9; border-color: #6d28d9; color: white; }
+  .ui-btn-primary:hover { background-color: #5b21b6; border-color: #5b21b6; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}

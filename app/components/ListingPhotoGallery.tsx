@@ -29,12 +29,12 @@ export default function ListingPhotoGallery({ photos, title, cover = false }: { 
   }
   function show(i: number) { setZoom(1); setIndex(i); }
   const control = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/30 px-3 py-2 text-sm text-white hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-40";
-  if (!photos.length) return <div className="flex aspect-[4/3] items-center justify-center bg-slate-100 text-sm text-slate-500">Brak zdjęcia</div>;
+  if (!photos.length) return <div className="flex aspect-[3/4] items-center justify-center bg-slate-100 text-sm text-slate-500">Brak zdjęcia</div>;
   return <>
-    {cover ? <button type="button" onClick={() => show(0)} aria-label={`Zobacz wszystkie zdjęcia: ${title}`} aria-haspopup="dialog" className="relative block aspect-[4/3] w-full overflow-hidden bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-      <Image src={photos[0].url} alt={photos[0].alt ?? title} fill sizes="(max-width: 640px) 100vw, 50vw" className="object-cover transition duration-300 hover:scale-[1.02]" />
-      <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium">{photos.length} zdjęć · Powiększ</span>
-    </button> : <div className="grid grid-cols-2 gap-3 md:grid-cols-3">{photos.map((photo, i) => <button key={photo.id} type="button" onClick={() => show(i)} aria-label={`Powiększ zdjęcie ${i + 1}: ${title}`} aria-haspopup="dialog" className="relative h-44 overflow-hidden rounded-lg bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 md:h-48">
+    {cover ? <button type="button" onClick={() => show(0)} aria-label={`Zobacz wszystkie zdjęcia: ${title}`} aria-haspopup="dialog" className="relative block aspect-[3/4] w-full overflow-hidden bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+      <Image src={photos[0].url} alt={photos[0].alt ?? title} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover transition duration-300 hover:scale-[1.02]" />
+      <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm">{photos.length} zdjęć · Powiększ</span>
+    </button> : <div className="grid grid-cols-2 gap-3 md:grid-cols-3">{photos.map((photo, i) => <button key={photo.id} type="button" onClick={() => show(i)} aria-label={`Powiększ zdjęcie ${i + 1}: ${title}`} aria-haspopup="dialog" className="relative h-52 overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 md:h-48">
       <Image src={photo.url} alt={photo.alt ?? title} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
       <span className="absolute bottom-2 right-2 rounded-full bg-white/95 px-2 py-1 text-xs">Powiększ</span>
     </button>)}</div>}

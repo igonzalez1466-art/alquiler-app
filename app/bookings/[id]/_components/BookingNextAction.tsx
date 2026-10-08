@@ -57,11 +57,11 @@ export default function BookingNextAction({ booking, userId, ownerPhoneVerified 
   const returned = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);
   const finished = booking.status === "CANCELLED" || (returned && !!booking.settlementCompletedAt && !booking.incidents?.some(i => i.status !== "RESOLVED")) ||
     (returned && (booking.depositCents ?? 0) > 0 && ["REFUNDED", "PARTIALLY_REFUNDED", "RETAINED"].includes(booking.depositStatus));
-  return <section className={`rounded-2xl border p-5 sm:p-6 space-y-3 ${task ? "border-indigo-300 bg-indigo-50" : "border-slate-200 bg-slate-50"}`} aria-labelledby="booking-next-action">
+  return <section className={`rounded-2xl border p-5 sm:p-6 space-y-3 ${task ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-slate-50"}`} aria-labelledby="booking-next-action">
     <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{finished ? "Stan rezerwacji" : task ? "Co teraz zrobić?" : "Na co czekamy?"}</p>
     <h2 id="booking-next-action" className="text-xl font-semibold">{task ? task.title : finished ? booking.status === "CANCELLED" ? "Rezerwacja anulowana" : "Rezerwacja zakończona" : "Teraz czekamy"}</h2>
     <p className="text-sm text-gray-700">{task ? task.description : waitingMessage(booking, userId)}</p>
     {task?.deadline && <p className="text-sm font-medium text-rose-800">Termin: {new Date(task.deadline).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>}
-    {target && <Link href={target.href} className="inline-flex w-full sm:w-auto items-center justify-center rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700">{target.label} →</Link>}
+    {target && <Link href={target.href} className="ui-btn ui-btn-primary w-full sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700">{target.label} →</Link>}
   </section>;
 }

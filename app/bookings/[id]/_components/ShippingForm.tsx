@@ -71,7 +71,7 @@ export default function ShippingForm({ bookingId, initial }: Props) {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 sm:w-auto bg-indigo-600 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60 whitespace-nowrap"
+          className="ui-btn ui-btn-primary w-full sm:w-auto disabled:cursor-wait whitespace-nowrap"
         >
           {loading && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
           {loading ? "Zapisywanie..." : "Wysłano / Przekazano"}

@@ -62,7 +62,7 @@ const fmtDate = (d?: Date | null) =>
     : "—";
 
 const badge = (label: string, cls: string) => (
-  <span className={`text-xs px-2 py-1 rounded border ${cls}`}>
+  <span className={`text-xs px-3 py-1.5 rounded-full border ${cls}`}>
     {label}
   </span>
 );
@@ -159,7 +159,7 @@ const depositClass: Record<string, string> = {
   PAID: "bg-sky-100 text-sky-800 border-sky-200",
   REFUND_PENDING: "bg-amber-100 text-amber-800 border-amber-200",
   REFUNDED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  PARTIALLY_REFUNDED: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  PARTIALLY_REFUNDED: "bg-violet-100 text-violet-800 border-violet-200",
   RETAINED: "bg-rose-100 text-rose-700 border-rose-200",
   FAILED: "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -487,7 +487,7 @@ export default async function BookingPage({
           : "bg-gray-100 text-gray-800 border-gray-200";
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* HEADER */}
 
       <div className="flex items-center justify-between gap-3">
@@ -503,7 +503,7 @@ export default async function BookingPage({
 
         <Link
           href="/bookings"
-          className="text-blue-600 underline"
+          className="text-violet-700 underline"
         >
           ← Wróć
         </Link>
@@ -512,7 +512,7 @@ export default async function BookingPage({
       <BookingActionFeedback bookingId={id} />
       {/* INFORMACIÓN GENERAL */}
 
-      <section className="p-4 border rounded bg-white space-y-2">
+      <section className="surface-card p-5 sm:p-6 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm text-gray-500">
@@ -521,7 +521,7 @@ export default async function BookingPage({
 
             <Link
               href={`/listing/${booking.listingId}`}
-              className="text-blue-700 hover:underline font-medium break-words"
+              className="text-violet-700 hover:underline font-medium break-words"
             >
               {booking.listing?.title ?? "Ogłoszenie"}
             </Link>
@@ -553,7 +553,7 @@ export default async function BookingPage({
                   value={id}
                 />
 
-                <button className="px-3 py-1.5 rounded border text-gray-700 hover:bg-gray-50">
+                <button className="ui-btn">
                   Otwórz czat
                 </button>
               </form>
@@ -564,18 +564,23 @@ export default async function BookingPage({
 
       <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
       {!isCancelled && <BookingProgress booking={booking} />}
+      <nav aria-label="Sekcje rezerwacji" className="flex flex-wrap gap-2">
+        {!isCancelled && <><a href="#payment-section" className="ui-btn">Płatność</a><a href="#delivery-section" className="ui-btn">Dostawa</a></>}
+        {(!isCancelled || cancelledIncidentReturn) && <a href="#return-section" className="ui-btn">Zwrot</a>}
+        <a href="#incident-section" className="ui-btn">Zgłoszenia</a>
+      </nav>
       <RenterCancellationPanel bookingId={id} deadline={renterCancellationDeadline(booking.startDate).toISOString()}
         isRenter={isRenter} canCancel={canRenterCancelBooking(booking, userId)} paid={booking.paymentStatus === "PAID"}
         amountCents={readRenterCancellation(booking.renterCancellation)?.amountCents ?? booking.rentAmountCents ?? booking.amountCents ?? 0}
         status={readRenterCancellation(booking.renterCancellation)?.status ?? null} />
 
       {contactVisible && (
-        <section className="p-4 border rounded bg-white space-y-2">
+        <section className="p-4 border border-slate-200 rounded-2xl bg-white space-y-2">
           <h2 className="text-lg font-semibold">Kontakt do {isOwner ? "najemcy" : "właściciela"}</h2>
           <p className="text-sm text-gray-600">Dane są udostępnione wyłącznie stronom opłaconej rezerwacji. Do ustaleń i zachowania historii rozmowy używaj przede wszystkim czatu MojaSzafa.</p>
           <p><strong>{counterpart.name ?? "Użytkownik"}:</strong>{" "}
             {counterpart.phone && counterpart.phoneVerifiedAt
-              ? <a className="text-blue-700 underline" href={`tel:${counterpart.phone}`}>{counterpart.phone}</a>
+              ? <a className="text-violet-700 underline" href={`tel:${counterpart.phone}`}>{counterpart.phone}</a>
               : "brak zweryfikowanego numeru"}
           </p>
         </section>
@@ -610,7 +615,7 @@ export default async function BookingPage({
       {/* RESERVA CANCELADA */}
 
       {isCancelled && !cancelledIncidentReturn && (
-        <section className="p-4 border rounded bg-white text-sm text-gray-600">
+        <section className="p-4 border border-slate-200 rounded-2xl bg-white text-sm text-gray-600">
           Rezerwacja została anulowana — szczegóły płatności,
           dostawy i zwrotu nie są dostępne.
         </section>
@@ -618,11 +623,11 @@ export default async function BookingPage({
 
       {(!isCancelled || cancelledIncidentReturn) && (
         <>
-          {cancelledIncidentReturn && <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950"><p className="font-semibold">Rezerwacja anulowana — zwrot przedmiotu</p><p className="mt-2">{isRenter ? "Jeśli masz przedmiot, uzgodnij z właścicielem jego zwrot jak najszybciej. Uzupełnij sposób przekazania lub numer przesyłki w sekcji Zwrot poniżej." : "Uzgodnij z najemcą jak najszybszy zwrot przedmiotu. Po otrzymaniu przedmiotu potwierdź odbiór w sekcji Zwrot poniżej."}</p><p className="mt-2">Zapisanie wysyłki i potwierdzenie odbioru nie zmieniają uzgodnionego zwrotu pieniędzy.</p></section>}
+          {cancelledIncidentReturn && <section className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950"><p className="font-semibold">Rezerwacja anulowana — zwrot przedmiotu</p><p className="mt-2">{isRenter ? "Jeśli masz przedmiot, uzgodnij z właścicielem jego zwrot jak najszybciej. Uzupełnij sposób przekazania lub numer przesyłki w sekcji Zwrot poniżej." : "Uzgodnij z najemcą jak najszybszy zwrot przedmiotu. Po otrzymaniu przedmiotu potwierdź odbiór w sekcji Zwrot poniżej."}</p><p className="mt-2">Zapisanie wysyłki i potwierdzenie odbioru nie zmieniają uzgodnionego zwrotu pieniędzy.</p></section>}
           {/* PAGO */}
 
-          {!isCancelled && <section className="border rounded bg-white overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between gap-3">
+          {!isCancelled && <section id="payment-section" className="surface-card overflow-hidden scroll-mt-24">
+            <div className="px-5 py-4 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">
                 Płatność
               </h2>
@@ -761,12 +766,12 @@ export default async function BookingPage({
               )}
 
               {isRenter && (
-                <div className="rounded-lg border bg-indigo-50 px-3 py-3 flex justify-between">
+                <div className="rounded-lg border bg-violet-50 px-3 py-3 flex justify-between">
                   <span className="font-semibold">
                     Razem do zapłaty w MojaSzafa
                   </span>
 
-                  <span className="font-bold text-indigo-700">
+                  <span className="font-bold text-violet-700">
                     {moneyCents(rentAmountCents + depositCents)}
                   </span>
                 </div>
@@ -779,13 +784,13 @@ export default async function BookingPage({
             <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Incydent w rezerwacji</h2><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold">{currentIncidentState.label}</span></div>
             <div className="flex flex-wrap gap-2">{incidentTopics(booking).map(topic => <span key={topic.label} className="rounded border bg-white px-2 py-1 text-xs">{topic.label}: {topic.detail}</span>)}</div>
             <p className="text-sm">{currentIncidentState.next}</p>
-            <Link href={`/account/incidents/${encodeURIComponent(id)}`} className="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Zobacz przebieg i dostępne działania</Link>
+            <Link href={`/account/incidents/${encodeURIComponent(id)}`} className="inline-flex rounded bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800">Zobacz przebieg i dostępne działania</Link>
           </section>}
 
           {/* LOGÍSTICA */}
 
           {!logisticsEnabled ? (
-            <section className="p-4 border rounded bg-white text-sm text-gray-600">
+            <section className="p-4 border border-slate-200 rounded-2xl bg-white text-sm text-gray-600">
               Logistyka (dostawa i zwrot) będzie dostępna dopiero
               po opłaceniu rezerwacji.
             </section>
@@ -793,7 +798,7 @@ export default async function BookingPage({
             <>
               {/* ENTREGA */}
 
-              {!cancelledIncidentReturn && <section id="delivery-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
+              {!cancelledIncidentReturn && <section id="delivery-section" className="p-4 border border-slate-200 rounded-2xl bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   Dostawa
 
@@ -1038,7 +1043,7 @@ export default async function BookingPage({
 
               {/* FIANZA */}
 
-              {depositCents > 0 && <section id="deposit-section" className="p-4 border rounded bg-white space-y-3 scroll-mt-24">
+              {depositCents > 0 && <section id="deposit-section" className="p-4 border border-slate-200 rounded-2xl bg-white space-y-3 scroll-mt-24">
                 <h2 className="text-lg font-semibold">
                   Kaucja
                 </h2>
@@ -1080,7 +1085,7 @@ export default async function BookingPage({
                   </div>
                 )}
 
-                {depositIncident && <Link href={`/account/incidents/${encodeURIComponent(id)}`} className="text-sm font-medium text-indigo-700 underline">Szczegóły incydentu i działania dotyczące kaucji →</Link>}
+                {depositIncident && <Link href={`/account/incidents/${encodeURIComponent(id)}`} className="text-sm font-medium text-violet-700 underline">Szczegóły incydentu i działania dotyczące kaucji →</Link>}
                 {(isOwner || isRenter) && !depositIncident && (
                   <DepositClaimPanel
                     bookingId={id}
@@ -1137,7 +1142,7 @@ export default async function BookingPage({
       {/* ACCIONES DEL PROPIETARIO */}
 
            {isOwner && awaitingApproval && !approvalExpired && (
-        <section className="p-4 border rounded bg-white">
+        <section className="p-4 border border-slate-200 rounded-2xl bg-white">
           <h2 className="text-lg font-semibold mb-2">
             Akcje
           </h2>

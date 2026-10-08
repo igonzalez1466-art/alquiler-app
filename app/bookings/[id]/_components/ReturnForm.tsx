@@ -65,7 +65,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
       <button
         type="submit"
         disabled={disabled}
-        className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white rounded px-4 py-2 disabled:cursor-wait disabled:opacity-60"
+        className="ui-btn ui-btn-primary disabled:cursor-wait"
       >
         {loading && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
         {loading ? "Zapisywanie…" : sent ? "Wysłano — oczekuje na potwierdzenie" : "Wysłano / Przekazano"}

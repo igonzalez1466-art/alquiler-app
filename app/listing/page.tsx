@@ -268,21 +268,21 @@ export default async function ListingPage({
     }));
 
   return (
-    <div className="max-w-5xl mx-auto mt-10 space-y-4">
-      <div className="flex items-center justify-between">
-        <div />
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div><p className="text-xs font-semibold uppercase tracking-widest text-violet-700">Znajdź coś dla siebie</p><h1 className="mt-1 text-3xl font-bold">Ogłoszenia</h1></div>
         <div className="flex gap-2">
           <Link
             href="/listing/new"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="ui-btn ui-btn-primary"
           >
             Dodaj ogłoszenie
           </Link>
 
           <Link
             href="/listing?tab=my"
-            className={`border px-4 py-2 rounded bg-white ${
-              tab === "my" ? "ring-2 ring-blue-500" : ""
+            className={`ui-btn ${
+              tab === "my" ? "border-violet-300 bg-violet-50 text-violet-800" : ""
             }`}
           >
             Moje ogłoszenia
@@ -305,7 +305,7 @@ export default async function ListingPage({
         materials={material ?? ""}
       />
 
-      <div className="relative">
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <MapClient markers={markers} />
 
         {markers.length === 0 && (

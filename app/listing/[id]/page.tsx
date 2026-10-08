@@ -226,7 +226,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         {/* LEFT: main content */}
         <div className="min-w-0 lg:col-span-2 space-y-6">
           {/* Header card */}
-          <section className="border rounded-xl bg-white p-5 shadow-sm">
+          <section className="surface-card p-5 sm:p-7">
             <div className="flex flex-col gap-3">
               <div className="flex min-w-0 flex-col gap-3">
                 <div className="min-w-0">
@@ -276,7 +276,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
           </section>
 
           {/* Details as chips */}
-          <section className="border rounded-xl bg-white p-5 shadow-sm">
+          <section className="surface-card p-5 sm:p-7">
             <h2 className="text-lg font-semibold mb-3">Szczegóły</h2>
 
             <div className="flex flex-wrap gap-2">
@@ -304,7 +304,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
           {/* Images */}
           {listing.images.length > 0 && (
-            <section className="border rounded-xl bg-white p-5 shadow-sm">
+            <section className="surface-card p-5 sm:p-7">
               <h2 className="text-lg font-semibold mb-3">Zdjęcia</h2>
               <ListingPhotoGallery title={listing.title} photos={listing.images.slice().sort((a, b) => a.order - b.order)} />
             </section>
@@ -312,7 +312,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
           {/* Owner controls (left bottom) */}
           {isOwner && (
-            <section className="border rounded-xl bg-white p-5 shadow-sm space-y-3">
+            <section className="surface-card p-5 sm:p-7 space-y-3">
               <h2 className="text-lg font-semibold">Panel właściciela</h2>
 
               <div className="text-sm text-gray-700">
@@ -340,7 +340,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         {/* RIGHT: sidebar */}
         <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-6">
           {/* Price card */}
-          <section className="border rounded-xl bg-white p-5 shadow-sm">
+          <section className="surface-card p-5 sm:p-7">
             <h2 className="text-lg font-semibold mb-3">Cena</h2>
             <p className="mb-3 text-sm"><strong>Minimalny okres wynajmu:</strong> {effectiveMinimumRentalDays(listing.minimumRentalDays)} {effectiveMinimumRentalDays(listing.minimumRentalDays) === 1 ? "dzień" : "dni"}</p>
 
@@ -370,7 +370,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
 
           {/* Booking (only not owner) */}
           {!isOwner && (
-            <section className="border rounded-xl bg-white p-5 shadow-sm">
+            <section className="surface-card p-5 sm:p-7">
               <h2 className="text-lg font-semibold mb-3">Rezerwacja</h2>
               <BookingForm
                 listingId={listing.id}

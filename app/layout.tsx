@@ -22,7 +22,7 @@ export default function RootLayout({
         <PolishFormValidation />
         <NavbarWrapper />
 
-        <main className="max-w-5xl mx-auto p-4 md:p-6">
+        <main className="max-w-6xl mx-auto px-4 py-5 md:px-6 md:py-8">
           {children}
         </main>
 
