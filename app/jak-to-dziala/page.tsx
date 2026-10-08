@@ -21,7 +21,7 @@ const ownerSteps = [
   ["Potwierdź zwrot", "Po otrzymaniu przedmiotu sprawdź go i wybierz „Otrzymałem zwrot”. Jeśli jest problem ze zwrotem, zgłoś go na stronie rezerwacji."],
 ];
 const questions = [
-  ["Czy muszę wpłacić kaucję?", "Nie pobieramy kaucji w płatności za rezerwację. Płatność w aplikacji obejmuje najem. Szczegóły przekazania i zwrotu przedmiotu uzgodnij z drugą stroną."],
+  ["Czy muszę wpłacić kaucję?", "Przy rezerwacji nie pobieramy kaucji — w aplikacji płacisz wyłącznie za wynajem. Sposób i termin przekazania oraz zwrotu przedmiotu ustal bezpośrednio z drugą stroną."],
   ["Kiedy właściciel otrzymuje pieniądze?", "Samo opłacenie rezerwacji lub oznaczenie wysyłki nie uruchamia wypłaty właścicielowi. Najpierw najemca potwierdza odbiór albo obie strony akceptują rozwiązanie zgłoszenia dostawy. Termin wpływu pieniędzy zależy również od obsługi płatności i banku."],
   ["Co zrobić, jeśli przedmiot jest uszkodzony lub niezgodny z ogłoszeniem?", "Przed potwierdzeniem odbioru wybierz „Zgłoś problem” w sekcji dostawy. Przy uszkodzeniu lub niezgodności z opisem wymagane są zdjęcia. Wybierz wszystkie zdjęcia przed wysłaniem zgłoszenia — maksymalnie 3. Po zapisaniu nie można dodać kolejnych. Zgłoszenie wstrzymuje wypłatę do uzgodnienia rozwiązania."],
   ["Co zrobić, jeśli dostawa jest opóźniona?", "Wybierz „Opóźniona dostawa” i podaj rzeczywistą datę odbioru. Właściciel zobaczy datę oraz sugestię zwrotu: kwota najmu × dni opóźnienia / dni rezerwacji, maksymalnie 100%. Sugestia nie uruchamia zwrotu. Właściciel proponuje rozwiązanie, a najemca je akceptuje lub odrzuca z komentarzem."],
