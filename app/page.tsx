@@ -15,7 +15,7 @@ export default function Home() {
         <div className="max-w-lg rounded-3xl bg-white/95 p-6 shadow-xl backdrop-blur-sm sm:p-9">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[.18em] text-violet-700">Twoja szafa. Więcej możliwości.</p>
           <h1 className="text-3xl font-bold leading-[1.12] text-slate-950 sm:text-4xl">Wypożyczaj ubrania.<span className="mt-2 block">Zarabiaj na swojej szafie.</span></h1>
-          <p className="mt-5 text-sm leading-6 text-slate-600 sm:text-base">Na wyjątkową okazję. Na jeden weekend. Znajdź coś dla siebie albo udostępnij ubranie, które czeka w szafie.</p>
+          <p className="mt-5 text-sm leading-6 text-slate-600 sm:text-base">Na wyjątkową okazję. Na jeden weekend. Znajdź coś dla siebie albo udostępnij to, co czeka w Twojej szafie.</p>
           <div className="my-6 flex flex-wrap gap-2">
             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">💸 Dodatkowy zarobek</span>
             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">♻️ Drugie życie ubrań</span>
