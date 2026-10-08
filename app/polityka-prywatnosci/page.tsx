@@ -28,6 +28,13 @@ export default function PolitykaPrywatnosciPage() {
         <li>dane dotyczące rezerwacji i wystawianych ogłoszeń.</li>
       </ul>
 
+      <section className="my-6 space-y-3 rounded-xl border p-4" aria-label="Weryfikacja tożsamości">
+        <h2 className="text-xl font-semibold">Weryfikacja tożsamości przez Stripe Identity</h2>
+        <p>Po uruchomieniu weryfikacji dokument i zdjęcie twarzy są przekazywane bezpośrednio do Stripe. MojaSzafa zapisuje identyfikator sesji, jej status, daty oraz informację o trybie testowym lub rzeczywistym, bez pobierania kopii dokumentu, zdjęć i danych odczytanych z dokumentu. Wynik służy zwiększeniu bezpieczeństwa i ograniczeniu nadużyć. Inni użytkownicy widzą jedynie oznaczenie rzeczywiście zweryfikowanej tożsamości.</p>
+        <p>Stripe przechowuje informacje weryfikacyjne na rzecz MojaSzafa i może przetwarzać je również jako niezależny administrator w celach opisanych w swojej polityce prywatności. Upoważniona obsługa może uzyskać dostęp do dostępnych danych w Stripe, gdy istnieje uzasadniona potrzeba i podstawa prawna, w tym w związku z prawidłowym żądaniem właściwego organu. Dane nie są automatycznie udostępniane drugiej stronie rezerwacji.</p>
+        <p>Informacje o przetwarzaniu i przechowywaniu danych przez Stripe: <a href="https://stripe.com/privacy" className="underline">polityka prywatności Stripe</a> oraz <a href="https://support.stripe.com/questions/managing-your-id-verification-information" className="underline">zarządzanie danymi weryfikacji</a>. W sprawach dostępu, usunięcia danych lub problemów z weryfikacją skontaktuj się z obsługą MojaSzafa. Usunięcie danych przechowywanych przez Stripe na naszą rzecz wymaga obsługi odrębnie od usunięcia konta w serwisie.</p>
+      </section>
+
       <h2 className="text-2xl font-semibold mt-8 mb-4">3. Cele przetwarzania danych</h2>
       <p className="mb-4">Dane osobowe przetwarzamy w następujących celach:</p>
 

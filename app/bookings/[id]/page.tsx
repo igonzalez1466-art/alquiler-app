@@ -9,6 +9,7 @@ import { prisma } from "@/app/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import BookingIncidents from "@/app/bookings/[id]/_components/BookingIncidents";
 import Link from "next/link";
+import IdentityBadge from "@/app/components/IdentityBadge";
 import { getSession } from "@/app/lib/auth";
 import { canUploadBookingEvidence } from "@/app/lib/bookingEvidence";
 import { canViewBookingEvidencePhoto } from "@/app/lib/bookingEvidenceVisibility";
@@ -281,6 +282,9 @@ export default async function BookingPage({
 
       renter: {
         select: {
+          identityStatus: true,
+          identityVerifiedAt: true,
+          identityLivemode: true,
           id: true,
           name: true,
           email: true,
@@ -292,6 +296,9 @@ export default async function BookingPage({
       },
       owner: {
         select: {
+          identityStatus: true,
+          identityVerifiedAt: true,
+          identityLivemode: true,
           id: true,
           name: true,
           email: true,
@@ -535,10 +542,12 @@ export default async function BookingPage({
               <span className="font-medium">
                 {booking.renter?.name ?? "Użytkownik"}
               </span>
+              {booking.renter && <IdentityBadge user={booking.renter} />}
             </div>
           </div>
 
           <div className="flex flex-col items-end gap-2">
+            {booking.owner && <div className="text-xs text-slate-600">Właściciel: {booking.owner.name ?? "Użytkownik"} <IdentityBadge user={booking.owner} /></div>}
             {badge(
               paymentExpired ? "Termin płatności upłynął" : statusLabel[booking.status] ?? booking.status,
               paymentExpired ? "bg-rose-100 text-rose-700 border-rose-200" : statusClass[booking.status] ??

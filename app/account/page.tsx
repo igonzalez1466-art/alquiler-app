@@ -5,6 +5,8 @@ import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { startStripeConnectOnboarding } from "./connectActions";
 import PhoneVerification from "./PhoneVerification";
+import IdentityVerification from "./IdentityVerification";
+import { identityView } from "@/app/lib/identityVerification";
 import PreferredInpostPointForm from "./PreferredInpostPointForm";
 import { maskPhone } from "@/app/lib/phoneVerification";
 import AccountNextActions from "./AccountNextActions";
@@ -39,6 +41,9 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
       name: true,
       email: true,
       stripeAccountId: true,
+      identityStatus: true,
+      identityVerifiedAt: true,
+      identityLivemode: true,
       phone: true,
       phoneVerifiedAt: true,
       preferredInpostPointCode: true,
@@ -93,6 +98,8 @@ export default async function AccountPage({ searchParams }: { searchParams?: Pro
       </div>
 
       <PhoneVerification verified={!!user.phoneVerifiedAt} maskedPhone={maskPhone(user.phone)} returnTo={returnTo} />
+
+      <IdentityVerification initial={identityView(user)} />
 
       <PreferredInpostPointForm code={user.preferredInpostPointCode} address={user.preferredInpostPointAddress} geowidgetToken={process.env.INPOST_GEOWIDGET_TOKEN?.trim() || null} />
 

@@ -1,6 +1,7 @@
 // app/users/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
+import IdentityBadge from "@/app/components/IdentityBadge";
 import Image from "next/image";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
@@ -45,7 +46,7 @@ export default async function UserProfile({ params }: PageProps) {
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, name: true, email: true, image: true },
+    select: { id: true, name: true, email: true, image: true, identityStatus: true, identityVerifiedAt: true, identityLivemode: true },
   });
 
   if (!user) {
@@ -133,6 +134,7 @@ export default async function UserProfile({ params }: PageProps) {
 
         <div>
           <h1 className="text-2xl font-bold">{user.name ?? "Użytkownik"}</h1>
+          <IdentityBadge user={user} />
 
           {/* ✅ Recomendado: NO mostrar email si no es tu perfil */}
           {isMe ? (

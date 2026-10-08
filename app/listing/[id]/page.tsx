@@ -5,6 +5,7 @@ import { sportLabel, accessoryLabel } from "@/app/lib/listingAttributes";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
 import ListingPhotoGallery from "@/app/components/ListingPhotoGallery";
 import Link from "next/link";
+import IdentityBadge from "@/app/components/IdentityBadge";
 import type { Metadata } from "next";
 import { getSession } from "@/app/lib/auth";
 import BookingForm from "./_components/BookingForm";
@@ -120,7 +121,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
         postalCode: true,
         createdAt: true,
         userId: true,
-        user: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, identityStatus: true, identityVerifiedAt: true, identityLivemode: true } },
         estado: true,
         fianza: true,
         metodoEnvio: true,
@@ -261,6 +262,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
                   {listing.user?.name ?? "Użytkownik"}
                 </span>{" "}
                 ({new Date(listing.createdAt).toLocaleDateString("pl-PL")})
+                {listing.user && <IdentityBadge user={listing.user} />}
                 {ownerCount > 0 && (
                   <>
                     {" • "}★ {ownerAvg.toFixed(1)} ({ownerCount} {plOceny(ownerCount)})

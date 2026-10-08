@@ -28,6 +28,13 @@ model User {
   // Stripe Connect account del usuario cuando actúa como owner.
   stripeAccountId String? @unique
 
+  identitySessionId String? @unique
+  identityStatus String @default("unverified")
+  identityVerifiedAt DateTime?
+  identityLivemode Boolean?
+  identityAttempt Int @default(0)
+  identityStartedAt DateTime?
+
   bookingRestrictedAt DateTime?
   bookingRestrictionReason String?
   role Role @default(USER)
