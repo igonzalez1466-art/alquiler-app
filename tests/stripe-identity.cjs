@@ -8,8 +8,9 @@ class Stripe { constructor(){this.webhooks=real.webhooks;this.identity={verifica
 let queue=Promise.resolve();
 const tx={ $queryRaw:async()=>[],user:{findUniqueOrThrow:async()=>({...state}),update:async({data})=>{for(const[k,v]of Object.entries(data))state[k]=v&&typeof v==='object'&&'increment'in v?state[k]+v.increment:v;return {...state};}}};
 const prisma={$transaction:async fn=>{const previous=queue;let release;queue=new Promise(r=>release=r);await previous;try{return await fn(tx);}finally{release();}},user:{findUnique:async({where})=>where.identitySessionId===state.identitySessionId?{id:state.id}:null}};
+const diagnostics=[];const safeConsole={error:(...args)=>diagnostics.push(args)};
 const cache={};const jsx=(type,props)=>({type,props});let authUser='user1';
-function load(file){if(cache[file])return cache[file];const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{exports,require:id=>id==='stripe'?Stripe:id==='@/app/lib/prisma'?{prisma}:id==='@/app/lib/auth'?{getSession:async()=>authUser?{user:{id:authUser}}:null}:id==='next/cache'?{revalidatePath:()=>{}}:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.startsWith('@/')?load(id.slice(2)+'.ts'):require(id),process:{env},Date,URL,Response,Set,Number});return cache[file]=exports;}
+function load(file){if(cache[file])return cache[file];const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{exports,console:safeConsole,require:id=>id==='stripe'?Stripe:id==='@/app/lib/prisma'?{prisma}:id==='@/app/lib/auth'?{getSession:async()=>authUser?{user:{id:authUser}}:null}:id==='next/cache'?{revalidatePath:()=>{}}:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.startsWith('@/')?load(id.slice(2)+'.ts'):require(id),process:{env},Date,URL,Response,Set,Number});return cache[file]=exports;}
 const lib=load('app/lib/identityVerification.ts'),route=load('app/api/stripe/identity/webhook/route.ts'),actions=load('app/account/identityActions.ts'),Badge=load('app/components/IdentityBadge.tsx').default;
 function request(event,signed=true){const body=JSON.stringify(event);return new Request('https://app/api/stripe/identity/webhook',{method:'POST',body,headers:signed?{'stripe-signature':real.webhooks.generateTestHeaderString({payload:body,secret:env.STRIPE_IDENTITY_WEBHOOK_SECRET})}:{}});}
 const event=(type,id='vs_1',live=false)=>({id:'evt_test',object:'event',type,livemode:live,data:{object:{id}}});
@@ -37,5 +38,14 @@ const event=(type,id='vs_1',live=false)=>({id:'evt_test',object:'event',type,liv
  state.identityStartedAt=new Date(Date.now()-120000);state.identityStatus='verified';state.identityLivemode=true;state.identityVerifiedAt=new Date();assert.ok(Badge({user:state}));
  const protectedLive=await lib.beginIdentity('user1');assert.equal(protectedLive.url,null);assert.equal(created,1);assert.equal(state.identityLivemode,true);
  env.STRIPE_IDENTITY_ENABLED='false';await assert.rejects(()=>lib.beginIdentity('user1'));
+ const originalTransaction=prisma.$transaction;
+ prisma.$transaction=async()=>{throw Object.assign(new Error('PRIVATE_SECRET_VALUE'),{name:'PrismaClientKnownRequestError',code:'P2028'});};
+ assert.equal((await actions.identityAction('refresh')).ok,false);
+ assert.equal(diagnostics.at(-1)[1].code,'P2028');
+ prisma.$transaction=async()=>{throw Object.assign(new Error('PRIVATE_SECRET_VALUE'),{type:'PRIVATE_SECRET_VALUE',code:'PRIVATE_SECRET_VALUE',statusCode:12345});};
+ assert.equal((await actions.identityAction('refresh')).ok,false);
+ assert.equal(diagnostics.at(-1)[1].type,'unknown');assert.equal(diagnostics.at(-1)[1].code,'unknown');
+ assert.equal(JSON.stringify(diagnostics).includes('PRIVATE_SECRET_VALUE'),false);
+ prisma.$transaction=originalTransaction;
  console.log('PASS Identity: authenticated actions, signed webhooks, session ownership/options/mode, repeated/out-of-order/unknown events, redaction, idempotent concurrent starts, retry throttling, sensitive-data exclusion and live-only badges. No network or database writes.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
