@@ -65,7 +65,7 @@ function AvailabilityButton({ listing }: {listing: Listing}) {
 }
 export default function ListingResults({ listings, showStatus = false, compact = false }: { listings: Listing[]; showStatus?: boolean; compact?: boolean }) {
   if (!listings.length) return <div className="surface-card p-10 text-center"><h2 className="text-lg font-semibold">Brak pasujących ogłoszeń</h2><p className="mt-2 text-sm text-slate-500">Zmień filtry lub poszerz zakres wyszukiwania.</p><Link href={showStatus ? "/listing?tab=my" : "/listing"} className="ui-btn mt-5">Wyczyść filtry</Link>{showStatus && <Link href="/listing/new" className="ui-btn ui-btn-primary mt-5 ml-2">Dodaj ogłoszenie</Link>}</div>;
-  return <div className={`grid grid-cols-1 gap-5 sm:grid-cols-2 ${compact ? "" : "lg:grid-cols-3"}`} aria-label="Ogłoszenia">
+  return <div className={`grid grid-cols-1 gap-5 ${compact && listings.length === 1 ? "" : "sm:grid-cols-2"} ${compact ? "" : "lg:grid-cols-3"}`} aria-label="Ogłoszenia">
     {listings.map(l => <article key={l.id} className="surface-card group overflow-hidden transition hover:border-violet-200 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
       <div className="relative">
         <ListingPhotoGallery cover photos={l.images} title={l.title} />

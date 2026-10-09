@@ -16,13 +16,13 @@ export default function ListingExplorer({ listings, markers, showStatus }: { lis
   const mapVisible = desktop ? desktopMap : mobileMap;
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-slate-600"><strong className="text-slate-900">{listings.length}</strong> ogłoszeń</p>
+      <p className="text-sm text-slate-600"><strong className="text-slate-900">{listings.length}</strong> {listings.length === 1 ? "ogłoszenie" : listings.length % 10 >= 2 && listings.length % 10 <= 4 && (listings.length % 100 < 12 || listings.length % 100 > 14) ? "ogłoszenia" : "ogłoszeń"}</p>
       <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1" aria-label="Widok ogłoszeń">
         <button type="button" aria-pressed={!mapVisible} onClick={() => desktop ? setDesktopMap(false) : setMobileMap(false)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${!mapVisible ? "bg-violet-100 text-violet-800" : "text-slate-600"}`}>Lista</button>
         <button type="button" aria-pressed={mapVisible} onClick={() => desktop ? setDesktopMap(true) : setMobileMap(true)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${mapVisible ? "bg-violet-100 text-violet-800" : "text-slate-600"}`}>{desktop ? "Lista i mapa" : "Mapa"}</button>
       </div>
     </div>
-    <div className={desktop && mapVisible ? "grid grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)] items-start gap-6" : ""}>
+    <div className={desktop && mapVisible ? (listings.length === 1 ? "grid grid-cols-[320px_minmax(0,1fr)] items-start gap-6" : "grid grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)] items-start gap-6") : ""}>
       {(desktop || !mapVisible) && <ListingResults listings={listings} showStatus={showStatus} compact={desktop && mapVisible} />}
       {mapVisible && <aside className="overflow-hidden rounded-3xl border border-slate-200 bg-white lg:sticky lg:top-6" aria-label="Mapa ogłoszeń">
         <p className="border-b border-slate-100 px-5 py-3 text-sm text-slate-600">Na mapie: {markers.length} z {listings.length} ogłoszeń</p>
