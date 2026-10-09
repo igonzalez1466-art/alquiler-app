@@ -108,7 +108,7 @@ export default function ListingMap({ markers }: { markers: MarkerData[] }) {
   const zoom = spreadMarkers.length ? 10 : 6;
 
   return (
-    <div className="relative z-0 w-full h-72 rounded overflow-hidden border bg-gray-100">
+    <div className="relative z-0 w-full h-[480px] lg:h-[calc(100vh-12rem)] lg:max-h-[720px] rounded overflow-hidden border bg-gray-100">
       <MapContainer
         center={center}
         zoom={zoom}

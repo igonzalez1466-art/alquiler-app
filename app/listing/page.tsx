@@ -1,12 +1,14 @@
 // app/listing/page.tsx
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
-import MapClient from "./MapClient";
+import ListingExplorer from "./ListingExplorer";
+import ListingControls from "./ListingControls";
+import type { Prisma, Gender, GarmentType, Color } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { redirect } from "next/navigation";
 import ListingFilters from "./ListingFilters";
-import ListingResults from "./ListingResults";
+
 import { isSportCode, isAccessoryCode } from "@/app/lib/listingAttributes";
 
 /* ===================== LABELS ===================== */
@@ -16,7 +18,9 @@ const enumLabels: Record<string, string> = {
   UNISEX: "Uniseks",
   KIDS: "Dziecięcy",
   ABRIGO: "Płaszcz",
-  CHAQUETA: "Marynarka",
+  CHAQUETA: "Kurtka",
+  MARYNARKA: "Marynarka",
+  ZAPATO: "Buty",
   CAMISA: "Koszula",
   BLUSA: "Bluzka",
   VESTIDO: "Sukienka",
@@ -26,7 +30,6 @@ const enumLabels: Record<string, string> = {
   SUDADERA: "Bluza",
   JERSEY: "Sweter",
   MONO: "Kombinezon",
-  CHAMARRA: "Kurtka",
   ACCESORIO: "Akcesoria",
   OTRO: "Inne",
 };
@@ -70,6 +73,8 @@ const ALLOWED_MATERIALS = new Set([
 type Search = {
   tab?: "all" | "my";
   drafts?: string;
+  status?: string;
+  sort?: string;
   q?: string;
   category?: string;
   accessoryType?: string;
@@ -89,7 +94,7 @@ type Search = {
 const parseNum = (v?: string) => {
   if (!v) return undefined;
   const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 };
 
 function toStringArray(v: unknown): string[] | null {
@@ -120,10 +125,12 @@ export default async function ListingPage({
 }: {
   searchParams?: Promise<Search>;
 }) {
-  const session: any = await getServerSession(authConfig as any);
+  const session = await getServerSession(authConfig);
 
   const p = (await searchParams) ?? {};
   const tab = p.tab === "my" ? "my" : "all";
+  const status = tab === "my" ? (p.drafts === "1" || p.status === "drafts" ? "drafts" : p.status === "published" ? "published" : "all") : "all";
+  const sort = p.sort === "price_asc" || p.sort === "price_desc" ? p.sort : "newest";
   const userId: string | undefined = session?.user?.id;
 
 
@@ -136,7 +143,7 @@ export default async function ListingPage({
   const q = (p.q ?? "").trim();
   const city = (p.city ?? "").trim();
   const marca = (p.marca ?? "").trim();
-  const gender = p.gender;
+  const gender = p.gender && ["WOMAN","MAN","UNISEX","KIDS"].includes(p.gender) ? p.gender : undefined;
   const sportRaw = (p.sport ?? "").trim();
   const sport = sportRaw === "ANY" || isSportCode(sportRaw) ? sportRaw : "";
   const pregnancy = p.pregnancy === "1";
@@ -155,16 +162,16 @@ export default async function ListingPage({
     akcesoria: "ACCESORIO",
   };
 
-  const garmentType =
-    p.garmentType ?? (category ? categoryToGarmentType[category] : undefined);
+  const garmentRaw = p.garmentType ?? (category ? categoryToGarmentType[category] : undefined);
+  const garmentType = garmentRaw && Object.keys(enumLabels).filter(key => !["WOMAN","MAN","UNISEX","KIDS"].includes(key)).includes(garmentRaw) ? garmentRaw as GarmentType : undefined;
 
   const accessoryType = garmentType === "ACCESORIO" && isAccessoryCode(p.accessoryType ?? "") ? p.accessoryType : undefined;
   const min = parseNum(p.min);
   const max = parseNum(p.max);
 
   /* ======================= WHERE ======================= */
-  const where: any = {};
-  const AND: any[] = [];
+  const where: Prisma.ListingWhereInput = {};
+  const AND: Prisma.ListingWhereInput[] = [];
 
   if (tab === "all") {
     where.available = true;
@@ -173,7 +180,8 @@ export default async function ListingPage({
 
   if (tab === "my") {
     where.userId = userId;
-    if (p.drafts === "1") where.isDraft = true;
+    if (status === "drafts") where.isDraft = true;
+    if (status === "published") where.isDraft = false;
     // where.available = true; // opcional
   }
 
@@ -199,14 +207,14 @@ export default async function ListingPage({
   }
 
   if (marca) AND.push({ marca: { contains: marca } });
-  if (gender) AND.push({ gender });
+  if (gender) AND.push({ gender: gender as Gender });
   if (sport === "ANY") AND.push({ sport: { not: null } });
   else if (sport) AND.push({ sport });
   if (pregnancy) AND.push({ pregnancy: true });
   if (garmentType) AND.push({ garmentType });
   if (accessoryType) AND.push({ accessoryType });
   if (size) AND.push({ size });
-  if (color) AND.push({ color });
+  if (color) AND.push({ color: color as Color });
 
   if (min !== undefined || max !== undefined) {
     AND.push({
@@ -227,7 +235,7 @@ export default async function ListingPage({
   /* ======================= QUERY ======================= */
   const listingsRaw = await prisma.listing.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: sort === "newest" ? [{ createdAt: "desc" }, { id: "desc" }] : [{ pricePerDay: sort === "price_asc" ? "asc" : "desc" }, { createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,
       title: true,
@@ -253,7 +261,6 @@ export default async function ListingPage({
       images: {
         select: { id: true, url: true, alt: true, order: true },
         orderBy: { order: "asc" },
-        take: 4,
       },
     },
   });
@@ -261,7 +268,7 @@ export default async function ListingPage({
   // ✅ Normaliza materials a string[] | null para ListingResults
   const listings = listingsRaw.map((l) => ({
     ...l,
-    materials: toStringArray((l as any).materials),
+    materials: toStringArray(l.materials),
   }));
 
   const markers = listings
@@ -277,57 +284,20 @@ export default async function ListingPage({
       imageAlt: l.images[0]?.alt ?? l.title,
     }));
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase tracking-widest text-violet-700">Znajdź coś dla siebie</p><h1 className="mt-1 text-3xl font-bold">{tab === "my" && p.drafts === "1" ? "Moje szkice" : "Ogłoszenia"}</h1></div>
-        <div className="flex gap-2">
-          <Link
-            href="/listing/new"
-            className="ui-btn ui-btn-primary"
-          >
-            Dodaj ogłoszenie
-          </Link>
-
-          <Link
-            href="/listing?tab=my"
-            className={`ui-btn ${
-              tab === "my" ? "border-violet-300 bg-violet-50 text-violet-800" : ""
-            }`}
-          >
-            Moje ogłoszenia
-          </Link>
-        </div>
-      </div>
-
-      <ListingFilters
-        key={`${gender ?? ""}:${sport}:${pregnancy}`}
-        q={q}
-        city={city}
-        marca={marca}
-        gender={gender}
-        sport={sport}
-        pregnancy={pregnancy}
-        garmentType={garmentType}
-        accessoryType={accessoryType}
-        size={size}
-        color={color ?? ""}
-        materials={material ?? ""}
-      />
-
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <MapClient markers={markers} />
-
-        {markers.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-white/90 border rounded px-4 py-2 text-sm text-gray-700 shadow">
-              Brak ogłoszeń dla tego wyszukiwania.
-            </div>
-          </div>
-        )}
-      </div>
-
-      <ListingResults listings={listings as any} showStatus={tab === "my"} />
-    </div>
-  );
+  const filterValues = {tab, status: tab === "my" ? status : "", sort, q, city, marca, gender: gender ?? "", sport, pregnancy: pregnancy ? "1" : "", garmentType: garmentType ?? "", accessoryType: accessoryType ?? "", size, color: color ?? "", materials: material ?? "", min: min === undefined ? "" : String(min), max: max === undefined ? "" : String(max)};
+  return <div className="mx-auto max-w-7xl space-y-6 pb-8">
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div><p className="text-xs font-semibold uppercase tracking-widest text-violet-700">{tab === "my" ? "Twoja szafa" : "Odkryj coś dla siebie"}</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{tab === "my" ? "Moje ogłoszenia" : "Znajdź swój następny look"}</h1><p className="mt-2 text-sm text-slate-500">{tab === "my" ? "Zarządzaj publikacjami i przygotuj nowe ogłoszenia." : "Wypożycz na wyjątkową okazję. Znajdź coś w swojej okolicy."}</p></div>
+      <Link href="/listing/new" className="ui-btn ui-btn-primary">+ Dodaj ogłoszenie</Link>
+    </header>
+    <nav className="flex flex-wrap gap-2" aria-label="Ogłoszenia">
+      <Link href="/listing" aria-current={tab === "all" ? "page" : undefined} className={"ui-btn " + (tab === "all" ? "bg-violet-50 text-violet-800 border-violet-200" : "bg-white")}>Wszystkie ogłoszenia</Link>
+      <Link href="/listing?tab=my" aria-current={tab === "my" ? "page" : undefined} className={"ui-btn " + (tab === "my" ? "bg-violet-50 text-violet-800 border-violet-200" : "bg-white")}>Moje ogłoszenia</Link>
+    </nav>
+    {tab === "my" && <nav className="flex gap-2 border-b border-slate-200" aria-label="Status ogłoszeń">{[["all","Wszystkie"],["published","Opublikowane"],["drafts","Szkice"]].map(([value,label])=><Link key={value} href={"/listing?tab=my&status="+value} aria-current={status === value ? "page" : undefined} className={"border-b-2 px-4 py-3 text-sm font-semibold " + (status === value ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500")}>{label}</Link>)}</nav>}
+    <ListingFilters key={JSON.stringify(filterValues)} {...filterValues} pregnancy={pregnancy} />
+    {min !== undefined && max !== undefined && min > max && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Cena minimalna nie może być wyższa od maksymalnej. Popraw zakres cen.</p>}
+    <ListingControls filters={filterValues} sort={sort} />
+    <ListingExplorer listings={listings} markers={markers} showStatus={tab === "my"} />
+  </div>;
 }

@@ -113,5 +113,6 @@ export async function toggleListingAvailable(formData: FormData): Promise<void> 
   revalidatePath("/listing");
   revalidatePath(`/listing/${listingId}`);
 
+  if (formData.get("returnTo") === "my") redirect("/listing?tab=my");
   redirect(`/listing/${listingId}`);
 }

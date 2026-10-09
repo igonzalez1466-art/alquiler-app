@@ -6,6 +6,11 @@ import Link from "next/link";
 import { SPORT_OPTIONS } from "@/app/lib/listingAttributes";
 
 type Props = {
+  tab: string;
+  status: string;
+  sort: string;
+  min: string;
+  max: string;
   q: string;
   city: string;
   marca: string;
@@ -85,6 +90,7 @@ const MATERIALS = [
 ];
 
 export default function ListingFilters({
+  tab, status, sort, min, max,
   q,
   city,
   marca,
@@ -97,31 +103,16 @@ export default function ListingFilters({
   color,
   materials,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(marca || gender || sport || pregnancy || color || materials));
   const [selectedGender, setSelectedGender] = useState(gender ?? "");
   const [pregnancyOnly, setPregnancyOnly] = useState(pregnancy);
 
   return (
     <div>
-      {/* Botón móvil */}
-      <div className="flex justify-end md:hidden mb-2">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg bg-white"
-        >
-          🔍 {open ? "Ukryj filtry" : "Pokaż filtry"}
-        </button>
-      </div>
-
-      <form
-        method="GET"
-        className={`surface-card p-5 space-y-4 ${
-          open ? "block" : "hidden"
-        } md:block`}
-      >
-        <input type="hidden" name="tab" value="all" />
-
+      <form action="/listing" method="GET" className="surface-card space-y-4 p-4 sm:p-6">
+        <input type="hidden" name="tab" value={tab} />
+        <input type="hidden" name="status" value={status} />
+        <input type="hidden" name="sort" value={sort} />
         {/* Buscador */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="text-sm">
@@ -146,39 +137,11 @@ export default function ListingFilters({
             />
           </label>
 
-          <label className="text-sm">
-            <span className="block text-xs text-gray-600 mb-1">Marka</span>
-            <input
-              name="marca"
-              defaultValue={marca}
-              placeholder="np. Zara, H&M..."
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            />
-          </label>
+          <div className="flex items-end"><button type="submit" className="ui-btn ui-btn-primary w-full">Szukaj ogłoszeń</button></div>
         </div>
 
         {/* Filtros principales */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {/* Gender */}
-          <label className="text-sm">
-            <span className="block text-xs text-gray-600 mb-1">Dla kogo</span>
-            <select
-              name="gender"
-              value={selectedGender}
-              onChange={(event) => {
-                setSelectedGender(event.target.value);
-                if (event.target.value !== "WOMAN") setPregnancyOnly(false);
-              }}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Wszyscy</option>
-              <option value="WOMAN">Kobieta</option>
-              <option value="MAN">Mężczyzna</option>
-              <option value="UNISEX">Uniseks</option>
-              <option value="KIDS">Dziecięce</option>
-            </select>
-          </label>
-
           {/* Garment */}
           <GarmentTypeFields key={`${garmentType ?? ""}:${accessoryType ?? ""}`} garmentType={garmentType} accessoryType={accessoryType} className="md:col-span-2" />
 
@@ -199,6 +162,38 @@ export default function ListingFilters({
             </select>
           </label>
 
+          <fieldset className="text-sm"><legend className="mb-1 text-xs text-slate-600">Cena za dzień (zł)</legend><div className="flex gap-2"><input aria-label="Cena minimalna" name="min" type="number" min="0" step="any" defaultValue={min} placeholder="Od" className="min-w-0 w-full rounded-lg border px-3 py-2" /><input aria-label="Cena maksymalna" name="max" type="number" min="0" step="any" defaultValue={max} placeholder="Do" className="min-w-0 w-full rounded-lg border px-3 py-2" /></div></fieldset>
+        </div>
+        <button type="button" aria-expanded={open} aria-controls="listing-extra-filters" onClick={()=>setOpen(!open)} className="text-sm font-semibold text-violet-700">{open ? "− Mniej filtrów" : "+ Więcej filtrów"}</button>
+        <div id="listing-extra-filters" hidden={!open} className="space-y-4 border-t border-slate-100 pt-4">
+          <div className="grid gap-3 sm:grid-cols-3">          <label className="text-sm">
+            <span className="block text-xs text-gray-600 mb-1">Marka</span>
+            <input
+              name="marca"
+              defaultValue={marca}
+              placeholder="np. Zara, H&M..."
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </label>          {/* Gender */}
+          <label className="text-sm">
+            <span className="block text-xs text-gray-600 mb-1">Dla kogo</span>
+            <select
+              name="gender"
+              value={selectedGender}
+              onChange={(event) => {
+                setSelectedGender(event.target.value);
+                if (event.target.value !== "WOMAN") setPregnancyOnly(false);
+              }}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Wszyscy</option>
+              <option value="WOMAN">Kobieta</option>
+              <option value="MAN">Mężczyzna</option>
+              <option value="UNISEX">Uniseks</option>
+              <option value="KIDS">Dziecięce</option>
+            </select>
+          </label>
+
           {/* Color */}
           <label className="text-sm">
             <span className="block text-xs text-gray-600 mb-1">Kolor</span>
@@ -215,8 +210,7 @@ export default function ListingFilters({
               ))}
             </select>
           </label>
-        </div>
-
+</div>
         {/* Material */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-sm">
@@ -252,17 +246,18 @@ export default function ListingFilters({
           Odzież ciążowa
         </label>
 
+        </div>
         {/* Botones */}
         <div className="w-full flex flex-wrap items-center justify-end gap-2 pt-1">
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium whitespace-nowrap"
+            className="ui-btn ui-btn-primary"
           >
             Zastosuj filtry
           </button>
 
           <Link
-            href="/listing"
+            href={tab === "my" ? `/listing?tab=my&status=${status}` : "/listing"}
             className="px-4 py-2 rounded-lg border text-sm font-medium whitespace-nowrap"
           >
             Wyczyść filtry
