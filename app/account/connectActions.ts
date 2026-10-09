@@ -14,6 +14,8 @@ function getStripe() {
 
   return new Stripe(secretKey, {
     apiVersion: "2025-09-30.clover",
+    timeout: 8000,
+    maxNetworkRetries: 0,
   });
 }
 
@@ -94,4 +96,18 @@ export async function startStripeConnectOnboarding() {
   });
 
   redirect(accountLink.url);
+}
+export async function openStripeConnectDashboard() {
+  const userId = (await getSession())?.user?.id;
+  if (!userId) redirect("/login?callbackUrl=/account");
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { stripeAccountId: true } });
+  if (!user?.stripeAccountId) redirect("/account#wyplaty");
+  let url: string;
+  try {
+    const link = await getStripe().accounts.createLoginLink(user.stripeAccountId);
+    const destination = new URL(link.url);
+    if (destination.protocol !== "https:" || destination.hostname !== "connect.stripe.com") throw new Error("Invalid destination");
+    url = link.url;
+  } catch { redirect("/account?payoutError=unavailable#wyplaty"); }
+  redirect(url);
 }

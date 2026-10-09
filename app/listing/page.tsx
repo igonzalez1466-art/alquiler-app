@@ -69,6 +69,7 @@ const ALLOWED_MATERIALS = new Set([
 
 type Search = {
   tab?: "all" | "my";
+  drafts?: string;
   q?: string;
   category?: string;
   accessoryType?: string;
@@ -172,6 +173,7 @@ export default async function ListingPage({
 
   if (tab === "my") {
     where.userId = userId;
+    if (p.drafts === "1") where.isDraft = true;
     // where.available = true; // opcional
   }
 
@@ -278,7 +280,7 @@ export default async function ListingPage({
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase tracking-widest text-violet-700">Znajdź coś dla siebie</p><h1 className="mt-1 text-3xl font-bold">Ogłoszenia</h1></div>
+        <div><p className="text-xs font-semibold uppercase tracking-widest text-violet-700">Znajdź coś dla siebie</p><h1 className="mt-1 text-3xl font-bold">{tab === "my" && p.drafts === "1" ? "Moje szkice" : "Ogłoszenia"}</h1></div>
         <div className="flex gap-2">
           <Link
             href="/listing/new"

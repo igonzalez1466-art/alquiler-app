@@ -41,20 +41,18 @@ export default function IdentityVerification({ initial, returnTo, requirementSat
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.status]);
-  return <section id="tozsamosc" className="surface-card space-y-4 p-5 scroll-mt-24">
-    <h2 className="text-lg font-semibold">Weryfikacja tożsamości</h2>
-    {view.testMode && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Tryb testowy — wynik jest symulowany i nie potwierdza rzeczywistej tożsamości.</p>}
-    <p role="status" className={`rounded-xl p-3 text-sm font-semibold ${view.status === "verified" ? "bg-emerald-50 text-emerald-800" : "bg-slate-50 text-slate-700"}`}>{labels[view.status] ?? labels.unverified}{view.status === "verified" && view.testMode ? " (test)" : ""}</p>
-    <p className="text-sm leading-6 text-slate-600">Weryfikacja tożsamości jest wymagana przed publikacją ogłoszenia, wysłaniem prośby o rezerwację i rozpoczęciem płatności.</p>
-    {requirementSatisfied && returnTo && <Link href={returnTo} className="ui-btn ui-btn-primary">Wróć i kontynuuj</Link>}
-    <p className="text-sm leading-6 text-slate-600">Stripe sprawdzi dokument tożsamości i porówna go ze zdjęciem twarzy. Jedna weryfikacja służy zarówno najemcy, jak i właścicielowi. Nie musisz zakładać konta Stripe.</p>
-    <p className="text-sm leading-6 text-slate-600">MojaSzafa zapisuje status, datę i identyfikator weryfikacji. Nie pobieramy kopii dokumentu ani zdjęć. Druga strona widzi wyłącznie oznaczenie zweryfikowanej tożsamości. Dostęp upoważnionej obsługi do danych w Stripe opisuje <Link href="/polityka-prywatnosci" className="underline">polityka prywatności</Link>.</p>
-    <div className="flex flex-wrap gap-3">
-      {view.status !== "verified" && view.status !== "processing" && <button type="button" disabled={pending || !view.enabled} onClick={() => void run("start")} className="ui-btn ui-btn-primary disabled:opacity-50">{pending ? "Łączenie…" : view.status === "requires_input" ? "Kontynuuj weryfikację" : "Zweryfikuj tożsamość"}</button>}
-      {view.status !== "unverified" && <button type="button" disabled={pending} onClick={() => void run("refresh")} className="ui-btn disabled:opacity-50">{pending ? "Sprawdzanie…" : "Sprawdź status"}</button>}
+  return <section id="tozsamosc" className="scroll-mt-24 space-y-4 p-5 sm:p-6" aria-labelledby="identity-title">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 id="identity-title" className="font-semibold text-slate-900">Tożsamość</h3><span role="status" className={`rounded-full px-2.5 py-1 text-xs font-semibold ${view.status === "verified" && !view.testMode ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{labels[view.status] ?? labels.unverified}{view.status === "verified" && view.testMode ? " (test)" : ""}</span></div>
+    {view.testMode && <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">Tryb testowy — wynik jest symulowany i nie potwierdza rzeczywistej tożsamości.</p>}
+    <p className="text-sm leading-6 text-slate-500">{requirementSatisfied ? "Weryfikacja ukończona. Jedna weryfikacja służy zarówno najemcy, jak i właścicielowi." : "Zweryfikuj tożsamość, aby publikować ogłoszenia, rezerwować i rozpoczynać płatności."}</p>
+    <div className="flex flex-wrap gap-2">
+      {requirementSatisfied && returnTo && <Link href={returnTo} className="ui-btn ui-btn-primary">Wróć i kontynuuj</Link>}
+      {view.status !== "verified" && view.status !== "processing" && <button type="button" disabled={pending || !view.enabled} onClick={() => void run("start")} className="ui-btn ui-btn-primary">{pending ? "Łączenie…" : view.status === "requires_input" ? "Kontynuuj weryfikację" : "Zweryfikuj tożsamość"}</button>}
+      {view.status !== "unverified" && <button type="button" disabled={pending} onClick={() => void run("refresh")} className="ui-btn">{pending ? "Sprawdzanie…" : "Sprawdź status"}</button>}
     </div>
-    {!view.enabled && view.status !== "verified" && <p className="text-sm text-slate-600">Weryfikacja jest obecnie niedostępna. Spróbuj później.</p>}
+    <details className="rounded-xl border border-slate-100 p-3 text-sm"><summary className="cursor-pointer font-medium text-slate-600">Jak działa weryfikacja i co widzą inni?</summary><div className="mt-3 space-y-3 leading-6 text-slate-500"><p>Stripe sprawdzi dokument tożsamości i porówna go ze zdjęciem twarzy. Nie musisz zakładać konta Stripe.</p><p>MojaSzafa zapisuje status, datę i identyfikator weryfikacji. Nie pobieramy kopii dokumentu ani zdjęć. Druga strona widzi wyłącznie oznaczenie zweryfikowanej tożsamości. Dostęp upoważnionej obsługi do danych w Stripe opisuje <Link href="/polityka-prywatnosci" className="text-violet-700 underline underline-offset-4">polityka prywatności</Link>.</p></div></details>
+    {!view.enabled && view.status !== "verified" && <p className="text-sm text-slate-500">Weryfikacja jest obecnie niedostępna. Spróbuj później.</p>}
     {pending && <p role="status" className="text-sm text-violet-700">Trwa przetwarzanie…</p>}
-    {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+    {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
   </section>;
 }
