@@ -17,6 +17,7 @@ function load(file){if(cache[file])return cache[file];const exports={};const req
  if(id==='@/app/lib/mailer')return{sendMail:async m=>mails.push(m)};
  if(id==='@/app/lib/rentOnlySettlement')return{trySettleRentOnlyBooking:async()=>{assert(b.settlementCompletedAt)}};
  if(id==='@/app/lib/reviewInvitations')return{tryInviteBookingReview:async()=>{}};
+ if(id==='@/app/components/IdentityBadge')return{default:'IdentityBadge'};
  if(id==='@prisma/client')return{}; if(id.startsWith('@/'))return load(id.slice(2)+'.ts');throw Error(id);
  };vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:req,Date,FormData,console,process:{env:{APP_URL:'https://example.test'}}});return cache[file]=exports;}
 const policy=load('app/lib/cancelledIncidentReturn.ts'),ship=load('app/bookings/[id]/_actions/updateReturnAction.ts').updateReturnAction,receive=load('app/bookings/[id]/_actions/confirmReturnAction.ts').confirmReturnAction;

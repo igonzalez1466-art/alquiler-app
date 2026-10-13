@@ -1,3 +1,4 @@
+import { deliveryDispatchRecorded } from "@/app/lib/incidentPolicy";
 import { lateDeliverySuggestion } from "@/app/lib/lateDelivery";
 import { rentalCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { prisma } from "@/app/lib/prisma";
@@ -18,7 +19,7 @@ export default async function BookingIncidents({ bookingId, userId }: { bookingI
     ? <BookingEvidencePhotos oneBatch bookingId={bookingId} stage="DELIVERY" userId={userId} ownerId={b.ownerId} renterId={b.renterId}
       canUpload={canUploadBookingEvidence(b, "DELIVERY", userId)}
       photos={visiblePhotos.map(photo => ({ id: photo.id, uploaderId: photo.uploaderId, createdAt: photo.createdAt.toISOString() }))} /> : null;
-  return <IncidentPanel deliveryPhotos={deliveryPhotos} bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}
+  return <IncidentPanel key={deliveryDispatchRecorded(b) ? "sent" : "pending"} deliveryDispatched={deliveryDispatchRecorded(b)} deliveryPhotos={deliveryPhotos} bookingId={bookingId} userId={userId} isOwner={b.ownerId === userId} rentCents={b.rentAmountCents ?? b.amountCents ?? 0}
     finance={{ platformFeeCents: b.platformFeeCents, ownerPayoutCents: b.ownerPayoutCents, settlementCompleted: !!b.settlementCompletedAt }}
     canOpenDelivery={paid && b.renterId === userId && !received && !b.rentSettlement && !b.ownerTransferId && b.deliveryIssue === null}
     canOpenReturn={paid && b.ownerId === userId && received && b.returnIssue === null}

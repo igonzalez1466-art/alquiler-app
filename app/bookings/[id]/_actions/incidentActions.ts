@@ -1,13 +1,13 @@
 "use server";
 
-import { validateLateDeliveryDate } from "@/app/lib/lateDelivery";
-import { formatCalendarDate } from "@/app/lib/rentalCalendarDate";
+import { validateReceiptDate, validateLateDeliveryDate } from "@/app/lib/lateDelivery";
+import { rentalCalendarDate, formatCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { formatIncidentMoney } from "@/app/lib/incidentFormatting";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
-import { reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
+import { missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
@@ -47,7 +47,8 @@ export async function openIncidentAction(data: FormData) {
       throw new Error("Odbiór został już potwierdzony. Najem nie jest już gwarancją.");
     }
     if (stage === "RETURN" && !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus)) throw new Error("Najpierw potwierdź dostawę.");
-    if (reason === "NOT_SHIPPED" && b.shippedAt) throw new Error("Przedmiot oznaczono już jako wysłany.");
+    if (reason === "NOT_SHIPPED" && deliveryDispatchRecorded(b)) throw new Error("Przedmiot oznaczono jako wysłany / przekazany. Wybierz: Nie otrzymałem przedmiotu.");
+    if (reason === "NOT_RECEIVED" && !deliveryDispatchRecorded(b)) throw new Error("Nie zapisano wysyłki / przekazania. Wybierz: Przedmiot nie został wysłany / przekazany.");
     if ((reason === "NOT_RETURNED" || reason === "LATE_RETURN") && new Date() < b.endDate) throw new Error("Termin zwrotu jeszcze nie upłynął.");
     const lateDelivery = stage === "DELIVERY" && reason === "LATE_DELIVERY"
       ? validateLateDeliveryDate(String(data.get("reportedDeliveryDate") ?? ""), b.startDate, b.endDate, b.rentAmountCents ?? b.amountCents ?? 0) : null;
@@ -87,7 +88,33 @@ export async function incidentAction(data: FormData) {
     const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId } });
     const inc = await tx.incident.findUniqueOrThrow({ where: { id: incidentId } });
     if (inc.bookingId !== bookingId || ![b.ownerId, b.renterId].includes(userId)) throw new Error("Brak dostępu.");
-    if (operation !== "retry" && !canActOnIncident(inc, userId === b.ownerId)) throw new Error(INCIDENT_WAIT_MESSAGE);
+    const missing = missingDelivery(inc);
+    const unresolved = !inc.acceptedAt && !["RESOLVED", "AGREEMENT_REACHED"].includes(inc.status);
+    const missingRenterAction = missing && unresolved && (operation === "escalate" || userId === b.renterId && ["record_delivery", "request_cancel"].includes(operation));
+    if (operation !== "retry" && !missingRenterAction && !canActOnIncident(inc, userId === b.ownerId)) throw new Error(INCIDENT_WAIT_MESSAGE);
+    if (missing && ["record_delivery", "wait_delivery", "request_cancel", "escalate"].includes(operation) &&
+      (!unresolved || b.paymentStatus !== "PAID" || b.status === "CANCELLED" || b.cancelledAt || b.deliveryConfirmedAt ||
+       ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) || b.rentSettlement || b.ownerTransferId || b.settlementCompletedAt)) throw new Error("Nie można zmienić rozliczenia tej dostawy.");
+    if (operation === "record_delivery") {
+      if (!missing || !unresolved || userId !== b.renterId) throw new Error("Tylko najemca może zapisać otrzymanie przedmiotu.");
+      const value = String(data.get("reportedDeliveryDate") ?? "");
+      const date = validateReceiptDate(value);
+      const late = value > rentalCalendarDate(b.startDate) ? validateLateDeliveryDate(value, b.startDate, b.endDate, b.rentAmountCents ?? b.amountCents ?? 0) : null;
+      const text = `Najemca otrzymał przedmiot: ${formatCalendarDate(value)}.${late ? ` Opóźnienie: ${late.delayDays} dni. Sugerowany zwrot: ${formatIncidentMoney(late.refundCents)}.` : ""} Odbiór wymaga uzgodnienia rozwiązania; wypłata pozostaje wstrzymana.`;
+      const updated = await tx.incident.update({ where: { id: incidentId }, data: { reportedDeliveryDate: date, ...(late ? { reason: "LATE_DELIVERY" } : {}), status: "AWAITING_OWNER", refundCents: null, resolution: null, proposedById: null, proposedAt: null } });
+      await tx.booking.update({ where: { id: bookingId }, data: { deliveryConfirmationStatus: "DISPUTED", deliveryConfirmBy: null, deliveredAt: date } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text } });
+      await queueIncidentEmail(tx, updated, "evidence", userId, `received:${evidence.id}`, text);
+      return;
+    }
+    if (operation === "wait_delivery") {
+      if (!missing || !unresolved || userId !== b.ownerId) throw new Error("Nie można oczekiwać na tę dostawę.");
+      const text = "Oczekujemy na dostawę. Komentarz właściciela: " + description(data, "comment") + " Wypłata pozostaje wstrzymana; nie uzgodniono rozliczenia.";
+      const updated = await tx.incident.update({ where: { id: incidentId }, data: { status: "AWAITING_RENTER", refundCents: null, resolution: null, proposedById: null, proposedAt: null } });
+      const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text } });
+      await queueIncidentEmail(tx, updated, "evidence", userId, `waiting:${evidence.id}`, text);
+      return;
+    }
     if (operation === "evidence") {
       if (inc.status === "RESOLVED") throw new Error("Sprawa zakończona.");
       const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: description(data, "evidence") } });
@@ -101,6 +128,7 @@ export async function incidentAction(data: FormData) {
       const refundCents = Number(raw);
       if (!/^\d+$/.test(raw) || !Number.isSafeInteger(refundCents) || refundCents < 0 ||
         refundCents > (b.rentAmountCents ?? b.amountCents ?? 0) || inc.stage === "RETURN" && refundCents !== 0) throw new Error("Nieprawidłowa kwota zwrotu.");
+      if (missing && refundCents < (b.rentAmountCents ?? b.amountCents ?? 0)) throw new Error("Przedmiot nie został odebrany. Można uzgodnić pełny zwrot albo poczekać na dostawę.");
       if (inc.stage === "DELIVERY" && (b.depositCents ?? 0) > 0) throw new Error("Historyczna płatność z kaucją wymaga osobnego rozliczenia.");
       const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: `Propozycja: ${description(data, "resolution")} · Zwrot najmu: ${formatIncidentMoney(refundCents)}` } });
       const updated = await tx.incident.update({ where: { id: incidentId }, data: { refundCents, resolution: description(data, "resolution"), proposedById: userId, proposedAt: new Date(), status: inc.stage === "DELIVERY" ? "AWAITING_RENTER" : "AWAITING_OWNER" } });
@@ -108,7 +136,7 @@ export async function incidentAction(data: FormData) {
       return;
     }
     if (operation === "request_cancel") {
-      if (userId !== b.renterId || inc.stage !== "DELIVERY" || inc.reason !== "NOT_AS_DESCRIBED" || inc.acceptedAt ||
+      if (userId !== b.renterId || inc.stage !== "DELIVERY" || !["NOT_AS_DESCRIBED", "NOT_SHIPPED", "NOT_RECEIVED"].includes(inc.reason) || inc.acceptedAt || inc.proposedById === userId ||
         b.paymentStatus !== "PAID" || b.status === "CANCELLED" || b.cancelledAt ||
         b.deliveryConfirmedAt || ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
         b.rentSettlement || b.ownerTransferId || b.settlementCompletedAt || (b.depositCents ?? 0) > 0) {
@@ -124,6 +152,7 @@ export async function incidentAction(data: FormData) {
     }
     if (operation === "accept" || operation === "reject") {
       if (!inc.proposedById || inc.proposedById === userId || !["AWAITING_OWNER", "AWAITING_RENTER"].includes(inc.status) || inc.acceptedAt) throw new Error("Brak propozycji do zaakceptowania.");
+      if (operation === "accept" && missing && (inc.refundCents ?? 0) < (b.rentAmountCents ?? 0)) throw new Error("Najpierw zapisz rzeczywistą datę odbioru. Wypłata pozostaje wstrzymana.");
       if (operation === "accept" && inc.stage === "DELIVERY" && (inc.refundCents ?? 0) < (b.rentAmountCents ?? 0) && data.get("receivedAndAccepted") !== "yes") throw new Error("Potwierdź odbiór i akceptację dalszego najmu.");
       const comment = operation === "reject" ? description(data, "comment") : "";
       const updated = await tx.incident.update({ where: { id: incidentId }, data: operation === "reject" ?

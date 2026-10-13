@@ -5,7 +5,7 @@ export const incidentReasons: Record<IncidentReason, string> = {
   NOT_RECEIVED: "Nie otrzymałem przedmiotu",
   NOT_AS_DESCRIBED: "Przedmiot niezgodny z opisem",
   DAMAGED_ON_ARRIVAL: "Przedmiot uszkodzony przy dostawie",
-  LATE_DELIVERY: "Opóźniona dostawa",
+  LATE_DELIVERY: "Przedmiot dotarł z opóźnieniem",
   RETURN_NOT_RECEIVED: "Nie otrzymałem zwrotu",
   DAMAGED_ON_RETURN: "Uszkodzenie przy zwrocie",
   LATE_RETURN: "Zwrot po terminie",
@@ -13,7 +13,7 @@ export const incidentReasons: Record<IncidentReason, string> = {
   OTHER: "Inny problem",
 };
 export const reasonsForStage: Record<IncidentStage, IncidentReason[]> = {
-  DELIVERY: ["NOT_SHIPPED", "NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL", "LATE_DELIVERY"],
+  DELIVERY: ["NOT_SHIPPED", "NOT_RECEIVED", "NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL", "LATE_DELIVERY"],
   RETURN: ["RETURN_NOT_RECEIVED", "DAMAGED_ON_RETURN", "LATE_RETURN", "NOT_RETURNED", "OTHER"],
 };
 export function rentalAmounts(rent: number, fee: number, owner: number, refund: number) {
@@ -41,3 +41,9 @@ export function canActOnIncident(incident: { stage: string; status: string }, is
 }
 export const INCIDENT_WAIT_MESSAGE = "Teraz czekamy na działanie drugiej strony. Dostępne działania są zablokowane.";
 export const INCIDENT_PHOTOS_LOCKED_MESSAGE = "Zdjęcia zostały już zapisane. Nie można dodać kolejnych zdjęć do tego zgłoszenia.";
+export function deliveryDispatchRecorded(booking: { shippedAt?: Date | null; shippingStatus?: string }) {
+  return !!booking.shippedAt || ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus ?? "");
+}
+export function missingDelivery(incident: { stage?: string; reason?: string; reportedDeliveryDate?: Date | string | null }) {
+  return incident.stage === "DELIVERY" && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(incident.reason ?? "") && !incident.reportedDeliveryDate;
+}

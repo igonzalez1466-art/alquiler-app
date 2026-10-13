@@ -8,10 +8,14 @@ export function lateDeliverySuggestion(start: Date, end: Date, receivedDate: str
   return { totalDays, delayDays, refundCents: Math.round(rentCents * Math.min(delayDays, totalDays) / totalDays) };
 }
 
-export function validateLateDeliveryDate(value: string, start: Date, end: Date, rentCents: number, now = new Date()) {
+export function validateReceiptDate(value: string, now = new Date()) {
   const parsed = new Date(value + "T00:00:00Z");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(parsed.getTime()) || rentalCalendarDate(parsed) !== value)
     throw new Error("Podaj prawidłową datę odbioru przedmiotu.");
   if (value > warsawCalendarDate(now)) throw new Error("Podaj datę odbioru, która nie jest w przyszłości.");
-  return { date: parsed, ...lateDeliverySuggestion(start, end, value, rentCents) };
+  return parsed;
+}
+
+export function validateLateDeliveryDate(value: string, start: Date, end: Date, rentCents: number, now = new Date()) {
+  return { date: validateReceiptDate(value, now), ...lateDeliverySuggestion(start, end, value, rentCents) };
 }

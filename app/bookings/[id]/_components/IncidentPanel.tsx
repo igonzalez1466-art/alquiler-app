@@ -10,16 +10,17 @@ import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
-import { incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
+import { missingDelivery, incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
 
 type Case = { reportedDeliveryDate?: string | null; lateDelivery?: { delayDays: number; totalDays: number; refundCents: number } | null; id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
-export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos, finance }: {
-  bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode; finance?: { platformFeeCents: number | null; ownerPayoutCents: number | null; settlementCompleted: boolean };
+export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, canOpenDelivery, canOpenReturn, cases, deliveryPhotos, finance, deliveryDispatched = false }: {
+  deliveryDispatched?: boolean; bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode; finance?: { platformFeeCents: number | null; ownerPayoutCents: number | null; settlementCompleted: boolean };
 }) {
   const router = useRouter();
   const busy = useRef(false);
-  const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: reasonsForStage.DELIVERY[0], RETURN: reasonsForStage.RETURN[0] });
+  const deliveryReasons = reasonsForStage.DELIVERY.filter(reason => deliveryDispatched ? reason !== "NOT_SHIPPED" : reason !== "NOT_RECEIVED");
+  const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: deliveryReasons[0], RETURN: reasonsForStage.RETURN[0] });
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [responseMode, setResponseMode] = useState<Record<string, "reject" | "request_cancel" | undefined>>({});
@@ -50,6 +51,8 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
     <p className="text-sm leading-6 text-slate-600">Przed potwierdzeniem odbioru problem z dostawą wstrzymuje wypłatę. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia. Problemy ze zwrotem nie zmniejszają należnego wynagrodzenia.</p>
     {cases.map(c => {
       const canRespond = !!c.proposedById && c.proposedById !== userId && ["AWAITING_OWNER", "AWAITING_RENTER"].includes(c.status);
+      const missing = missingDelivery(c);
+      const unresolved = !c.acceptedAt && !["RESOLVED", "AGREEMENT_REACHED"].includes(c.status);
       const canRequestCancellation = !isOwner && c.stage === "DELIVERY" && c.reason === "NOT_AS_DESCRIBED";
       return <article id={`incident-${c.stage.toLowerCase()}`} key={c.id} className="space-y-5 rounded-2xl border border-slate-200 p-5 sm:p-6 scroll-mt-24">
       <h3 className="font-semibold">{c.stage === "DELIVERY" ? "Dostawa" : "Zwrot"}: {incidentReasons[c.reason]}</h3>
@@ -59,12 +62,22 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <IncidentFinancialAgreement stage={c.stage} status={c.status} acceptedAt={c.acceptedAt} resolution={c.resolution} rentCents={rentCents} refundCents={c.refundCents} finance={finance} />
       <p className="whitespace-pre-wrap text-sm text-slate-600">{c.description}</p>
       {c.reportedDeliveryDate && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm"><p><strong>Data odbioru podana przez najemcę:</strong> {formatCalendarDate(c.reportedDeliveryDate)}</p>{c.lateDelivery && !(c.acceptedAt && ["RESOLVED", "AGREEMENT_REACHED"].includes(c.status)) && <><p><strong>Sugerowany zwrot za opóźnienie: {formatIncidentMoney(c.lateDelivery.refundCents)}</strong></p><p>Opóźnienie: {c.lateDelivery.delayDays} {c.lateDelivery.delayDays === 1 ? "dzień" : "dni"}. Kwota najmu × dni opóźnienia / dni rezerwacji ({c.lateDelivery.totalDays}), maksymalnie 100%.</p><p>To sugestia do uzgodnienia. Zwrot wymaga akceptacji obu stron.</p></>}</div>}
+      {missing && unresolved && <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+        <p>Przedmiot nie został odebrany. Wypłata pozostaje wstrzymana. Można poczekać na dostawę lub uzgodnić anulowanie i zwrot 100% najmu.</p>
+        {!isOwner && <>
+          <form action={d => run(d)} className="space-y-3"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="record_delivery" /><label className="block">Przedmiot dotarł — podaj rzeczywistą datę odbioru<input required type="date" name="reportedDeliveryDate" max={warsawCalendarDate(new Date())} className="mt-1 block rounded-lg border bg-white p-2" /></label><p>Zapisanie daty nie zatwierdza rozliczenia. Właściciel otrzyma informację i zaproponuje rozwiązanie.</p><ClaimActionButton disabled={pending} className={button}>Zapisz otrzymanie przedmiotu</ClaimActionButton></form>
+          {c.proposedById !== userId && <form action={d => run(d)} className="space-y-3 border-t border-amber-200 pt-3"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="request_cancel" /><label className="block">Dlaczego chcesz anulować rezerwację?<textarea required maxLength={2000} name="comment" className="mt-1 block w-full rounded-lg border bg-white p-2" /></label><ClaimActionButton disabled={pending} className={button}>Poproś o anulowanie i zwrot 100%</ClaimActionButton><p>Zwrot wymaga akceptacji właściciela.</p></form>}
+          <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending || c.status === "ESCALATED"} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>
+        </>}
+        {isOwner && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending || c.status === "ESCALATED"} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>}
+        {isOwner && canActOnIncident(c, true) && <form action={d => run(d)} className="space-y-3"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="wait_delivery" /><label className="block">Informacja o oczekiwanej dostawie<textarea required maxLength={2000} name="comment" className="mt-1 block w-full rounded-lg border bg-white p-2" /></label><ClaimActionButton disabled={pending} className={button}>Poczekaj na dostawę — pozostaw wypłatę wstrzymaną</ClaimActionButton></form>}
+      </div>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && <fieldset disabled={pending || !canActOnIncident(c, isOwner)} className="space-y-4 disabled:opacity-50">
         {(c.stage === "DELIVERY" ? isOwner : !isOwner) && <form action={d => run(d)} className="space-y-4 rounded-2xl bg-slate-50 p-4 sm:p-5">
           <input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="propose" />
           <label className="block text-sm">Komentarz<textarea name="resolution" required maxLength={2000} className="block w-full rounded-xl border border-slate-300 px-3 py-2.5" /></label>
-          {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {formatIncidentMoney(rentCents)})<input name="refundZl" type="number" min="0" max={rentCents / 100} step="0.01" required defaultValue={c.lateDelivery ? (c.lateDelivery.refundCents / 100).toFixed(2) : "0"} className="block rounded-xl border border-slate-300 px-3 py-2.5" /></label> : <input type="hidden" name="refundCents" value="0" />}
+          {c.stage === "DELIVERY" ? <label className="block text-sm">Kwota zwrotu w zł (pełny zwrot: {formatIncidentMoney(rentCents)})<input name="refundZl" type="number" min={missing ? rentCents / 100 : 0} max={rentCents / 100} step="0.01" required defaultValue={missing ? (rentCents / 100).toFixed(2) : c.lateDelivery ? (c.lateDelivery.refundCents / 100).toFixed(2) : "0"} className="block rounded-xl border border-slate-300 px-3 py-2.5" /></label> : <input type="hidden" name="refundCents" value="0" />}
           <ClaimActionButton disabled={pending} className={`${button} ui-btn-primary`}>Zaproponuj rozwiązanie</ClaimActionButton>
         </form>}
         {(canRespond || canRequestCancellation) && <form action={d => run(d)} className="space-y-3">
@@ -94,7 +107,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
       <summary className="cursor-pointer font-medium">Zgłoś problem — {stage === "DELIVERY" ? "dostawa" : "zwrot"}</summary>
       <form action={d => run(d, true)} className="mt-3 space-y-3">
         <input type="hidden" name="stage" value={stage} />
-        <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded-xl border border-slate-300 px-3 py-2.5">{reasonsForStage[stage].map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
+        <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded-xl border border-slate-300 px-3 py-2.5">{(stage === "DELIVERY" ? deliveryReasons : reasonsForStage.RETURN).map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
         {stage === "DELIVERY" && selectedReasons[stage] === "LATE_DELIVERY" && <label className="block text-sm">Data odbioru przedmiotu (wymagana)<input name="reportedDeliveryDate" type="date" required max={warsawCalendarDate(new Date())} className="mt-1 block rounded-xl border border-slate-300 px-3 py-2.5" /><span className="mt-1 block text-xs text-slate-600">Podaj dzień, w którym rzeczywiście otrzymałeś przedmiot. Właściciel zobaczy datę i sugerowany zwrot za dni opóźnienia.</span></label>}
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded-xl border border-slate-300 px-3 py-2.5" /></label>
         <IncidentPhotoPicker required={incidentRequiresPhotos(stage, selectedReasons[stage])} disabled={pending} />

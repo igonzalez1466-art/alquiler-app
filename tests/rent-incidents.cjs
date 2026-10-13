@@ -72,6 +72,12 @@ function form(extra) { const f = new FormData(); for (const [k, v] of Object.ent
 const policy = load('app/lib/incidentPolicy.ts');
 const settle = load('app/lib/rentOnlySettlement.ts').settleRentOnlyBooking;
 const actions = load('app/bookings/[id]/_actions/incidentActions.ts');
+// Existing turn/photo tests exercise a missing shipment that subsequently arrives.
+async function reportThenArrive() {
+  b.shippingStatus = 'PENDING'; b.startDate = new Date('2020-01-01'); b.endDate = new Date('2020-01-05');
+  await actions.openIncidentAction(form({stage:'DELIVERY',reason:'NOT_SHIPPED',description:'Problem'}));
+  await actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-03'}));
+}
 const addPhotos = load('app/bookings/[id]/_actions/addBookingEvidencePhotosAction.ts').addBookingEvidencePhotosAction;
 let checks = 0;
 async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS', name); }
@@ -91,9 +97,9 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   await test('concurrent payout requests share frozen decision and operations', async () => { await Promise.all([settle('b'), settle('b')]); assert.equal(transfers, 1); await settle('b'); assert.equal(transfers, 1); });
   await test('external refund blocks payout', async () => { refunded = 1000; await assert.rejects(settle('b')); assert.equal(transfers, 0); });
   await test('legacy deposit money is preserved', async () => { b.depositCents = 10000; b.depositStatus = 'PAID'; await assert.rejects(settle('b')); assert.equal(stripeCalls, 0); });
-  await test('delivery incident cannot be opened after receipt', async () => { await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }))); assert.equal(inc, null); });
-  await test('delivery reporter must be renter', async () => { user = 'owner'; b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await assert.rejects(actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }))); });
-  await test('opening incident and payout cannot race past receipt boundary', async () => { const result = await Promise.allSettled([settle('b'), actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }))]); assert.equal(result[1].status, 'rejected'); assert.equal(transfers, 1); });
+  await test('delivery incident cannot be opened after receipt', async () => { await assert.rejects(reportThenArrive()); assert.equal(inc, null); });
+  await test('delivery reporter must be renter', async () => { user = 'owner'; b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await assert.rejects(reportThenArrive()); });
+  await test('opening incident and payout cannot race past receipt boundary', async () => { const result = await Promise.allSettled([settle('b'), reportThenArrive()]); assert.equal(result[1].status, 'rejected'); assert.equal(transfers, 1); });
   await test('return incident accepts zero only and requires bilateral agreement', async () => {
     user = 'owner'; await actions.openIncidentAction(form({ stage: 'RETURN', reason: 'NOT_RETURNED', description: 'Brak zwrotu' }));
     user = 'renter'; await assert.rejects(actions.incidentAction(form({ operation: 'propose', refundCents: 1000, resolution: 'Zwrot' })));
@@ -102,7 +108,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     user = 'owner'; await actions.incidentAction(form({ operation: 'accept' })); assert.equal(inc.status, 'RESOLVED'); assert.equal(refunds, 0); assert.equal(b.rentRefundedCents ?? 0, 0);
   });
   await test('delivery proposal needs other party and receipt acknowledgement', async () => {
-    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await reportThenArrive();
     await assert.rejects(actions.incidentAction(form({ operation: 'propose', refundCents: 4000, resolution: 'Rabat' })));
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', refundCents: 4000, resolution: 'Rabat' }));
     await assert.rejects(actions.incidentAction(form({ operation: 'accept' })));
@@ -130,7 +136,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   });
   await test('delivery actions follow the active party and stale proposals cannot overwrite', async () => {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
+    await reportThenArrive();
     for (const operation of ['evidence', 'escalate', 'propose']) await assert.rejects(actions.incidentAction(form({ operation, evidence: 'Komentarz', resolution: 'Propozycja', refundCents: 0 })), e => e.message === policy.INCIDENT_WAIT_MESSAGE);
     user = 'owner';
     await actions.incidentAction(form({ operation: 'evidence', evidence: 'Komentarz właściciela' }));
@@ -164,7 +170,7 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   });
   await test('concurrent photo batches save exactly one batch under booking lock', async () => {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
+    await reportThenArrive();
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 1000 }));
     user = 'renter'; const result = await Promise.allSettled([addPhotos(photoForm('DELIVERY', 2)), addPhotos(photoForm('DELIVERY'))]);
     assert.equal(result.filter(r => r.status === 'fulfilled').length, 1); assert.equal(photoRecords.length, 2);
@@ -177,8 +183,8 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   });
   await test('actions queue event snapshots and completion email only after confirmed settlement', async () => {
     b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
-    await actions.openIncidentAction(form({ stage: 'DELIVERY', reason: 'NOT_SHIPPED', description: 'Problem' }));
-    assert.equal(notificationEvents.at(-1).event, 'opened');
+    await reportThenArrive();
+    assert.equal(notificationEvents[0].event, 'opened');
     user = 'owner'; await actions.incidentAction(form({ operation: 'propose', resolution: 'Rabat', refundCents: 4000 }));
     assert.equal(notificationEvents.at(-1).event, 'proposed');
     user = 'renter'; await actions.incidentAction(form({ operation: 'reject', comment: 'Proponowany rabat nie rozwiązuje problemu.' }));
@@ -237,8 +243,8 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     inc.stage = 'DELIVERY'; inc.status = 'AWAITING_OWNER'; user = 'owner';
     await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie' })));
   });
-  await test('only the original NOT_AS_DESCRIBED report allows a cancellation request', async () => {
-    for (const reason of policy.reasonsForStage.DELIVERY.filter(reason => reason !== 'NOT_AS_DESCRIBED')) {
+  await test('damaged and late delivery cannot forge a missing-item cancellation request', async () => {
+    for (const reason of policy.reasonsForStage.DELIVERY.filter(reason => !['NOT_AS_DESCRIBED','NOT_SHIPPED','NOT_RECEIVED'].includes(reason))) {
       reset(); await deliveryOffer(reason);
       const originalResolution = inc.resolution, count = notificationEvents.length;
       await assert.rejects(actions.incidentAction(form({ operation: 'request_cancel', comment: 'Anulowanie', reason: 'NOT_AS_DESCRIBED' })));
@@ -249,8 +255,9 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
       assert.equal(inc.status, 'RESOLVED'); assert.equal(b.rentRefundedCents, 4000);
     }
   });
-  await test('removed delivery reasons are rejected for new reports but return OTHER remains available', () => {
-    for (const reason of ['NOT_RECEIVED', 'OTHER']) assert.throws(() => policy.validateIncidentReason('DELIVERY', reason));
+  await test('NOT_RECEIVED is available; delivery OTHER remains excluded', () => {
+    assert.equal(policy.validateIncidentReason('DELIVERY', 'NOT_RECEIVED'), 'NOT_RECEIVED');
+    assert.throws(() => policy.validateIncidentReason('DELIVERY', 'OTHER'));
     assert.equal(policy.validateIncidentReason('RETURN', 'OTHER'), 'OTHER');
   });
   await test('late delivery requires valid past receipt date after start, persisted without confirming receipt or refunding', async () => {
@@ -278,5 +285,49 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
     assert.equal(validate('2026-03-29', new Date('2026-03-28'), new Date('2026-03-30'), 10000, now).refundCents, 3333);
     assert.equal(validate('2026-10-08', new Date('2026-10-07'), new Date('2026-10-10'), 10000, now).refundCents, 2500);
   });
+
+  async function reportMissing(reason='NOT_RECEIVED') {
+    b.deliveryConfirmedAt=null; b.deliveryConfirmationStatus='AWAITING_CONFIRMATION';
+    b.startDate=new Date('2020-01-01'); b.endDate=new Date('2020-01-05');
+    b.shippingStatus=reason==='NOT_SHIPPED'?'PENDING':'SHIPPED';
+    await actions.openIncidentAction(form({stage:'DELIVERY',reason,description:'Brak przedmiotu'}));
+  }
+  await test('dispatch status chooses missing reason, including personal handover and legacy status without timestamp', async()=>{
+    b.deliveryConfirmedAt=null;b.deliveryConfirmationStatus='AWAITING_CONFIRMATION';b.shippingStatus='SHIPPED';
+    await assert.rejects(actions.openIncidentAction(form({stage:'DELIVERY',reason:'NOT_SHIPPED',description:'Brak'})));
+    b.shippingStatus='PENDING';await assert.rejects(actions.openIncidentAction(form({stage:'DELIVERY',reason:'NOT_RECEIVED',description:'Brak'})));
+    b.carrier='Odbiór osobisty';b.shippingStatus='DELIVERED';await reportMissing();assert.equal(inc.reason,'NOT_RECEIVED');assert.equal(transfers,0);
+  });
+  for(const reason of ['NOT_SHIPPED','NOT_RECEIVED']) {
+    await test(reason+' blocks partial offer, partial acceptance and payout even with forged agreement',async()=>{
+      await reportMissing(reason);user='owner';await assert.rejects(actions.incidentAction(form({operation:'propose',refundCents:4000,resolution:'Rabat'})));
+      inc.status='AWAITING_RENTER';inc.proposedById='owner';inc.refundCents=4000;user='renter';await assert.rejects(actions.incidentAction(form({operation:'accept',receivedAndAccepted:'yes'})));
+      inc.status='AGREEMENT_REACHED';inc.acceptedAt=new Date();await assert.rejects(settle('b'));assert.equal(stripeCalls,0);assert.equal(transfers,0);
+      b.rentSettlement={refund:4000,payout:11900,fee:2100,paymentIntent:'pi',destination:'acct',incidentId:'i'};await assert.rejects(settle('b'));assert.equal(transfers,0);
+    });
+    await test(reason+' allows cancellation request before owner response, requires bilateral acceptance and pays no owner',async()=>{
+      await reportMissing(reason);await actions.incidentAction(form({operation:'request_cancel',comment:'Nie otrzymałem'}));assert.equal(inc.refundCents,18000);assert.equal(refunds,0);
+      await assert.rejects(actions.incidentAction(form({operation:'request_cancel',comment:'Ponownie'})));
+      user='owner';await actions.incidentAction(form({operation:'accept'}));assert.equal(refunds,1);assert.equal(transfers,0);assert.equal(b.status,'CANCELLED');
+    });
+  }
+  await test('waiting keeps money blocked; only renter records arrival, clears stale cancellation and calculates delay',async()=>{
+    await reportMissing();user='owner';await actions.incidentAction(form({operation:'wait_delivery',comment:'Przesyłka w drodze'}));assert.equal(inc.status,'AWAITING_RENTER');assert.equal(inc.refundCents,null);await assert.rejects(settle('b'));
+    await assert.rejects(actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-03'})));
+    user='renter';await actions.incidentAction(form({operation:'request_cancel',comment:'Za późno'}));
+    for(const value of ['','2020-02-30','2099-01-01'])await assert.rejects(actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:value})));
+    await actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-03'}));assert.equal(inc.reason,'LATE_DELIVERY');assert.equal(inc.status,'AWAITING_OWNER');assert.equal(inc.proposedById,null);assert.equal(inc.refundCents,null);assert.equal(b.deliveryConfirmedAt,null);assert.equal(transfers,0);
+    await assert.rejects(actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-04'})));
+    user='owner';await actions.incidentAction(form({operation:'propose',refundCents:7200,resolution:'Za opóźnienie'}));user='renter';await actions.incidentAction(form({operation:'accept',receivedAndAccepted:'yes'}));assert.equal(b.rentRefundedCents,7200);assert.equal(transfers,1);assert.equal(b.ownerTransferCents,9180);
+  });
+  await test('arrival on first day is recorded without artificial late-delivery discount and still needs agreement',async()=>{
+    await reportMissing();await actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-01'}));assert.equal(inc.reason,'NOT_RECEIVED');assert.ok(inc.reportedDeliveryDate);assert.equal(transfers,0);
+    user='owner';await actions.incidentAction(form({operation:'propose',refundCents:0,resolution:'Otrzymano na czas'}));user='renter';await actions.incidentAction(form({operation:'accept',receivedAndAccepted:'yes'}));assert.equal(transfers,1);
+  });
+  await test('either party can request review of missing delivery while payout stays blocked',async()=>{
+    await reportMissing();await actions.incidentAction(form({operation:'escalate'}));assert.equal(inc.status,'ESCALATED');await assert.rejects(settle('b'));assert.equal(transfers,0);
+    user='stranger';await assert.rejects(actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-03'})));
+  });
+
   console.log(`${checks} rent/incident checks passed`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

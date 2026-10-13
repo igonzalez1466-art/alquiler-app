@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import { readIssue } from "@/app/lib/logisticsIssue";
 import { settlementOperation } from "@/app/lib/settlement";
-import { rentalAmounts } from "@/app/lib/incidentPolicy";
+import { missingDelivery, rentalAmounts } from "@/app/lib/incidentPolicy";
 
 type RentDecision = { refund: number; payout: number; fee: number; paymentIntent: string; destination: string | null; incidentId: string | null };
 
@@ -16,10 +16,12 @@ export async function settleRentOnlyBooking(bookingId: string) {
     if (b.settlementCompletedAt) return null;
     if (b.cancelledAt || b.status === "CANCELLED" || b.paymentStatus !== "PAID" || !b.paymentRef) throw new Error("Rezerwacja nie jest gotowa do rozliczenia.");
     if ((b.depositCents ?? 0) !== 0 || b.depositStatus !== "NONE" || b.depositClaim !== null || b.settlementLegacyReview || b.settlementDecision) throw new Error("Historyczne rozliczenie wymaga osobnej weryfikacji.");
-    if (b.rentSettlement) return b.rentSettlement as unknown as RentDecision;
     const incident = await tx.incident.findUnique({ where: { bookingId_stage: { bookingId, stage: "DELIVERY" } } });
+    if (incident && missingDelivery(incident) && b.rentSettlement && (b.rentSettlement as unknown as RentDecision).refund < (b.rentAmountCents ?? 0)) throw new Error("Przedmiot nie został odebrany. Wypłata pozostaje wstrzymana.");
+    if (b.rentSettlement) return b.rentSettlement as unknown as RentDecision;
     if (incident && !["AGREEMENT_REACHED", "RESOLVED"].includes(incident.status)) throw new Error("Wypłata wstrzymana do uzgodnienia rozwiązania dostawy.");
     if (!incident && (!b.deliveryConfirmedAt || !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) || b.deliveryIssue !== null && !readIssue(b.deliveryIssue)?.resolvedAt)) throw new Error("Najpierw potwierdź odbiór lub uzgodnij rozwiązanie dostawy.");
+    if (incident && missingDelivery(incident) && (incident.refundCents ?? 0) < (b.rentAmountCents ?? 0)) throw new Error("Przedmiot nie został odebrany. Wypłata pozostaje wstrzymana.");
     if (incident && (!incident.acceptedAt || incident.refundCents === null)) throw new Error("Brak zgodnego rozwiązania obu stron.");
     const amounts = rentalAmounts(b.rentAmountCents ?? 0, b.platformFeeCents ?? -1, b.ownerPayoutCents ?? -1, incident?.refundCents ?? 0);
     const saved: RentDecision = { ...amounts, paymentIntent: b.paymentRef, destination: b.owner.stripeAccountId, incidentId: incident?.id ?? null };
