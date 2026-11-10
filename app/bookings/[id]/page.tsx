@@ -138,8 +138,8 @@ const deliveryConfirmLabel: Record<string, string> = {
 
 const returnConfirmLabel: Record<string, string> = {
   NOT_REQUESTED: "Nie wymaga potwierdzenia",
-  AWAITING_CONFIRMATION: "Oczekuje na potwierdzenie zwrotu",
-  CONFIRMED: "Zwrot potwierdzony",
+  AWAITING_CONFIRMATION: "Czeka na potwierdzenie odbioru przez właściciela",
+  CONFIRMED: "Odbiór przedmiotu potwierdzony",
   DISPUTED: "Zgłoszono problem",
   AUTO_CONFIRMED: "Automatycznie potwierdzono",
 };
@@ -148,7 +148,7 @@ const depositLabel: Record<string, string> = {
   NONE: "Brak kaucji",
   PENDING: "Oczekuje",
   PAID: "Opłacona",
-  REFUND_PENDING: "Zwrot w toku",
+  REFUND_PENDING: "Zwrot kaucji w toku",
   REFUNDED: "Zwrócona",
   PARTIALLY_REFUNDED: "Częściowo zwrócona",
   RETAINED: "Zatrzymana",
@@ -576,7 +576,7 @@ export default async function BookingPage({
       {!isCancelled && <BookingProgress booking={booking} />}
       <nav aria-label="Sekcje rezerwacji" className="flex flex-wrap gap-2">
         {!isCancelled && <><a href="#payment-section" className="ui-btn">Płatność</a><a href="#delivery-section" className="ui-btn">Dostawa</a></>}
-        {(!isCancelled || cancelledIncidentReturn) && <a href="#return-section" className="ui-btn">Zwrot</a>}
+        {(!isCancelled || cancelledIncidentReturn) && <a href="#return-section" className="ui-btn">Zwrot przedmiotu</a>}
         <a href="#incident-section" className="ui-btn">Zgłoszenia</a>
       </nav>
       <RenterCancellationPanel bookingId={id} deadline={renterCancellationDeadline(booking.startDate).toISOString()}
@@ -633,7 +633,7 @@ export default async function BookingPage({
 
       {(!isCancelled || cancelledIncidentReturn) && (
         <>
-          {cancelledIncidentReturn && <section className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950"><p className="font-semibold">Rezerwacja anulowana — zwrot przedmiotu</p><p className="mt-2">{isRenter ? "Jeśli masz przedmiot, uzgodnij z właścicielem jego zwrot jak najszybciej. Uzupełnij sposób przekazania lub numer przesyłki w sekcji Zwrot poniżej." : "Uzgodnij z najemcą jak najszybszy zwrot przedmiotu. Po otrzymaniu przedmiotu potwierdź odbiór w sekcji Zwrot poniżej."}</p><p className="mt-2">Zapisanie wysyłki i potwierdzenie odbioru nie zmieniają uzgodnionego zwrotu pieniędzy.</p></section>}
+          {cancelledIncidentReturn && <section className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950"><p className="font-semibold">Rezerwacja anulowana — zwrot przedmiotu</p><p className="mt-2">{isRenter ? "Jeśli masz przedmiot, uzgodnij z właścicielem jego zwrot jak najszybciej. Uzupełnij sposób przekazania lub numer przesyłki w sekcji „Zwrot przedmiotu” poniżej." : "Uzgodnij z najemcą jak najszybszy zwrot przedmiotu. Po otrzymaniu przedmiotu potwierdź odbiór w sekcji „Zwrot przedmiotu” poniżej."}</p><p className="mt-2">Zapisanie wysyłki i potwierdzenie odbioru nie zmieniają uzgodnionego zwrotu pieniędzy.</p></section>}
           {/* PAGO */}
 
           {!isCancelled && <section id="payment-section" className="surface-card overflow-hidden scroll-mt-24">
@@ -949,7 +949,7 @@ export default async function BookingPage({
                 {booking.returnConfirmationStatus !==
                   "NOT_REQUESTED" && (
                   <div className="text-xs text-gray-500">
-                    Status zwrotu:{" "}
+                    Status zwrotu przedmiotu:{" "}
                     <span className="font-medium text-gray-700">
                       {shippingLabel[booking.returnStatus] ??
                         booking.returnStatus}
@@ -1033,7 +1033,7 @@ export default async function BookingPage({
 
                 {isRenter && booking.returnStatus === "SHIPPED" && !returnLocked && (
                   <p className="text-sm text-amber-800">
-                    Zwrot został wysłany. Oczekuje na potwierdzenie odbioru przez właściciela — dane zwrotu są teraz zablokowane.
+                    Zapisano zwrot przedmiotu. Czekamy na potwierdzenie odbioru przez właściciela.
                   </p>
                 )}
 
@@ -1046,7 +1046,7 @@ export default async function BookingPage({
 
                 {returnLocked && (
                   <p className="text-xs text-gray-500">
-                    Zwrot został potwierdzony — edycja zablokowana.
+                    Właściciel potwierdził odbiór przedmiotu.
                   </p>
                 )}
               </ReturnSection>

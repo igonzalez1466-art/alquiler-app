@@ -13,7 +13,7 @@ export default function BookingProgress({ booking }: { booking: ProgressBooking 
     { label: "Rezerwacja", done: paid || ["AWAITING_PAYMENT", "CONFIRMED", "PAID"].includes(booking.status) },
     { label: "Płatność", done: paid },
     { label: "Dostawa", done: received, problem: active.some(i => i.stage === "DELIVERY") || booking.deliveryConfirmationStatus === "DISPUTED" },
-    { label: "Zwrot", done: returned, problem: active.some(i => i.stage === "RETURN") || booking.returnConfirmationStatus === "DISPUTED" },
+    { label: "Zwrot przedmiotu", done: returned, problem: active.some(i => i.stage === "RETURN") || booking.returnConfirmationStatus === "DISPUTED" },
     { label: "Zakończono", done: returned && settled && active.length === 0 },
   ];
   const current = steps.findIndex(step => step.problem || !step.done);

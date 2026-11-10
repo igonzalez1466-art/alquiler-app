@@ -39,7 +39,7 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
           try {
             await updateReturnAction(formData);
             setSent(true);
-            announceBookingAction(bookingId, "Zwrot został oznaczony jako wysłany. Teraz właściciel potwierdza odbiór.");
+            announceBookingAction(bookingId, "Zapisano zwrot przedmiotu. Teraz właściciel potwierdza odbiór.");
             router.refresh();
           } catch (cause) {
             setError(userMessage(cause, "Nie udało się zapisać. Spróbuj ponownie."));
@@ -62,17 +62,18 @@ export default function ReturnForm({ bookingId, locked, initial }: Props) {
         disabled={disabled}
       />
 
+      <p className="text-sm text-gray-600">Zapisz zwrot po nadaniu przesyłki lub osobistym przekazaniu przedmiotu.</p>
       <button
         type="submit"
         disabled={disabled}
         className="ui-btn ui-btn-primary disabled:cursor-wait"
       >
         {loading && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-        {loading ? "Zapisywanie…" : sent ? "Wysłano — oczekuje na potwierdzenie" : "Wysłano / Przekazano"}
+        {loading ? "Zapisywanie…" : sent ? "Zapisano — oczekuje na odbiór" : "Przedmiot zwrócony"}
       </button>
       {loading && <p role="status" aria-live="polite" className="text-sm text-gray-600">Zapisywanie danych zwrotu…</p>}
       {sent && !loading && <p role="status" className="text-sm text-amber-800">
-        Zwrot został oznaczony jako wysłany. Oczekuje na potwierdzenie odbioru przez właściciela.
+        Zapisano zwrot przedmiotu. Czekamy na potwierdzenie odbioru przez właściciela.
       </p>}
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>

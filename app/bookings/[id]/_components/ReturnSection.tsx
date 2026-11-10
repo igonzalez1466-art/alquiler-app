@@ -17,7 +17,7 @@ export default function ReturnSection({ children, defaultOpen = false }: { child
   return <section id="return-section" className="surface-card p-5 sm:p-6 scroll-mt-24">
     <h2>
       <button type="button" aria-expanded={open} aria-controls="return-section-content" onClick={() => setOpen(value => !value)} className="flex w-full items-center justify-between gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
-        <span className="text-lg font-semibold">Zwrot <span className="text-xs text-gray-400 font-normal">(wysyłka i potwierdzenie odbioru)</span></span>
+        <span className="text-lg font-semibold">Zwrot przedmiotu <span className="text-xs text-gray-400 font-normal">(przekazanie i potwierdzenie odbioru)</span></span>
         <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-50 text-2xl text-violet-700">{open ? "−" : "+"}</span>
       </button>
     </h2>
