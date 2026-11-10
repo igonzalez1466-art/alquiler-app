@@ -159,6 +159,12 @@ export async function incidentAction(data: FormData) {
         { status: "ESCALATED" } : { status: inc.stage === "DELIVERY" ? "AGREEMENT_REACHED" : "RESOLVED", acceptedAt: new Date(), ...(inc.stage === "RETURN" ? { resolvedAt: new Date() } : {}) } });
       const evidence = await tx.incidentEvidence.create({ data: { incidentId, uploaderId: userId, text: operation === "accept" ? "Zaakceptowano propozycję." : `Odrzucono propozycję. Komentarz: ${comment}` } });
       await queueIncidentEmail(tx, updated, operation === "reject" ? "rejected" : inc.stage === "RETURN" ? "resolved" : "accepted", userId, operation === "accept" && inc.stage === "RETURN" ? `resolved:${inc.id}` : `response:${evidence.id}`, comment);
+      if (operation === "accept" && inc.stage === "DELIVERY" && (inc.refundCents ?? 0) < (b.rentAmountCents ?? 0)) {
+        await tx.booking.update({ where: { id: bookingId }, data: {
+          shippingStatus: "DELIVERED", deliveryConfirmationStatus: "CONFIRMED",
+          deliveryConfirmedAt: updated.acceptedAt, deliveryConfirmedBy: "RENTER", deliveryConfirmBy: null,
+        } });
+      }
       if (operation === "accept" && inc.stage === "RETURN") {
         // Closing a return case does not assert receipt of a missing item.
         const issue = b.returnIssue;

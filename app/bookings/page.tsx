@@ -143,7 +143,7 @@ async function createReviewAction(formData: FormData) {
   if (!bookingId || !["OWNER", "RENTER"].includes(role)) {
     throw new Error("Nieprawidłowe dane");
   }
-  if (!(rating >= 1 && rating <= 5)) throw new Error("Ocena poza zakresem");
+  if (!Number.isInteger(rating) || !(rating >= 1 && rating <= 5)) throw new Error("Ocena poza zakresem");
 
 const booking = await prisma.booking.findUnique({
   where: { id: bookingId },

@@ -92,6 +92,18 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
   await test('unconfirmed receipt blocks payout', async () => { b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION'; await assert.rejects(settle('b')); assert.equal(stripeCalls, 0); });
   await test('unresolved delivery incident blocks payout', async () => { inc = { id: 'i', status: 'ESCALATED' }; await assert.rejects(settle('b')); assert.equal(stripeCalls, 0); });
   await test('full refund transfers nothing to owner', async () => { inc = { id: 'i', status: 'AGREEMENT_REACHED', acceptedAt: new Date(), refundCents: 18000 }; await settle('b'); assert.equal(refunds, 1); assert.equal(transfers, 0); assert.equal(b.paymentStatus, 'REFUNDED'); assert.equal(inc.status, 'RESOLVED'); });
+  await test('partial agreement confirms receipt even while the refund is pending', async () => {
+    b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'NOT_REQUESTED';
+    await reportThenArrive();
+    user = 'owner';
+    await actions.incidentAction(form({ operation: 'propose', resolution: 'Najem trwa dalej', refundCents: '4000' }));
+    user = 'renter';
+    refundStatus = 'pending';
+    await actions.incidentAction(form({ operation: 'accept', receivedAndAccepted: 'yes' }));
+    assert.equal(b.deliveryConfirmationStatus, 'CONFIRMED');
+    assert.equal(inc.status, 'AGREEMENT_REACHED');
+    assert.equal(transfers, 0);
+  });
   await test('partial refund reduces commission and payout', async () => { inc = { id: 'i', status: 'AGREEMENT_REACHED', acceptedAt: new Date(), refundCents: 4000 }; await settle('b'); assert.equal(b.ownerTransferCents, 11900); assert.equal(b.rentRefundedCents, 4000); });
   await test('pending refund blocks transfer and reuses same operation', async () => { inc = { id: 'i', status: 'AGREEMENT_REACHED', acceptedAt: new Date(), refundCents: 4000 }; refundStatus = 'pending'; await assert.rejects(settle('b')); assert.equal(transfers, 0); refundStatus = 'succeeded'; refunded = 4000; await settle('b'); assert.equal(refunds, 1); assert.equal(transfers, 1); });
   await test('concurrent payout requests share frozen decision and operations', async () => { await Promise.all([settle('b'), settle('b')]); assert.equal(transfers, 1); await settle('b'); assert.equal(transfers, 1); });

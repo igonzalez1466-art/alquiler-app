@@ -3,11 +3,13 @@ export function renterCancellationDeadline(startDate: Date) {
   return new Date(startDate.getTime() - RENTER_CANCELLATION_NOTICE_MS);
 }
 type Booking = { renterId: string; startDate: Date; status: string; cancelledAt: Date | null; paymentStatus: string;
+  shippingStatus: string; shippedAt: Date | null;
   depositCents: number | null; depositStatus: string; deliveryConfirmedAt: Date | null; deliveryConfirmationStatus: string;
   ownerTransferId: string | null; settlementCompletedAt: Date | null; rentSettlement: unknown; settlementDecision: unknown };
 export function canRenterCancelBooking(b: Booking, userId: string, now = new Date()) {
   return b.renterId === userId && ["PENDING", "AWAITING_PAYMENT", "CONFIRMED"].includes(b.status) && !b.cancelledAt &&
     ["PENDING", "AUTHORIZED", "PAID", "FAILED"].includes(b.paymentStatus) && now <= renterCancellationDeadline(b.startDate) &&
+    !b.shippedAt && !["SHIPPED", "DELIVERED"].includes(b.shippingStatus) &&
     b.depositCents === 0 && b.depositStatus === "NONE" && !b.deliveryConfirmedAt &&
     !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) && !b.ownerTransferId &&
     !b.settlementCompletedAt && !b.rentSettlement && !b.settlementDecision;

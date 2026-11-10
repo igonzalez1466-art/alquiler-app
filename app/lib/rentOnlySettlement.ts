@@ -76,7 +76,7 @@ export async function settleRentOnlyBooking(bookingId: string) {
       ownerTransferId: transferId, ownerTransferCents: decision.payout, ownerTransferredAt: transferId ? new Date() : null,
       rentRefundedCents: decision.refund, refundedAt: refundId ? new Date() : null, settlementCompletedAt: new Date(),
       ...(decision.refund === b.rentAmountCents ? { paymentStatus: "REFUNDED", status: "CANCELLED", cancelledAt: new Date() } : {}),
-      ...(decision.incidentId && decision.refund < (b.rentAmountCents ?? 0) ? { shippingStatus: "DELIVERED", deliveryConfirmationStatus: "CONFIRMED", deliveryConfirmedAt: new Date(), deliveryConfirmedBy: "RENTER" } : {}),
+      ...(decision.incidentId && !b.deliveryConfirmedAt && decision.refund < (b.rentAmountCents ?? 0) ? { shippingStatus: "DELIVERED", deliveryConfirmationStatus: "CONFIRMED", deliveryConfirmedAt: new Date(), deliveryConfirmedBy: "RENTER" } : {}),
       ...(decision.incidentId && b.deliveryIssue && typeof b.deliveryIssue === "object" && !Array.isArray(b.deliveryIssue) ? { deliveryIssue: { ...b.deliveryIssue, resolvedAt: new Date().toISOString(), resolvedById: b.renterId } } : {}),
     } });
     if (decision.incidentId) {

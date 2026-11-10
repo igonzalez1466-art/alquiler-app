@@ -19,7 +19,7 @@ export async function cancelBookingByRenter(bookingId: string, userId: string) {
     if (b.renterId !== userId) throw new Error("Tylko najemca może anulować tę rezerwację.");
     const previous = readRenterCancellation(b.renterCancellation);
     if (previous) return;
-    if (!canRenterCancelBooking(b, userId)) throw new Error("Rezerwację można anulować najpóźniej 7 dni przed rozpoczęciem, przed potwierdzeniem odbioru i rozliczeniem najmu.");
+    if (!canRenterCancelBooking(b, userId)) throw new Error("Rezerwację można anulować najpóźniej 7 dni przed rozpoczęciem, przed wysłaniem lub przekazaniem przedmiotu i rozliczeniem najmu.");
     if (b.settlementLegacyReview || b.depositClaim || await tx.settlementOperation.findFirst({ where: { bookingId } })) throw new Error("Płatność wymaga weryfikacji przed anulowaniem.");
     let amountCents = 0;
     if (b.paymentRef) {

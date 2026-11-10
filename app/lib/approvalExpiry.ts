@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
 
 // Plazo del propietario para aceptar la solicitud.
@@ -7,6 +8,13 @@ export function getApprovalDeadline(createdAt: Date) {
   return new Date(
     createdAt.getTime() + APPROVAL_WINDOW_MS
   );
+}
+
+export function blockingBookingDates(now = new Date()): Prisma.BookingWhereInput {
+  return { OR: [
+    { status: { in: ["AWAITING_PAYMENT", "CONFIRMED", "PAID"] } },
+    { status: "PENDING", createdAt: { gt: new Date(now.getTime() - APPROVAL_WINDOW_MS) } },
+  ] };
 }
 
 export async function expirePendingBooking(

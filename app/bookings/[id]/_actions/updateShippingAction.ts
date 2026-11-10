@@ -7,6 +7,7 @@ import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
+import { canRecordDisputedDispatch, lateDispatchIncident } from "@/app/lib/incidentPolicy";
 import { readShippingMethod } from "@/app/lib/shippingMethod";
 import { normalizeInpostNumber } from "@/app/lib/inpostTracking";
 
@@ -55,6 +56,7 @@ export async function updateShippingAction(formData: FormData) {
       shippingStatus: true,
       paymentStatus: true,
       shippedAt: true,
+      incidents: { where: { stage: "DELIVERY" }, select: { stage: true, reason: true, status: true, acceptedAt: true, reportedDeliveryDate: true } },
       deliveredAt: true,
       deliveryInpostPointCode: true,
       startDate: true,
@@ -108,7 +110,7 @@ export async function updateShippingAction(formData: FormData) {
   if (
     booking.deliveryConfirmationStatus === "CONFIRMED" ||
     booking.deliveryConfirmationStatus === "AUTO_CONFIRMED" ||
-    booking.deliveryConfirmationStatus === "DISPUTED"
+    booking.deliveryConfirmationStatus === "DISPUTED" && !booking.incidents.some(canRecordDisputedDispatch)
   ) {
     throw new Error("Nie można edytować — odbiór został już potwierdzony");
   }
@@ -138,18 +140,22 @@ export async function updateShippingAction(formData: FormData) {
     data.deliveryConfirmBy = null;
   }
 
-  const updated = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      ownerId: userId,
-      status: { not: "CANCELLED" },
-      paymentStatus: "PAID",
-      shippingStatus: booking.shippingStatus,
-      shippedAt: null,
-      deliveryConfirmationStatus: booking.deliveryConfirmationStatus,
-      ...(carrier === "InPost" ? { deliveryInpostPointCode: { not: null } } : {}),
-    },
-    data,
+  const updated = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
+    return tx.booking.updateMany({
+      where: {
+        id: bookingId,
+        ownerId: userId,
+        status: { not: "CANCELLED" },
+        paymentStatus: "PAID",
+        shippingStatus: booking.shippingStatus,
+        shippedAt: null,
+        deliveryConfirmationStatus: booking.deliveryConfirmationStatus,
+        ...(booking.deliveryConfirmationStatus === "DISPUTED" ? { incidents: { some: lateDispatchIncident } } : {}),
+        ...(carrier === "InPost" ? { deliveryInpostPointCode: { not: null } } : {}),
+      },
+      data,
+    });
   });
   if (updated.count !== 1) {
     throw new Error("Stan rezerwacji uległ zmianie. Odśwież stronę.");

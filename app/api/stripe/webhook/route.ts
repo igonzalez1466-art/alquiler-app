@@ -300,6 +300,12 @@ export async function POST(req: Request) {
         // UPDATE BOOKING
         // ====================================================
 
+        if (wasAlreadyPaid || existingBooking.status !== "AWAITING_PAYMENT" || existingBooking.paymentRef !== pi.id) break;
+        const charge = typeof pi.latest_charge === "string"
+          ? await stripe.charges.retrieve(pi.latest_charge)
+          : pi.latest_charge;
+        const method = charge?.payment_method_details?.type;
+        const paymentMethod = method === "card" ? "CARD" : method === "blik" ? "BLIK" : "OTHER";
         const confirmedPayment = await prisma.booking.updateMany({
           where: {
             id: bookingId, paymentRef: pi.id, paidAt: null, paymentStatus: "PENDING", status: "AWAITING_PAYMENT", cancelledAt: null,
@@ -310,7 +316,7 @@ export async function POST(req: Request) {
 
             paymentStatus: "PAID",
 
-            paymentMethod: "CARD",
+            paymentMethod,
 
             paymentRef: pi.id,
 

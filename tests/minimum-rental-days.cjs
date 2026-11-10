@@ -5,6 +5,7 @@ function load(file){if(cache[file])return cache[file];const exports={};function 
  if(id==='react/jsx-runtime')return{jsx,jsxs:jsx}; if(id==='react')return{useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]},useMemo:fn=>fn(),useCallback:fn=>fn};
  if(id==='react-dom')return{useFormStatus:()=>({pending:false})};if(id==='next/navigation')return{useRouter:()=>({push(){}})};if(id==='next/link')return{default:'Link'};
  if(id==='./ListingFieldErrors')return{ListingFieldError:'ListingFieldError'};if(id==='./BookingCalendar')return{default:'BookingCalendar'};if(id==='../actions')return{createBookingAction(){}};
+ if(id==='@/app/lib/identityRequirement')return{getRequiredIdentity:async()=>true};
  if(id==='@/app/lib/prisma')return{prisma:{listing:{create:async({data})=>{saved=data;return data}}}};
  if(id==='next-auth/next')return{getServerSession:async()=>({user:{id:'owner'}})};if(id==='@/auth.config')return{authConfig:{}};if(id==='@/app/lib/features')return{DEPOSITS_ENABLED:false};
  if(id.startsWith('@/'))return load(id.slice(2)+'.ts');return require(id);
@@ -25,7 +26,7 @@ const text=n=>Array.isArray(n)?n.map(text).join(' '):n&&typeof n==='object'?text
  tree=render();assert.equal(tree.find(n=>n.props?.name==='minimumRentalDays').props.value,'10');
  const Booking=load('app/listing/[id]/_components/BookingForm.tsx').default;
  for(const [minimum,end,blocked] of [[1,'2026-11-02',true],[3,'2026-11-03',false],[7,'2026-11-06',true],[7,'2026-11-07',false]]){
-  states=['2026-11-01',end,true];cursor=0;const ui=Booking({listingId:'x',isLoggedIn:true,pricePerDay:50,minimumRentalDays:minimum,fianza:0,phoneVerified:true,occupiedRanges:[]});
+  states=['2026-11-01',end,true];cursor=0;const ui=Booking({listingId:'x',isLoggedIn:true,pricePerDay:50,minimumRentalDays:minimum,fianza:0,phoneVerified:true,identityVerified:true,ownerIdentityVerified:true,occupiedRanges:[]});
   assert.equal(nodes(ui).find(n=>n.type?.name==='BookingSubmitButton').props.disabled,blocked);if(blocked)assert(text(ui).includes('Minimalny okres wynajmu'));
  }
  const POST=load('app/api/listings/route.ts').POST;const body={title:'Sukienka',pricePerDay:50,estado:'USADO',metodoEnvio:'RECOGIDA_LOCAL'};

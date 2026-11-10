@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
 import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
+import { canInviteToReview } from "@/app/lib/reviewInvitations";
 import type { ReviewRole } from "@prisma/client";
 
 export async function createReviewAction(formData: FormData) {
@@ -17,7 +18,7 @@ export async function createReviewAction(formData: FormData) {
   const rating = Number(formData.get("rating") || "0");
   const comment = String(formData.get("comment") || "").trim();
 
-  if (!bookingId || !(rating >= 1 && rating <= 5)) {
+  if (!bookingId || !Number.isInteger(rating) || !(rating >= 1 && rating <= 5)) {
     throw new Error("Nieprawidłowe dane.");
   }
 
@@ -30,7 +31,7 @@ export async function createReviewAction(formData: FormData) {
   if (!booking) throw new Error("Nie znaleziono rezerwacji.");
 
   const now = new Date();
-  if (booking.status !== "CONFIRMED" || booking.endDate > now) {
+  if (!canInviteToReview(booking, now)) {
     throw new Error("Nie możesz jeszcze ocenić tej rezerwacji.");
   }
 

@@ -1,4 +1,4 @@
-import type { IncidentReason, IncidentStage } from "@prisma/client";
+import type { IncidentReason, IncidentStage, IncidentStatus } from "@prisma/client";
 
 export const incidentReasons: Record<IncidentReason, string> = {
   NOT_SHIPPED: "Przedmiot nie został wysłany / przekazany",
@@ -44,6 +44,17 @@ export const INCIDENT_PHOTOS_LOCKED_MESSAGE = "Zdjęcia zostały już zapisane. 
 export function deliveryDispatchRecorded(booking: { shippedAt?: Date | null; shippingStatus?: string }) {
   return !!booking.shippedAt || ["SHIPPED", "DELIVERED"].includes(booking.shippingStatus ?? "");
 }
+const lateDispatchStatuses: IncidentStatus[] = ["OPEN", "AWAITING_OWNER", "AWAITING_RENTER", "ESCALATED"];
+export const lateDispatchIncident = {
+  stage: "DELIVERY", reason: "NOT_SHIPPED", acceptedAt: null, reportedDeliveryDate: null,
+  status: { in: lateDispatchStatuses },
+} satisfies import("@prisma/client").Prisma.IncidentWhereInput;
+
+export function canRecordDisputedDispatch(incident: { stage: string; reason: string; status: IncidentStatus; acceptedAt: Date | null; reportedDeliveryDate: Date | null }) {
+  return incident.stage === lateDispatchIncident.stage && incident.reason === lateDispatchIncident.reason &&
+    !incident.acceptedAt && !incident.reportedDeliveryDate && lateDispatchStatuses.includes(incident.status);
+}
+
 export function missingDelivery(incident: { stage?: string; reason?: string; reportedDeliveryDate?: Date | string | null }) {
   return incident.stage === "DELIVERY" && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(incident.reason ?? "") && !incident.reportedDeliveryDate;
 }

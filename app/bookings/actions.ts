@@ -14,6 +14,7 @@ import { PAYMENT_WINDOW_MS } from "@/app/lib/paymentExpiry";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
 import {
   APPROVAL_WINDOW_MS,
+  blockingBookingDates,
   getApprovalDeadline,
 } from "@/app/lib/approvalExpiry";
 
@@ -140,30 +141,6 @@ export async function createBookingAction(input: {
     );
   }
 
-  const overlapping = await prisma.booking.findFirst({
-    where: {
-      listingId: input.listingId,
-      status: {
-        in: [
-          "PENDING",
-          "AWAITING_PAYMENT",
-          "CONFIRMED",
-          "PAID",
-        ],
-      },
-      startDate: {
-        lte: end,
-      },
-      endDate: {
-        gte: start,
-      },
-    },
-  });
-
-  if (overlapping) {
-    throw new Error("Ten termin jest już zarezerwowany.");
-  }
-
   // Los importes quedan guardados en la reserva.
   const days = diffDaysInclusive(start, end);
   if (days < effectiveMinimumRentalDays(listing.minimumRentalDays)) throw new Error(`Minimalny okres wynajmu: ${effectiveMinimumRentalDays(listing.minimumRentalDays)} dni.`);
@@ -191,29 +168,49 @@ export async function createBookingAction(input: {
   const ownerPayoutCents =
     rentAmountCents - platformFeeCents;
 
-  const booking = await prisma.booking.create({
-    data: {
-      listingId: input.listingId,
-      renterId,
-      ownerId: listing.userId,
-      startDate: start,
-      endDate: end,
-      status: "PENDING",
-      pricePerDayCents,
-      rentAmountCents,
-      platformFeeRate: PLATFORM_FEE_RATE,
-      platformFeeCents,
-      ownerPayoutCents,
-      depositCents,
-    },
-    include: {
-      renter: true,
-      listing: {
-        include: {
-          user: true,
+  const booking = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Listing" WHERE id = ${input.listingId} FOR UPDATE`;
+    const overlapping = await tx.booking.findFirst({
+      where: {
+        listingId: input.listingId,
+        ...blockingBookingDates(),
+        startDate: {
+          lte: end,
+        },
+        endDate: {
+          gte: start,
         },
       },
-    },
+    });
+
+    if (overlapping) {
+      throw new Error("Ten termin jest już zarezerwowany.");
+    }
+
+    return tx.booking.create({
+      data: {
+        listingId: input.listingId,
+        renterId,
+        ownerId: listing.userId,
+        startDate: start,
+        endDate: end,
+        status: "PENDING",
+        pricePerDayCents,
+        rentAmountCents,
+        platformFeeRate: PLATFORM_FEE_RATE,
+        platformFeeCents,
+        ownerPayoutCents,
+        depositCents,
+      },
+      include: {
+        renter: true,
+        listing: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
   });
 
   await prisma.conversation.updateMany({
@@ -406,34 +403,33 @@ export async function approveBookingAction(
     throw new Error("Kwota kaucji w rezerwacji jest nieprawidłowa.");
   }
 
-  // El plazo empieza ahora, al aceptar la solicitud.
-  const paymentDueAt = new Date(
-    Date.now() + PAYMENT_WINDOW_MS
-  );
-
-  // La condición PENDING evita aceptar dos veces
-  // o reiniciar el plazo mediante peticiones simultáneas.
-    const approved = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: "PENDING",
-      createdAt: {
-        gt: new Date(Date.now() - APPROVAL_WINDOW_MS),
+  const { approved, paymentDueAt } = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Listing" WHERE id = ${booking.listingId} FOR UPDATE`;
+    const approvedAt = Date.now();
+    const paymentDueAt = new Date(approvedAt + PAYMENT_WINDOW_MS);
+    const approved = await tx.booking.updateMany({
+      where: {
+        id: bookingId,
+        status: "PENDING",
+        createdAt: {
+          gt: new Date(approvedAt - APPROVAL_WINDOW_MS),
+        },
       },
-    },
-    data: {
-      status: "AWAITING_PAYMENT",
-      paymentStatus: "PENDING",
-      paymentDueAt,
-      cancelledAt: null,
-      amountCents: rentAmountCents,
-      pricePerDayCents,
-      rentAmountCents,
-      platformFeeRate,
-      platformFeeCents,
-      ownerPayoutCents,
-      depositCents,
-    },
+      data: {
+        status: "AWAITING_PAYMENT",
+        paymentStatus: "PENDING",
+        paymentDueAt,
+        cancelledAt: null,
+        amountCents: rentAmountCents,
+        pricePerDayCents,
+        rentAmountCents,
+        platformFeeRate,
+        platformFeeCents,
+        ownerPayoutCents,
+        depositCents,
+      },
+    });
+    return { approved, paymentDueAt };
   });
 
   if (approved.count !== 1) {

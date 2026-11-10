@@ -1,5 +1,6 @@
 "use server";
 
+import { blockingBookingDates } from "@/app/lib/approvalExpiry";
 import { accountIdentityUrl, getRequiredIdentity } from "@/app/lib/identityRequirement";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 
@@ -287,17 +288,11 @@ export async function createBookingAction(
   ========================================================== */
 
   const booking = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Listing" WHERE id = ${listingId} FOR UPDATE`;
     const overlap = await tx.booking.findFirst({
       where: {
         listingId,
-        status: {
-          in: [
-            "PENDING",
-            "AWAITING_PAYMENT",
-            "CONFIRMED",
-            "PAID",
-          ],
-        },
+        ...blockingBookingDates(),
         AND: [
           {
             startDate: {

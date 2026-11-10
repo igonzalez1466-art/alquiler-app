@@ -3,6 +3,7 @@ const root=path.resolve(__dirname,'..');let states=[],cursor=0,saved=null,user='
 const jsx=(type,props)=>({type,props});
 function load(file){const exports={};function req(id){
  if(id==='react/jsx-runtime')return{jsx,jsxs:jsx};if(id==='react')return{useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]}};
+ if(id==='@/app/lib/identityRequirement')return{getRequiredIdentity:async()=>true};
  if(id==='@/app/lib/prisma')return{prisma:{listing:{create:async({data})=>{saved=data;return data}}}};
  if(id==='next-auth/next')return{getServerSession:async()=>user?{user:{id:user}}:null};if(id==='@/auth.config')return{authConfig:{}};
  if(id.startsWith('@/'))return load(id.slice(2)+'.ts');return require(id);

@@ -1,3 +1,4 @@
+import { blockingBookingDates } from "@/app/lib/approvalExpiry";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 // app/listing/[id]/page.tsx
 import { prisma } from "@/app/lib/prisma";
@@ -169,7 +170,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
   const occupiedBookings = !isOwner && phoneVerified ? await prisma.booking.findMany({
     where: {
       listingId: listing.id,
-      status: { in: ["PENDING", "AWAITING_PAYMENT", "CONFIRMED", "PAID"] },
+      ...blockingBookingDates(),
       endDate: { gte: new Date(`${today}T00:00:00Z`) },
     },
     select: { startDate: true, endDate: true },

@@ -46,6 +46,11 @@ function reset() {
 }
 let checks=0;async function test(name,fn){reset();await fn();checks++;console.log('PASS',name);}
 (async()=>{
+  await test('recorded shipment blocks unilateral cancellation and refunds',async()=>{
+    booking.shippingStatus='SHIPPED';
+    await assert.rejects(actions.cancelBookingByRenter('b','renter'),/7 dni/);
+    assert.equal(refundCreates,0);
+  });
   await test('seven-day deadline inclusive; one millisecond late is blocked',()=>{const deadline=policy.renterCancellationDeadline(booking.startDate);assert.equal(policy.canRenterCancelBooking(booking,'renter',deadline),true);assert.equal(policy.canRenterCancelBooking(booking,'renter',new Date(+deadline+1)),false);});
   await test('only renter can cancel, owner and stranger cannot',async()=>{for(const who of ['owner','stranger'])await assert.rejects(actions.cancelBookingByRenter('b',who));assert.equal(booking.status,'CONFIRMED');assert.equal(refundCreates,0);assert.equal(mails.length,0);});
   await test('less than seven days prevents cancellation and all side effects',async()=>{booking.startDate=new Date(Date.now()+6*86400000);await assert.rejects(actions.cancelBookingByRenter('b','renter'));assert.equal(booking.status,'CONFIRMED');assert.equal(refundCreates,0);});

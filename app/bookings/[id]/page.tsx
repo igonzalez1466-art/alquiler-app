@@ -1,3 +1,4 @@
+import { canRecordDisputedDispatch } from "@/app/lib/incidentPolicy";
 import { canReturnCancelledIncidentBooking } from "@/app/lib/cancelledIncidentReturn";
 import RenterCancellationPanel from "./_components/RenterCancellationPanel";
 import { canRenterCancelBooking, renterCancellationDeadline, readRenterCancellation } from "@/app/lib/renterCancellationPolicy";
@@ -387,7 +388,7 @@ export default async function BookingPage({
   const canOwnerEditShipping =
     isOwner && logisticsEnabled && booking.status !== "CANCELLED" &&
     !booking.shippedAt && ["PENDING", "READY"].includes(booking.shippingStatus) &&
-    booking.deliveryConfirmationStatus !== "DISPUTED";
+    (booking.deliveryConfirmationStatus !== "DISPUTED" || booking.incidents.some(canRecordDisputedDispatch));
 
   const deliveryLocked =
     booking.deliveryConfirmationStatus === "CONFIRMED" ||

@@ -209,6 +209,7 @@ model SettlementOperation {
 model Booking {
   incidents Incident[]
   rentSettlement Json?
+  rentSettlementAttemptedAt DateTime?
   rentRefundedCents Int @default(0)
   reviewInvitationsEnabled Boolean @default(true)
   reviewInvitations ReviewInvitation[]
@@ -504,6 +505,7 @@ enum PaymentStatus {
 
 enum PaymentMethod {
   CARD
+  BLIK
   BANK_TRANSFER
   BIZUM
   CASH
