@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { hasRequiredIdentity, requiredIdentitySelect } from "@/app/lib/identityRequirement";
 import { pendingTasks, type PendingTask } from "@/app/lib/pendingBookingTasks";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store, max-age=0" };
@@ -10,7 +11,7 @@ export async function GET() {
   try {
     const userId = session.user.id;
     const [user, bookings] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { phone: true, phoneVerifiedAt: true, preferredInpostPointCode: true } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { ...requiredIdentitySelect, phone: true, phoneVerifiedAt: true, preferredInpostPointCode: true } }),
       prisma.booking.findMany({ where: { OR: [{ ownerId: userId }, { renterId: userId }], status: { not: "CANCELLED" }, cancelledAt: null },
       select: { incidents: { select: { stage: true, status: true } }, id: true, bookingNumber: true, ownerId: true, renterId: true, status: true, paymentStatus: true, paymentDueAt: true, createdAt: true, startDate: true, endDate: true, cancelledAt: true,
         shippingStatus: true, deliveryConfirmationStatus: true, returnStatus: true, returnConfirmationStatus: true, returnConfirmedAt: true,
@@ -19,6 +20,12 @@ export async function GET() {
     if (!user) return NextResponse.json({ tasks: [], total: 0 }, { status: 401, headers });
     const checkedAt = new Date();
     const profileTasks: PendingTask[] = [];
+    if (!hasRequiredIdentity(user)) profileTasks.push({
+      id: "profile:identity", bookingNumber: null, listing: null,
+      title: "Zweryfikuj tożsamość",
+      description: "Potwierdź tożsamość w sekcji „Moje konto”, aby publikować ogłoszenia i rezerwować przedmioty.",
+      href: "/account#tozsamosc", deadline: null, priority: 1,
+    });
     if (!user.phone?.trim() || !user.phoneVerifiedAt) profileTasks.push({
       id: "profile:phone", bookingNumber: null, listing: null,
       title: "Zweryfikuj numer telefonu",
