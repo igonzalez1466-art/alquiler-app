@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import { settlementOperation } from "@/app/lib/settlement";
 import { sendMail } from "@/app/lib/mailer";
-import { canRenterCancelBooking, readRenterCancellation, type RenterCancellation } from "./renterCancellationPolicy";
+import { canRenterCancelBooking, isRenterCancellationWaitingForExpiry, readRenterCancellation, type RenterCancellation } from "./renterCancellationPolicy";
 
 const json = (value: RenterCancellation) => value as unknown as Prisma.InputJsonValue;
 const stripeClient = () => {
@@ -19,7 +19,9 @@ export async function cancelBookingByRenter(bookingId: string, userId: string) {
     if (b.renterId !== userId) throw new Error("Tylko najemca może anulować tę rezerwację.");
     const previous = readRenterCancellation(b.renterCancellation);
     if (previous) return;
-    if (!canRenterCancelBooking(b, userId)) throw new Error("Rezerwację można anulować najpóźniej 7 dni przed rozpoczęciem, przed wysłaniem lub przekazaniem przedmiotu i rozliczeniem najmu.");
+    const now = new Date();
+    if (isRenterCancellationWaitingForExpiry(b, now)) throw new Error("Termin akceptacji minął. Rezerwacja oczekuje na anulowanie.");
+    if (!canRenterCancelBooking(b, userId, now)) throw new Error("Rezerwację można anulować najpóźniej 7 dni przed rozpoczęciem, przed wysłaniem lub przekazaniem przedmiotu i rozliczeniem najmu.");
     if (b.settlementLegacyReview || b.depositClaim || await tx.settlementOperation.findFirst({ where: { bookingId } })) throw new Error("Płatność wymaga weryfikacji przed anulowaniem.");
     let amountCents = 0;
     if (b.paymentRef) {
@@ -38,14 +40,14 @@ export async function cancelBookingByRenter(bookingId: string, userId: string) {
         if (cancelled.status !== "canceled") throw new Error("Płatność jest w toku. Spróbuj ponownie za chwilę.");
       }
     } else if (b.paymentStatus === "PAID" || b.paidAt) throw new Error("Brak danych płatności do zwrotu.");
-    const now = new Date();
-    const saved: RenterCancellation = { requestedAt: now.toISOString(), requestedById: userId, amountCents,
+    const cancelledAt = new Date();
+    const saved: RenterCancellation = { requestedAt: cancelledAt.toISOString(), requestedById: userId, amountCents,
       paymentIntent: amountCents > 0 ? b.paymentRef : null, status: amountCents > 0 ? "PENDING" : "NONE", refundId: null, lastError: null,
       notifications: { owner: { sentAt: null, leaseUntil: null }, renter: { sentAt: null, leaseUntil: null } } };
-    await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt: now,
-      paymentStatus: amountCents > 0 ? "PAID" : "CANCELLED", ...(amountCents > 0 && !b.paidAt ? { paidAt: now } : {}),
-      renterCancellation: json(saved), ...(amountCents === 0 ? { settlementCompletedAt: now } : {}) } });
-    await tx.incident.updateMany({ where: { bookingId, status: { not: "RESOLVED" } }, data: { status: "RESOLVED", resolvedAt: now, resolution: "Rezerwacja anulowana przez najemcę zgodnie z zasadą 7 dni. Pełny zwrot płatności." } });
+    await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt,
+      paymentStatus: amountCents > 0 ? "PAID" : "CANCELLED", ...(amountCents > 0 && !b.paidAt ? { paidAt: cancelledAt } : {}),
+      renterCancellation: json(saved), ...(amountCents === 0 ? { settlementCompletedAt: cancelledAt } : {}) } });
+    await tx.incident.updateMany({ where: { bookingId, status: { not: "RESOLVED" } }, data: { status: "RESOLVED", resolvedAt: cancelledAt, resolution: "Rezerwacja anulowana przez najemcę zgodnie z zasadą 7 dni. Pełny zwrot płatności." } });
   }, transactionOptions);
   return processRenterCancellation(bookingId);
 }

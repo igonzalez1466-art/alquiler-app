@@ -41,7 +41,7 @@ function load(file) {
 }
 const policy=load('app/lib/renterCancellationPolicy.ts'), actions=load('app/lib/renterCancellation.ts');
 function reset() {
-  booking={id:'b',bookingNumber:101,renterId:'renter',ownerId:'owner',startDate:new Date(Date.now()+15*86400000),endDate:new Date(Date.now()+17*86400000),status:'CONFIRMED',paymentStatus:'PAID',paymentRef:'pi',paidAt:new Date(),cancelledAt:null,depositCents:0,depositStatus:'NONE',deliveryConfirmedAt:null,deliveryConfirmationStatus:'AWAITING_CONFIRMATION',ownerTransferId:null,settlementCompletedAt:null,rentSettlement:null,settlementDecision:null,settlementLegacyReview:false,depositClaim:null,renterCancellation:null,rentAmountCents:18000,platformFeeCents:2700,ownerPayoutCents:15300,owner:{email:'owner@example.test'},renter:{email:'renter@example.test'},listing:{title:'<script>Item</script>'}};
+  booking={id:'b',bookingNumber:101,renterId:'renter',ownerId:'owner',createdAt:new Date(),startDate:new Date(Date.now()+15*86400000),endDate:new Date(Date.now()+17*86400000),status:'CONFIRMED',paymentStatus:'PAID',paymentRef:'pi',paidAt:new Date(),cancelledAt:null,depositCents:0,depositStatus:'NONE',deliveryConfirmedAt:null,deliveryConfirmationStatus:'AWAITING_CONFIRMATION',ownerTransferId:null,settlementCompletedAt:null,rentSettlement:null,settlementDecision:null,settlementLegacyReview:false,depositClaim:null,renterCancellation:null,rentAmountCents:18000,platformFeeCents:2700,ownerPayoutCents:15300,owner:{email:'owner@example.test'},renter:{email:'renter@example.test'},listing:{title:'<script>Item</script>'}};
   piStatus='succeeded';refundStatus='succeeded';refundCreates=cancelledIntents=0;mails=[];failRefund=false;failMail=null;raceCancel=false;ledger=null;
 }
 let checks=0;async function test(name,fn){reset();await fn();checks++;console.log('PASS',name);}
@@ -50,6 +50,16 @@ let checks=0;async function test(name,fn){reset();await fn();checks++;console.lo
     booking.shippingStatus='SHIPPED';
     await assert.rejects(actions.cancelBookingByRenter('b','renter'),/7 dni/);
     assert.equal(refundCreates,0);
+  });
+  await test('expired approval blocks manual cancellation at the deadline', async () => {
+    Object.assign(booking, {status:'PENDING', paymentStatus:'PENDING', paymentRef:null, paidAt:null});
+    const deadline = new Date(+booking.createdAt + 12 * 3600000);
+    assert.equal(policy.canRenterCancelBooking(booking,'renter',new Date(+deadline - 1)),true);
+    assert.equal(policy.canRenterCancelBooking(booking,'renter',deadline),false);
+    booking.createdAt = new Date(Date.now() - 13 * 3600000);
+    await assert.rejects(actions.cancelBookingByRenter('b','renter'), /Termin akceptacji minął/);
+    assert.equal(booking.status,'PENDING');
+    assert.equal(mails.length,0);
   });
   await test('seven-day deadline inclusive; one millisecond late is blocked',()=>{const deadline=policy.renterCancellationDeadline(booking.startDate);assert.equal(policy.canRenterCancelBooking(booking,'renter',deadline),true);assert.equal(policy.canRenterCancelBooking(booking,'renter',new Date(+deadline+1)),false);});
   await test('only renter can cancel, owner and stranger cannot',async()=>{for(const who of ['owner','stranger'])await assert.rejects(actions.cancelBookingByRenter('b',who));assert.equal(booking.status,'CONFIRMED');assert.equal(refundCreates,0);assert.equal(mails.length,0);});
