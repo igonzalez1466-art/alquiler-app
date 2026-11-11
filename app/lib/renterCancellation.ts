@@ -4,6 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 import { settlementOperation } from "@/app/lib/settlement";
 import { sendMail } from "@/app/lib/mailer";
 import { canRenterCancelBooking, isRenterCancellationWaitingForExpiry, readRenterCancellation, type RenterCancellation } from "./renterCancellationPolicy";
+import { isPaymentDeadlineExpired } from "./paymentDeadline";
 
 const json = (value: RenterCancellation) => value as unknown as Prisma.InputJsonValue;
 const stripeClient = () => {
@@ -21,6 +22,7 @@ export async function cancelBookingByRenter(bookingId: string, userId: string) {
     if (previous) return;
     const now = new Date();
     if (isRenterCancellationWaitingForExpiry(b, now)) throw new Error("Termin akceptacji minął. Rezerwacja oczekuje na anulowanie.");
+    if (isPaymentDeadlineExpired(b, now)) throw new Error("Termin płatności minął. Rezerwacja oczekuje na sprawdzenie płatności.");
     if (!canRenterCancelBooking(b, userId, now)) throw new Error("Rezerwację można anulować najpóźniej 7 dni przed rozpoczęciem, przed wysłaniem lub przekazaniem przedmiotu i rozliczeniem najmu.");
     if (b.settlementLegacyReview || b.depositClaim || await tx.settlementOperation.findFirst({ where: { bookingId } })) throw new Error("Płatność wymaga weryfikacji przed anulowaniem.");
     let amountCents = 0;
