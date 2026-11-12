@@ -1,16 +1,20 @@
 import type { Prisma } from "@prisma/client";
 import { canReturnCancelledIncidentBooking } from "@/app/lib/cancelledIncidentReturn";
 import { missingDelivery } from "@/app/lib/incidentPolicy";
+import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
+import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 
 export const chatBookingSelect = {
-  id: true, bookingNumber: true, status: true, paymentStatus: true, depositCents: true,
+  id: true, bookingNumber: true, status: true, createdAt: true, paymentStatus: true, paymentDueAt: true, depositCents: true,
   depositStatus: true, settlementCompletedAt: true, returnStatus: true, returnConfirmationStatus: true,
   incidents: { select: { stage: true, status: true, acceptedAt: true, refundCents: true, reason: true, reportedDeliveryDate: true } },
 } satisfies Prisma.BookingSelect;
 
 type ChatBooking = Prisma.BookingGetPayload<{ select: typeof chatBookingSelect }>;
 
-export function isBookingChatClosed(booking: ChatBooking) {
+export function isBookingChatClosed(booking: ChatBooking, now = new Date()) {
+  if (booking.status === "PENDING" && getApprovalDeadline(booking.createdAt) <= now) return true;
+  if (isPaymentDeadlineExpired(booking, now)) return true;
   const returned = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);
   if (booking.status === "CANCELLED") {
     const awaitingReturn = canReturnCancelledIncidentBooking(booking) && (

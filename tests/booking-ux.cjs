@@ -34,6 +34,13 @@ assert.equal(nodes(Return({children:'return form'}),'button')[0].props['aria-exp
 assert.equal(nodes(Return({children:'return form',defaultOpen:true}),'button')[0].props['aria-expanded'],true);
 const Access=load('app/lib/chatAccess.ts');
 const bookingChat={...b,returnStatus:'PENDING'};
+const pendingApproval={...bookingChat,status:'PENDING',paymentStatus:'PENDING',createdAt:new Date(+now-12*3600000)};
+assert.equal(Access.isBookingChatClosed(pendingApproval,new Date(+now-1)),false);
+assert.equal(Access.isBookingChatClosed(pendingApproval,now),true);
+const pendingPayment={...bookingChat,status:'AWAITING_PAYMENT',paymentStatus:'PENDING',paymentDueAt:now};
+assert.equal(Access.isBookingChatClosed(pendingPayment,new Date(+now-1)),false);
+assert.equal(Access.isBookingChatClosed(pendingPayment,now),true);
+assert.equal(Access.isBookingChatClosed({...pendingPayment,status:'CONFIRMED',paymentStatus:'PAID'},now),false);
 const listingChat={booking:null,listing:{available:true,isDraft:false},closedReason:'BOOKING_CANCELLED_BY_OWNER',status:'CLOSED'};
 assert.equal(Access.isChatClosed(listingChat),false);
 assert.equal(Access.isChatClosed({...listingChat,listing:{available:false,isDraft:false}}),true);
