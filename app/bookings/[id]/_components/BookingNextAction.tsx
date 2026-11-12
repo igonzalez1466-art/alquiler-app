@@ -23,7 +23,11 @@ const destination: Record<string, { href: string; label: string }> = {
 function waitingMessage(booking: TaskBooking, userId: string) {
   const owner = booking.ownerId === userId;
   const claim = readDepositClaim(booking.depositClaim);
-  if (booking.status === "CANCELLED") return "Rezerwacja została anulowana. Sprawdź jej rozliczenie poniżej.";
+  if (booking.status === "CANCELLED") {
+    if (booking.paymentStatus === "CANCELLED") return "Nie pobrano opłaty za wynajem.";
+    if (["PAID", "REFUNDED"].includes(booking.paymentStatus)) return "Sprawdź rozliczenie rezerwacji poniżej.";
+    return null;
+  }
   const active = booking.incidents?.find(i => i.status !== "RESOLVED");
   if (active) return active.status === "AGREEMENT_REACHED" ? "Rozwiązanie zostało zaakceptowane. Czekamy na zakończenie rozliczenia." : `Czekamy na odpowiedź ${canActOnIncident(active, true) ? "właściciela" : "najemcy"} w zgłoszeniu dotyczącym ${active.stage === "DELIVERY" ? "dostawy" : "zwrotu"}.`;
   if (booking.settlementCompletedAt && ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus)) return "Zwrot i rozliczenie rezerwacji zostały zakończone.";
@@ -48,6 +52,7 @@ function waitingMessage(booking: TaskBooking, userId: string) {
 
 export default function BookingNextAction({ booking, userId, ownerPhoneVerified }: Props) {
   const task = bookingTask(booking, userId);
+  const description = task ? task.description : waitingMessage(booking, userId);
   const kind = task?.id.slice(booking.id.length + 1) ?? "";
   const target = task ? task.href.startsWith("/account/incidents/")
     ? { href: task.href, label: "Odpowiedz na zgłoszenie" }
@@ -60,7 +65,7 @@ export default function BookingNextAction({ booking, userId, ownerPhoneVerified 
   return <section className={`rounded-2xl border p-5 sm:p-6 space-y-3 ${task ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-slate-50"}`} aria-labelledby="booking-next-action">
     <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{finished ? "Stan rezerwacji" : task ? "Co teraz zrobić?" : "Na co czekamy?"}</p>
     <h2 id="booking-next-action" className="text-xl font-semibold">{task ? task.title : finished ? booking.status === "CANCELLED" ? "Rezerwacja anulowana" : "Rezerwacja zakończona" : "Teraz czekamy"}</h2>
-    <p className="text-sm text-gray-700">{task ? task.description : waitingMessage(booking, userId)}</p>
+    {description && <p className="text-sm text-gray-700">{description}</p>}
     {task?.deadline && <p className="text-sm font-medium text-rose-800">Termin: {new Date(task.deadline).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}</p>}
     {target && <Link href={target.href} className="ui-btn ui-btn-primary w-full sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700">{target.label} →</Link>}
   </section>;
