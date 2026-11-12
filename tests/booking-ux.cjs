@@ -32,4 +32,16 @@ steps=nodes(Progress({booking:{...b,returnConfirmationStatus:'CONFIRMED'}}),'li'
 steps=nodes(Progress({booking:{...b,incidents:[{stage:'RETURN',status:'ESCALATED'}]}}),'li');assert.match(text(steps[3]),/Reklamacja/);
 assert.equal(nodes(Return({children:'return form'}),'button')[0].props['aria-expanded'],false);
 assert.equal(nodes(Return({children:'return form',defaultOpen:true}),'button')[0].props['aria-expanded'],true);
+const Access=load('app/lib/chatAccess.ts');
+const bookingChat={...b,returnStatus:'PENDING'};
+const listingChat={booking:null,listing:{available:true,isDraft:false},closedReason:'BOOKING_CANCELLED_BY_OWNER',status:'CLOSED'};
+assert.equal(Access.isChatClosed(listingChat),false);
+assert.equal(Access.isChatClosed({...listingChat,listing:{available:false,isDraft:false}}),true);
+assert.equal(Access.isChatClosed({...listingChat,booking:bookingChat}),false);
+assert.equal(Access.isChatClosed({...listingChat,booking:{...bookingChat,status:'CANCELLED',paymentStatus:'CANCELLED'}}),true);
+assert.equal(Access.isBookingChatClosed({...bookingChat,returnConfirmationStatus:'CONFIRMED'}),true);
+const refunded={...bookingChat,status:'CANCELLED',paymentStatus:'REFUNDED',incidents:[{stage:'DELIVERY',status:'RESOLVED',reason:'NOT_AS_DESCRIBED',acceptedAt:now,refundCents:30000}]};
+assert.equal(Access.isBookingChatClosed(refunded),false);
+assert.equal(Access.isBookingChatClosed({...refunded,returnConfirmationStatus:'CONFIRMED'}),true);
+assert.equal(Access.isBookingChatClosed({...refunded,incidents:[{...refunded.incidents[0],reason:'NOT_RECEIVED'}]}),true);
 console.log('PASS booking UX: payout is not end of rental, reciprocal waiting states, five-step progress, active claims and automatic return expansion. No database writes.');

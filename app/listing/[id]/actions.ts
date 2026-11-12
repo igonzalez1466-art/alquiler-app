@@ -93,50 +93,18 @@ export async function startChatAction(formData: FormData) {
     redirect("/");
   }
 
-  const chatListing = await prisma.listing.findUnique({ where: { id: listingId }, select: { userId: true, isDraft: true } });
-  if (!chatListing || chatListing.isDraft || chatListing.userId !== ownerId) throw new Error("Nie znaleziono ogłoszenia.");
+  const conversation = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Listing" WHERE id = ${listingId} FOR UPDATE`;
+    const listing = await tx.listing.findUnique({ where: { id: listingId }, select: { userId: true, isDraft: true, available: true } });
+    if (!listing || listing.isDraft || listing.userId !== ownerId) throw new Error("Nie znaleziono ogłoszenia.");
 
-  const existing = await prisma.conversation.findUnique({
-    where: {
-      listingId_buyerId: {
-        listingId,
-        buyerId: currentUserId,
-      },
-    },
-    select: {
-      id: true,
-    },
+    const existing = await tx.conversation.findFirst({ where: { listingId, buyerId: currentUserId, bookingId: null }, select: { id: true } });
+    if (existing) return existing;
+    if (!listing.available) throw new Error("To ogłoszenie jest niedostępne.");
+    return tx.conversation.create({ data: { listingId, buyerId: currentUserId, sellerId: ownerId }, select: { id: true } });
   });
 
-  if (existing) {
-    await prisma.conversation.updateMany({
-      where: {
-        id: existing.id,
-        status: "CLOSED",
-      },
-      data: {
-        status: "OPEN",
-        closedAt: null,
-        closedReason: null,
-      },
-    });
-
-    redirect(`/chat/${existing.id}`);
-  }
-
-  const created = await prisma.conversation.create({
-    data: {
-      listingId,
-      buyerId: currentUserId,
-      sellerId: ownerId,
-      status: "OPEN",
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  redirect(`/chat/${created.id}`);
+  redirect(`/chat/${conversation.id}`);
 }
 
 /* ============================================================
@@ -347,24 +315,8 @@ export async function createBookingAction(
       },
     });
 
-    await tx.conversation.upsert({
-      where: {
-        listingId_buyerId: {
-          listingId,
-          buyerId: renterId,
-        },
-      },
-      update: {
-        status: "OPEN",
-        closedAt: null,
-        closedReason: null,
-      },
-      create: {
-        listingId,
-        buyerId: renterId,
-        sellerId: listing.userId,
-        status: "OPEN",
-      },
+    await tx.conversation.create({
+      data: { bookingId: newBooking.id, listingId, buyerId: renterId, sellerId: listing.userId },
     });
 
     return newBooking;

@@ -187,7 +187,7 @@ export async function createBookingAction(input: {
       throw new Error("Ten termin jest już zarezerwowany.");
     }
 
-    return tx.booking.create({
+    const created = await tx.booking.create({
       data: {
         listingId: input.listingId,
         renterId,
@@ -211,19 +211,10 @@ export async function createBookingAction(input: {
         },
       },
     });
-  });
-
-  await prisma.conversation.updateMany({
-    where: {
-      listingId: booking.listingId,
-      buyerId: booking.renterId,
-      status: "CLOSED",
-    },
-    data: {
-      status: "OPEN",
-      closedAt: null,
-      closedReason: null,
-    },
+    await tx.conversation.create({
+      data: { bookingId: created.id, listingId: created.listingId, buyerId: created.renterId, sellerId: created.ownerId },
+    });
+    return created;
   });
 
   const ref = `#${booking.bookingNumber}`;
@@ -437,19 +428,6 @@ export async function approveBookingAction(
       "Ta rezerwacja została już przetworzona."
     );
   }
-
-  await prisma.conversation.updateMany({
-    where: {
-      listingId: booking.listingId,
-      buyerId: booking.renterId,
-      status: "CLOSED",
-    },
-    data: {
-      status: "OPEN",
-      closedAt: null,
-      closedReason: null,
-    },
-  });
 
   const ref = `#${booking.bookingNumber}`;
   const title = booking.listing.title ?? "twój przedmiot";
@@ -702,55 +680,6 @@ export async function rejectBookingAction(
     );
   }
 
-  const stillActive = await prisma.booking.findFirst({
-    where: {
-      listingId: booking.listingId,
-      renterId: booking.renterId,
-      status: {
-        in: [
-          "PENDING",
-          "CONFIRMED",
-          "AWAITING_PAYMENT",
-          "PAID",
-        ],
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  const conversation = await prisma.conversation.findUnique({
-    where: {
-      listingId_buyerId: {
-        listingId: booking.listingId,
-        buyerId: booking.renterId,
-      },
-    },
-    select: {
-      id: true,
-      status: true,
-    },
-  });
-
-  let closedChat = false;
-
-  if (conversation && !stillActive) {
-    await prisma.conversation.update({
-      where: {
-        id: conversation.id,
-      },
-      data: {
-        status: "CLOSED",
-        closedAt: new Date(),
-        closedReason: "BOOKING_CANCELLED_BY_OWNER",
-      },
-    });
-
-    closedChat = true;
-    revalidatePath(`/chat/${conversation.id}`);
-  }
-
   const ref = `#${booking.bookingNumber}`;
   const title = booking.listing.title ?? "twój przedmiot";
   const safeTitle = escapeHtml(title);
@@ -858,6 +787,6 @@ export async function rejectBookingAction(
 
   return {
     ok: true,
-    closedChat,
+    closedChat: true,
   };
 }

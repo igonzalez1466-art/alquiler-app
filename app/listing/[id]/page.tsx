@@ -202,7 +202,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
           ← Wróć do ogłoszeń
         </Link>
 
-        {!isOwner && (
+        {!isOwner && listing.available && !listing.isDraft && (
           <form action={startChatAction}>
             <input type="hidden" name="listingId" value={listing.id} />
             <input type="hidden" name="ownerId" value={listing.userId} />
@@ -210,7 +210,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
               type="submit"
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
             >
-              Otwórz czat
+              Zapytaj o przedmiot
             </button>
           </form>
         )}

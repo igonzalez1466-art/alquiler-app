@@ -1,4 +1,5 @@
 // app/chat/page.tsx
+import { chatBookingSelect, isChatClosed } from "@/app/lib/chatAccess";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
@@ -27,11 +28,14 @@ export default async function ChatInboxPage() {
   // ✅ Traer conversaciones con último mensaje
   const conversations = await prisma.conversation.findMany({
     where: {
-      OR: [{ buyerId: userId }, { sellerId: userId }],
-      messages: { some: {} },
+      AND: [
+        { OR: [{ buyerId: userId }, { sellerId: userId }] },
+        { OR: [{ messages: { some: {} } }, { bookingId: { not: null } }] },
+      ],
     },
     include: {
-      listing: { select: { title: true } },
+      listing: { select: { title: true, available: true, isDraft: true } },
+      booking: { select: chatBookingSelect },
       buyer: { select: { id: true, name: true } },
       seller: { select: { id: true, name: true } },
       messages: {
@@ -84,9 +88,7 @@ export default async function ChatInboxPage() {
             }
           }
 
-          // ✅ Si está cerrado, lo marcamos visualmente (sin any)
-          const status = (c as unknown as { status?: unknown }).status;
-          const isClosed = status === "CLOSED";
+          const isClosed = isChatClosed(c);
 
           return <li key={c.id}>
             <Link href={`/chat/${c.id}`} className={`flex gap-3 rounded-2xl border p-4 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:gap-4 ${hasUnread ? "border-indigo-200 bg-indigo-50/30" : "border-gray-200 bg-white"}`}>
@@ -99,7 +101,7 @@ export default async function ChatInboxPage() {
                   {hasUnread && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-semibold text-white">Nowa wiadomość</span>}
                   {isClosed && <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">Zamknięty</span>}
                 </span>
-                <span className="block truncate text-xs font-medium text-indigo-700">{c.listing.title}</span>
+                <span className="block truncate text-xs font-medium text-indigo-700">{c.booking ? `Rezerwacja #${c.booking.bookingNumber} · ` : "Pytanie o przedmiot · "}{c.listing.title}</span>
                 <span className={`block truncate text-sm ${hasUnread ? "text-gray-800" : "text-gray-600"}`}>
                   {lastMsg ? `${lastMsg.senderId === userId ? "Ty" : lastMsg.sender.name ?? "Użytkownik"}: ${lastMsg.text}` : "Brak wiadomości"}
                 </span>

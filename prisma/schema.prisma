@@ -157,6 +157,7 @@ model VerificationToken {
 model Conversation {
   id               String                   @id @default(cuid())
   listingId        String
+  bookingId        String?                  @unique
   buyerId          String
   sellerId         String
   createdAt        DateTime                 @default(now())
@@ -169,9 +170,10 @@ model Conversation {
   buyer    User      @relation("BuyerConversations", fields: [buyerId], references: [id])
   listing  Listing   @relation(fields: [listingId], references: [id])
   seller   User      @relation("SellerConversations", fields: [sellerId], references: [id])
+  booking  Booking?  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   messages Message[]
 
-  @@unique([listingId, buyerId])
+  // A partial unique index enforces one inquiry per listing and buyer.
   @@index([buyerId])
   @@index([sellerId])
   @@index([listingId])
@@ -361,6 +363,7 @@ model Booking {
 
   damageClaimStatus DamageClaimStatus @default(NONE)
   damageClaimBy     DateTime?
+  conversation     Conversation?
 
   @@index([listingId])
   @@index([renterId])

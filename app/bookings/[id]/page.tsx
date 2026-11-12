@@ -17,6 +17,7 @@ import { canViewBookingEvidencePhoto } from "@/app/lib/bookingEvidenceVisibility
 import { hasIncident, incidentState, incidentTopics } from "@/app/lib/incidentCase";
 import { ApproveButton } from "../_components/ApproveButton";
 import RejectButton from "../_components/RejectButton";
+import { isBookingChatClosed } from "@/app/lib/chatAccess";
 import { openChatFromBookingAction } from "./actions";
 
 import ShippingForm from "./_components/ShippingForm";
@@ -210,6 +211,7 @@ export default async function BookingPage({
       createdAt: true,
       cancelledAt: true,
       renterCancellation: true,
+      conversation: { select: { id: true } },
       amountCents: true,
       rentSettlement: true,
 
@@ -556,7 +558,7 @@ export default async function BookingPage({
                 "bg-gray-100 text-gray-800 border-gray-200"
             )}
 
-            {userId && (
+            {userId && (booking.conversation || !isBookingChatClosed(booking)) && (
               <form action={openChatFromBookingAction}>
                 <input
                   type="hidden"
@@ -565,7 +567,7 @@ export default async function BookingPage({
                 />
 
                 <button className="ui-btn">
-                  Otwórz czat
+                  {isBookingChatClosed(booking) ? "Zobacz rozmowę" : "Otwórz czat rezerwacji"}
                 </button>
               </form>
             )}

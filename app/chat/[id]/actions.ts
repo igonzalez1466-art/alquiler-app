@@ -1,5 +1,6 @@
 "use server";
 
+import { chatBookingSelect, isChatClosed } from "@/app/lib/chatAccess";
 import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
@@ -149,42 +150,36 @@ export async function sendMessageAction(
   if (!text) return;
   if (text.length > MAX_LEN) text = text.slice(0, MAX_LEN);
 
-  const conv = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    select: {
-      id: true,
-      buyerId: true,
-      sellerId: true,
-      status: true,
-      buyer: { select: { id: true, email: true, name: true } },
-      seller: { select: { id: true, email: true, name: true } },
-    },
-  });
+  const { createdMsg, recipient } = await prisma.$transaction(async tx => {
+    const context = await tx.conversation.findUnique({ where: { id: conversationId }, select: { bookingId: true, listingId: true } });
+    if (!context) throw new Error("Nie znaleziono rozmowy");
+    // Serialize sending against cancellation, completion and listing availability changes.
+    if (context.bookingId) {
+      await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${context.bookingId} FOR UPDATE`;
+    } else {
+      await tx.$queryRaw`SELECT id FROM "Listing" WHERE id = ${context.listingId} FOR UPDATE`;
+    }
+    const chat = await tx.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        booking: { select: chatBookingSelect },
+        listing: { select: { available: true, isDraft: true } },
+        buyer: { select: { id: true, email: true, name: true } },
+        seller: { select: { id: true, email: true, name: true } },
+      },
+    });
+    if (!chat) throw new Error("Nie znaleziono rozmowy");
+    const isBuyer = userId === chat.buyerId;
+    if (!isBuyer && userId !== chat.sellerId) throw new Error("Brak uprawnień");
+    if (isChatClosed(chat)) throw new Error("Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.");
 
-  if (!conv) throw new Error("Nie znaleziono rozmowy");
-
-  const isBuyer = userId === conv.buyerId;
-  const isSeller = userId === conv.sellerId;
-  if (!isBuyer && !isSeller) throw new Error("Brak uprawnień");
-
-  if (conv.status === "CLOSED") {
-    throw new Error("Ten czat jest zamknięty. Nie możesz wysyłać wiadomości.");
-  }
-
-  const [createdMsg] = await prisma.$transaction([
-    prisma.message.create({
+    const createdMsg = await tx.message.create({
       data: { conversationId, senderId: userId, text },
       select: { id: true, createdAt: true, senderId: true, text: true },
-    }),
-    prisma.conversation.update({
-      where: { id: conversationId },
-      data: isBuyer
-        ? { buyerLastReadAt: new Date() }
-        : { sellerLastReadAt: new Date() },
-    }),
-  ]);
-
-  const recipient = isBuyer ? conv.seller : conv.buyer;
+    });
+    await tx.conversation.update({ where: { id: conversationId }, data: isBuyer ? { buyerLastReadAt: new Date() } : { sellerLastReadAt: new Date() } });
+    return { createdMsg, recipient: isBuyer ? chat.seller : chat.buyer };
+  });
 
   console.log("[sendMessageAction] recipient", {
     recipientId: recipient?.id,

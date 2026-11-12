@@ -1,5 +1,6 @@
 // app/chat/[id]/page.tsx
 import Link from "next/link";
+import { chatBookingSelect, isChatClosed } from "@/app/lib/chatAccess";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
@@ -33,7 +34,8 @@ export default async function ChatDetailPage({ params }: PageProps) {
   const convo = await prisma.conversation.findUnique({
     where: { id },
     include: {
-      listing: { select: { id: true, title: true } },
+      listing: { select: { id: true, title: true, available: true, isDraft: true } },
+      booking: { select: chatBookingSelect },
       buyer: { select: { id: true, name: true, image: true } },
       seller: { select: { id: true, name: true, image: true } },
       messages: {
@@ -52,9 +54,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
 
   const other = userId === convo.buyerId ? convo.seller : convo.buyer;
 
-  // ✅ Detectar si el chat está cerrado
-  const convoStatus = (convo as unknown as { status?: unknown }).status;
-  const isClosed = convoStatus === "CLOSED";
+  const isClosed = isChatClosed(convo);
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 sm:px-6">
@@ -67,6 +67,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold text-gray-900">{other?.name ?? "Użytkownik"}</h1>
+          {convo.booking && <Link href={`/bookings/${convo.booking.id}`} className="block text-sm font-medium text-indigo-700 hover:underline">Rezerwacja #{convo.booking.bookingNumber}</Link>}
           <Link href={`/listing/${convo.listing.id}`} className="block truncate text-sm font-medium text-indigo-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
             Artykuł: {convo.listing.title} ↗
           </Link>
@@ -81,10 +82,10 @@ export default async function ChatDetailPage({ params }: PageProps) {
       )}
 
       <div className="min-h-72 space-y-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-3 sm:p-5">
-        {convo.messages.length === 0 && (
+        {convo.messages.length === 0 && !isClosed && (
           <div className="py-14 text-center">
             <p className="font-semibold text-gray-900">Rozpocznij rozmowę</p>
-            <p className="mt-1 text-sm text-gray-600">Napisz wiadomość dotyczącą tego przedmiotu.</p>
+            <p className="mt-1 text-sm text-gray-600">{convo.booking ? "Napisz wiadomość dotyczącą tej rezerwacji." : "Napisz wiadomość dotyczącą tego przedmiotu."}</p>
           </div>
         )}
 
