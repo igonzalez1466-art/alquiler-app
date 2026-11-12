@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import ChatReadReceipt from "./ChatReadReceipt";
 import SendMessageForm from "./SendMessageForm";
+import { formatRentalDateRange } from "@/app/lib/rentalCalendarDate";
 import { formatChatDateTime } from "@/app/lib/chatDateTime";
 
 type PageProps = { params: Promise<{ id: string }> }; // Next 15: params es Promise
@@ -35,7 +36,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
     where: { id },
     include: {
       listing: { select: { id: true, title: true, available: true, isDraft: true } },
-      booking: { select: chatBookingSelect },
+      booking: { select: { ...chatBookingSelect, startDate: true, endDate: true } },
       buyer: { select: { id: true, name: true, image: true } },
       seller: { select: { id: true, name: true, image: true } },
       messages: {
@@ -67,7 +68,7 @@ export default async function ChatDetailPage({ params }: PageProps) {
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold text-gray-900">{other?.name ?? "Użytkownik"}</h1>
-          {convo.booking && <Link href={`/bookings/${convo.booking.id}`} className="block text-sm font-medium text-indigo-700 hover:underline">Rezerwacja #{convo.booking.bookingNumber}</Link>}
+          {convo.booking && <Link href={`/bookings/${convo.booking.id}`} className="block text-sm font-medium text-indigo-700 hover:underline">Rezerwacja #{convo.booking.bookingNumber} · {formatRentalDateRange(convo.booking.startDate, convo.booking.endDate)}</Link>}
           <Link href={`/listing/${convo.listing.id}`} className="block truncate text-sm font-medium text-indigo-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600">
             Artykuł: {convo.listing.title} ↗
           </Link>

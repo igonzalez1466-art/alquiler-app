@@ -16,6 +16,10 @@ export function calendarDayOffset(startDate: string, eventDate: string): number 
   return (Date.parse(`${eventDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86_400_000;
 }
 
+export function formatRentalDateRange(startDate: Date, endDate: Date): string {
+  return `${formatCalendarDate(rentalCalendarDate(startDate))} – ${formatCalendarDate(rentalCalendarDate(endDate))}`;
+}
+
 export function formatCalendarDate(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("pl-PL", { timeZone: "UTC" });
 }

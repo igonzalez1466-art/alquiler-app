@@ -4,6 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authConfig } from "@/auth.config";
 import Link from "next/link";
+import { formatRentalDateRange } from "@/app/lib/rentalCalendarDate";
 import { formatChatDateTime } from "@/app/lib/chatDateTime";
 
 function getUserId(session: unknown): string | undefined {
@@ -35,7 +36,7 @@ export default async function ChatInboxPage() {
     },
     include: {
       listing: { select: { title: true, available: true, isDraft: true } },
-      booking: { select: chatBookingSelect },
+      booking: { select: { ...chatBookingSelect, startDate: true, endDate: true } },
       buyer: { select: { id: true, name: true } },
       seller: { select: { id: true, name: true } },
       messages: {
@@ -101,7 +102,7 @@ export default async function ChatInboxPage() {
                   {hasUnread && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-semibold text-white">Nowa wiadomość</span>}
                   {isClosed && <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">Zamknięty</span>}
                 </span>
-                <span className="block truncate text-xs font-medium text-indigo-700">{c.booking ? `Rezerwacja #${c.booking.bookingNumber} · ` : "Pytanie o przedmiot · "}{c.listing.title}</span>
+                <span className="block break-words text-xs font-medium text-indigo-700">{c.booking ? `Rezerwacja #${c.booking.bookingNumber} · ${formatRentalDateRange(c.booking.startDate, c.booking.endDate)} · ` : "Pytanie o przedmiot · "}{c.listing.title}</span>
                 <span className={`block truncate text-sm ${hasUnread ? "text-gray-800" : "text-gray-600"}`}>
                   {lastMsg ? `${lastMsg.senderId === userId ? "Ty" : lastMsg.sender.name ?? "Użytkownik"}: ${lastMsg.text}` : "Brak wiadomości"}
                 </span>
