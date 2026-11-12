@@ -7,7 +7,7 @@ import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
 
-type Props = { booking: TaskBooking; userId: string; ownerPhoneVerified: boolean };
+type Props = { booking: TaskBooking; userId: string; ownerPhoneVerified: boolean; cancelledByRenter?: boolean };
 
 const destination: Record<string, { href: string; label: string }> = {
   approve: { href: "#approval-actions", label: "Podejmij decyzję" },
@@ -20,11 +20,20 @@ const destination: Record<string, { href: string; label: string }> = {
   rentSettlement: { href: "#rent-settlement-section", label: "Rozlicz najem" },
 };
 
-function waitingMessage(booking: TaskBooking, userId: string) {
+function waitingMessage(booking: TaskBooking, userId: string, cancelledByRenter: boolean) {
   const owner = booking.ownerId === userId;
   const claim = readDepositClaim(booking.depositClaim);
   if (booking.status === "CANCELLED") {
-    if (booking.paymentStatus === "CANCELLED") return "Nie pobrano opłaty za wynajem.";
+    if (booking.paymentStatus === "CANCELLED") {
+      if (cancelledByRenter) return null;
+      if (booking.cancelledAt && booking.paymentDueAt && booking.paymentDueAt <= booking.cancelledAt) {
+        return "Najemca nie opłacił rezerwacji w ciągu 12 godzin. Nie pobrano opłaty za wynajem.";
+      }
+      if (booking.cancelledAt && !booking.paymentDueAt && getApprovalDeadline(booking.createdAt) <= booking.cancelledAt) {
+        return "Właściciel nie zaakceptował rezerwacji w ciągu 12 godzin. Nie pobrano opłaty za wynajem.";
+      }
+      return "Nie pobrano opłaty za wynajem.";
+    }
     if (["PAID", "REFUNDED"].includes(booking.paymentStatus)) return "Sprawdź rozliczenie rezerwacji poniżej.";
     return null;
   }
@@ -50,9 +59,9 @@ function waitingMessage(booking: TaskBooking, userId: string) {
   return "Wszystkie kroki rezerwacji zostały zakończone.";
 }
 
-export default function BookingNextAction({ booking, userId, ownerPhoneVerified }: Props) {
+export default function BookingNextAction({ booking, userId, ownerPhoneVerified, cancelledByRenter = false }: Props) {
   const task = bookingTask(booking, userId);
-  const description = task ? task.description : waitingMessage(booking, userId);
+  const description = task ? task.description : waitingMessage(booking, userId, cancelledByRenter);
   const kind = task?.id.slice(booking.id.length + 1) ?? "";
   const target = task ? task.href.startsWith("/account/incidents/")
     ? { href: task.href, label: "Odpowiedz na zgłoszenie" }

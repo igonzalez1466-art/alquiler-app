@@ -573,7 +573,7 @@ export default async function BookingPage({
         </div>
       </section>
 
-      <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
+      <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} cancelledByRenter={!!renterCancellation} />
       {!isCancelled && <BookingProgress booking={booking} />}
       {(!isCancelled || cancelledIncidentReturn || showIncidentSection) && <nav aria-label="Sekcje rezerwacji" className="flex flex-wrap gap-2">
         {!isCancelled && <><a href="#payment-section" className="ui-btn">Płatność</a><a href="#delivery-section" className="ui-btn">Dostawa</a></>}

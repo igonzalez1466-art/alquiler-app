@@ -15,6 +15,10 @@ const Progress=load('app/bookings/[id]/_components/BookingProgress.tsx').default
 const Return=load('app/bookings/[id]/_components/ReturnSection.tsx').default;
 const now=new Date();const b={id:'b',ownerId:'owner',renterId:'renter',status:'CONFIRMED',paymentStatus:'PAID',createdAt:now,startDate:now,endDate:new Date(+now+86400000),paymentDueAt:null,cancelledAt:null,shippingStatus:'DELIVERED',deliveryConfirmationStatus:'CONFIRMED',returnStatus:'PENDING',returnConfirmationStatus:'NOT_REQUESTED',returnConfirmedAt:null,depositStatus:'NONE',depositCents:0,depositClaim:null,settlementDecision:null,settlementCompletedAt:now,deliveryIssue:null,returnIssue:null,settlementLegacyReview:false,depositDecisionAt:null,listing:{title:'Test'},incidents:[]};
 const next=(booking,userId='renter')=>Next({booking,userId,ownerPhoneVerified:true});
+const expired={...b,status:'CANCELLED',paymentStatus:'CANCELLED',createdAt:new Date(+now-13*3600000),cancelledAt:now};
+assert.match(text(next(expired)),/Właściciel nie zaakceptował rezerwacji w ciągu 12 godzin/);
+assert.match(text(next({...expired,paymentDueAt:new Date(+now-60000)})),/Najemca nie opłacił rezerwacji w ciągu 12 godzin/);
+assert.doesNotMatch(text(Next({booking:expired,userId:'renter',ownerPhoneVerified:true,cancelledByRenter:true})),/w ciągu 12 godzin/);
 assert.doesNotMatch(text(next(b)),/Rezerwacja zakończona/);
 assert.match(text(next(b)),/Wynajem trwa/);
 assert.match(text(next({...b,returnConfirmationStatus:'CONFIRMED'})),/Rezerwacja zakończona/);
