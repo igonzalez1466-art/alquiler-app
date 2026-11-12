@@ -471,6 +471,7 @@ export default async function BookingPage({
     );
 
   const bookingHasIncident = hasIncident(booking);
+  const showIncidentSection = !isCancelled || bookingHasIncident || booking.incidents.length > 0;
   const currentIncidentState = bookingHasIncident ? incidentState(booking, userId) : null;
   const depositIncident = booking.returnIssue !== null || booking.depositClaim !== null || booking.returnConfirmationStatus === "DISPUTED";
 
@@ -574,11 +575,11 @@ export default async function BookingPage({
 
       <BookingNextAction booking={booking} userId={userId} ownerPhoneVerified={!!booking.owner.phoneVerifiedAt} />
       {!isCancelled && <BookingProgress booking={booking} />}
-      <nav aria-label="Sekcje rezerwacji" className="flex flex-wrap gap-2">
+      {(!isCancelled || cancelledIncidentReturn || showIncidentSection) && <nav aria-label="Sekcje rezerwacji" className="flex flex-wrap gap-2">
         {!isCancelled && <><a href="#payment-section" className="ui-btn">Płatność</a><a href="#delivery-section" className="ui-btn">Dostawa</a></>}
         {(!isCancelled || cancelledIncidentReturn) && <a href="#return-section" className="ui-btn">Zwrot przedmiotu</a>}
-        <a href="#incident-section" className="ui-btn">Zgłoszenia</a>
-      </nav>
+        {showIncidentSection && <a href="#incident-section" className="ui-btn">Zgłoszenia</a>}
+      </nav>}
       <RenterCancellationPanel bookingId={id} deadline={renterCancellationDeadline(booking.startDate).toISOString()}
         isRenter={isRenter} canCancel={canRenterCancelBooking(booking, userId)} paid={booking.paymentStatus === "PAID"}
         amountCents={readRenterCancellation(booking.renterCancellation)?.amountCents ?? booking.rentAmountCents ?? booking.amountCents ?? 0}
@@ -1148,7 +1149,7 @@ export default async function BookingPage({
         />
       )}
 
-      <BookingIncidents bookingId={id} userId={userId} />
+      {showIncidentSection && <BookingIncidents bookingId={id} userId={userId} />}
       {/* ACCIONES DEL PROPIETARIO */}
 
            {isOwner && awaitingApproval && !approvalExpired && (
