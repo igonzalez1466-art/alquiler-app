@@ -6,7 +6,7 @@ function load(file){const exports={};function req(id){
  if(id==='react')return {useState:v=>[v,()=>{}],useEffect:()=>{}};
  if(id==='next/link')return 'Link';
  if(id==='@/app/lib/prisma')return {prisma:new Proxy({}, {get(){throw Error('Unexpected database access');}})};
- if(id.startsWith('@/'))return load(id.slice(2)+'.ts');throw Error(id);
+ if(id.startsWith('@/'))return load(id.slice(2)+'.ts');if(id.startsWith('./'))return load(path.join(path.dirname(file),id+'.ts'));throw Error(id);
 }vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{exports,require:req,Date,Intl,encodeURIComponent});return exports;}
 function nodes(n,type){if(!n||typeof n!=='object')return [];return [...(n.type===type?[n]:[]),...[n.props?.children].flat(Infinity).flatMap(c=>nodes(c,type))];}
 function text(n){if(n==null||n===false)return '';if(typeof n!=='object')return String(n);return [n.props?.children].flat(Infinity).map(text).join(' ');}

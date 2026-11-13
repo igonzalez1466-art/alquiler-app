@@ -3,6 +3,7 @@ import Link from "next/link";
 import { bookingTask, type TaskBooking } from "@/app/lib/pendingBookingTasks";
 import { readDepositClaim } from "@/app/lib/depositClaim";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
+import { canRecordDispatchAt, renterCancellationDeadline } from "@/app/lib/renterCancellationPolicy";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
@@ -47,6 +48,10 @@ function waitingMessage(booking: TaskBooking, userId: string, cancelledByRenter:
   if (booking.status === "AWAITING_PAYMENT" && booking.paymentStatus === "PENDING") return !DEPOSITS_ENABLED && booking.depositCents !== 0 ? "Ta wcześniejsza rezerwacja zawiera kaucję i nie może być już opłacona. Poczekaj na jej anulowanie, a następnie złóż nową prośbę bez kaucji." : isPaymentDeadlineExpired(booking) ? "Termin płatności minął. Rezerwacja oczekuje na sprawdzenie płatności." : "Czekamy na płatność najemcy.";
   if (booking.paymentStatus !== "PAID") return "Czekamy na potwierdzenie płatności.";
   const delivered = booking.shippingStatus === "DELIVERED" && ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.deliveryConfirmationStatus);
+  if (!delivered && owner && ["PENDING", "READY"].includes(booking.shippingStatus) && !canRecordDispatchAt(booking.startDate)) {
+    const deadline = renterCancellationDeadline(booking.startDate).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
+    return `Wysyłkę lub przekazanie możesz zapisać po upływie terminu anulowania przez najemcę (${deadline}).`;
+  }
   if (!delivered) return owner ? "Czekamy na potwierdzenie odbioru przez najemcę." : "Czekamy na wysłanie lub przekazanie przedmiotu przez właściciela.";
   const returned = ["CONFIRMED", "AUTO_CONFIRMED"].includes(booking.returnConfirmationStatus);
   if (!returned) return owner ? "Czekamy na zwrot przedmiotu przez najemcę." :

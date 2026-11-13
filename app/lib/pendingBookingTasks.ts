@@ -4,6 +4,7 @@ import { canReceive } from "@/app/lib/logistics";
 import { readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue } from "@/app/lib/logisticsIssue";
 import { getApprovalDeadline } from "@/app/lib/approvalExpiry";
+import { canRecordDispatchAt } from "@/app/lib/renterCancellationPolicy";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
@@ -77,7 +78,7 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
     return !deadline || deadline > now ? task("deposit", "Rozlicz kaucję", "Zwrot został potwierdzony. Zwróć kaucję lub zaproponuj uzasadnione potrącenie.", 1, deadline) : null;
   }
   if (owner && delivered && !b.settlementCompletedAt && (b.depositCents ?? 0) === 0 && b.depositStatus === "NONE") return task("rentSettlement", "Rozlicz najem", "Odbiór został potwierdzony. Dokończ wypłatę wynagrodzenia za najem.", 1);
-  if (owner && !delivered && !["SHIPPED", "DELIVERED", "CANCELLED"].includes(b.shippingStatus) && !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus)) return task("ship", "Przekaż lub wyślij przedmiot", `Początek najmu: ${b.startDate.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" })}. Zapisz wysyłkę po przekazaniu przedmiotu.`);
+  if (owner && canRecordDispatchAt(b.startDate, now) && !delivered && !["SHIPPED", "DELIVERED", "CANCELLED"].includes(b.shippingStatus) && !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus)) return task("ship", "Przekaż lub wyślij przedmiot", `Początek najmu: ${b.startDate.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" })}. Zapisz wysyłkę po przekazaniu przedmiotu.`);
   if (renter && delivered && !returned && !["SHIPPED", "DELIVERED", "CANCELLED"].includes(b.returnStatus) && b.endDate <= now) return task("return", "Zorganizuj zwrot przedmiotu", "Nadszedł termin zwrotu. Po nadaniu lub przekazaniu przedmiotu zapisz zwrot.");
   return null;
 }
