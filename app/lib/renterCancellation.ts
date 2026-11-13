@@ -141,7 +141,6 @@ async function notifyRenterCancellation(bookingId: string) {
           <p style="margin:0 0 18px;">Rezerwacja <strong>#${escapeHtml(String(b.bookingNumber ?? b.id))}</strong> została anulowana przez najemcę.</p>
           <div style="margin:20px 0;padding:18px;border:1px solid #e4e4e7;border-radius:9px;background:#fafafa;">
             <p style="margin:0 0 14px;font-size:17px;"><strong>Podsumowanie rezerwacji</strong></p>${rows(details)}
-            <p style="margin:0;font-size:12px;color:#71717a;">Daty w czasie polskim.</p>
           </div>
           <div style="margin:20px 0;padding:18px;border:1px solid ${saved.status === "FAILED" ? "#fde68a" : "#c7d2fe"};border-radius:9px;background:${saved.status === "FAILED" ? "#fffbeb" : "#eef2ff"};">
             <p style="margin:0 0 14px;font-size:17px;"><strong>${paid ? "Pełny zwrot płatności — 100%" : "Brak płatności do zwrotu"}</strong></p>${rows(financialDetails)}
