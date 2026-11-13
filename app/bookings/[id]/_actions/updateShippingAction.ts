@@ -8,6 +8,7 @@ import { authConfig } from "@/auth.config";
 import { revalidatePath } from "next/cache";
 import { sendMail } from "@/app/lib/mailer";
 import { canRecordDisputedDispatch, lateDispatchIncident } from "@/app/lib/incidentPolicy";
+import { canRecordDispatchAt, RENTER_CANCELLATION_NOTICE_MS } from "@/app/lib/renterCancellationPolicy";
 import { readShippingMethod } from "@/app/lib/shippingMethod";
 import { normalizeInpostNumber } from "@/app/lib/inpostTracking";
 
@@ -120,6 +121,9 @@ export async function updateShippingAction(formData: FormData) {
   }
 
   const now = new Date();
+  if (!canRecordDispatchAt(booking.startDate, now)) {
+    throw new Error("Wysyłkę lub przekazanie możesz zapisać po upływie terminu anulowania przez najemcę.");
+  }
 
   const data: Prisma.BookingUpdateManyMutationInput = {
     shippingStatus,
@@ -148,6 +152,7 @@ export async function updateShippingAction(formData: FormData) {
         ownerId: userId,
         status: { not: "CANCELLED" },
         paymentStatus: "PAID",
+        startDate: { lt: new Date(Date.now() + RENTER_CANCELLATION_NOTICE_MS) },
         shippingStatus: booking.shippingStatus,
         shippedAt: null,
         deliveryConfirmationStatus: booking.deliveryConfirmationStatus,

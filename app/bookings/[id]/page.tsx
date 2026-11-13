@@ -1,7 +1,7 @@
 import { canRecordDisputedDispatch } from "@/app/lib/incidentPolicy";
 import { canReturnCancelledIncidentBooking } from "@/app/lib/cancelledIncidentReturn";
 import RenterCancellationPanel from "./_components/RenterCancellationPanel";
-import { canRenterCancelBooking, renterCancellationDeadline, readRenterCancellation } from "@/app/lib/renterCancellationPolicy";
+import { canRecordDispatchAt, canRenterCancelBooking, renterCancellationDeadline, readRenterCancellation } from "@/app/lib/renterCancellationPolicy";
 import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { Suspense } from "react";
 import InpostTracking from "./_components/InpostTracking";
@@ -387,6 +387,7 @@ export default async function BookingPage({
   const logisticsEnabled =
     booking.paymentStatus === "PAID" || cancelledIncidentReturn;
 
+  const dispatchWindowOpen = canRecordDispatchAt(booking.startDate);
   const canOwnerEditShipping =
     isOwner && logisticsEnabled && booking.status !== "CANCELLED" &&
     !booking.shippedAt && ["PENDING", "READY"].includes(booking.shippingStatus) &&
@@ -901,7 +902,13 @@ export default async function BookingPage({
                   <ReceiptActions bookingId={id} stage="DELIVERY" hasDeposit={depositCents > 0} remainingPhotos={Math.max(0, 3 - evidencePhotos.filter(photo => photo.stage === "DELIVERY" && photo.uploaderId === userId).length)} />
                 )}
 
-                {canOwnerEditShipping && !deliveryLocked && (
+                {canOwnerEditShipping && !deliveryLocked && !dispatchWindowOpen && (
+                  <p className="text-sm text-gray-600">
+                    Wysyłkę lub przekazanie możesz zapisać po upływie terminu anulowania przez najemcę ({renterCancellationDeadline(booking.startDate).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" })}).
+                  </p>
+                )}
+
+                {canOwnerEditShipping && !deliveryLocked && dispatchWindowOpen && (
                   <ShippingForm
                     bookingId={id}
                     initial={{

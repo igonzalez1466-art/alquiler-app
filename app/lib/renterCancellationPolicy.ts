@@ -5,6 +5,10 @@ export const RENTER_CANCELLATION_NOTICE_MS = 7 * 24 * 60 * 60 * 1000;
 export function renterCancellationDeadline(startDate: Date) {
   return new Date(startDate.getTime() - RENTER_CANCELLATION_NOTICE_MS);
 }
+export function canRecordDispatchAt(startDate: Date, now = new Date()) {
+  return now > renterCancellationDeadline(startDate);
+}
+
 type Booking = { renterId: string; createdAt: Date; startDate: Date; status: string; cancelledAt: Date | null; paymentStatus: string; paymentDueAt: Date | null;
   shippingStatus: string; shippedAt: Date | null;
   depositCents: number | null; depositStatus: string; deliveryConfirmedAt: Date | null; deliveryConfirmationStatus: string;
