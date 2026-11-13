@@ -24,8 +24,8 @@ function waitingMessage(booking: TaskBooking, userId: string, cancelledByRenter:
   const owner = booking.ownerId === userId;
   const claim = readDepositClaim(booking.depositClaim);
   if (booking.status === "CANCELLED") {
+    if (cancelledByRenter) return null;
     if (booking.paymentStatus === "CANCELLED") {
-      if (cancelledByRenter) return null;
       if (booking.cancelledAt && booking.paymentDueAt && booking.paymentDueAt <= booking.cancelledAt) {
         return "Najemca nie opłacił rezerwacji w ciągu 12 godzin. Nie pobrano opłaty za wynajem.";
       }
