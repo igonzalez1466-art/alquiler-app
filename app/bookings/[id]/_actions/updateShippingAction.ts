@@ -1,5 +1,6 @@
 "use server";
 
+import { assignDefaultDeliveryPoint } from "@/app/lib/defaultDeliveryPoint";
 import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
@@ -114,6 +115,11 @@ export async function updateShippingAction(formData: FormData) {
     booking.deliveryConfirmationStatus === "DISPUTED" && !booking.incidents.some(canRecordDisputedDispatch)
   ) {
     throw new Error("Nie można edytować — odbiór został już potwierdzony");
+  }
+
+  if (carrier === "InPost" && !booking.deliveryInpostPointCode) {
+    const destination = await assignDefaultDeliveryPoint(bookingId);
+    booking.deliveryInpostPointCode = destination?.deliveryInpostPointCode ?? null;
   }
 
   if (carrier === "InPost" && !booking.deliveryInpostPointCode) {

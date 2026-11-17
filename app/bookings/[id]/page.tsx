@@ -1,3 +1,4 @@
+import { assignDefaultDeliveryPoint } from "@/app/lib/defaultDeliveryPoint";
 import { canRecordDisputedDispatch } from "@/app/lib/incidentPolicy";
 import { canReturnCancelledIncidentBooking } from "@/app/lib/cancelledIncidentReturn";
 import RenterCancellationPanel from "./_components/RenterCancellationPanel";
@@ -324,6 +325,11 @@ export default async function BookingPage({
   const isRenter =
     !!userId && booking.renterId === userId;
   if (!isOwner && !isRenter) return notFound();
+  const defaultDeliveryPoint = await assignDefaultDeliveryPoint(booking.id);
+  if (defaultDeliveryPoint) {
+    booking.deliveryInpostPointCode = defaultDeliveryPoint.deliveryInpostPointCode;
+    booking.deliveryInpostPointAddress = defaultDeliveryPoint.deliveryInpostPointAddress;
+  }
   const cancelledIncidentReturn = canReturnCancelledIncidentBooking(booking);
   const evidencePhotos = booking.paymentStatus === "PAID"
     ? await prisma.bookingEvidencePhoto.findMany({
