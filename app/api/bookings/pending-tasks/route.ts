@@ -13,7 +13,7 @@ export async function GET() {
     const [user, bookings] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { ...requiredIdentitySelect, phone: true, phoneVerifiedAt: true, preferredInpostPointCode: true } }),
       prisma.booking.findMany({ where: { OR: [{ ownerId: userId }, { renterId: userId }], status: { not: "CANCELLED" }, cancelledAt: null },
-      select: { incidents: { select: { stage: true, status: true } }, id: true, bookingNumber: true, ownerId: true, renterId: true, status: true, paymentStatus: true, paymentDueAt: true, createdAt: true, startDate: true, endDate: true, cancelledAt: true,
+      select: { incidents: { select: { stage: true, status: true, reason: true, acceptedAt: true, reportedDeliveryDate: true } }, id: true, bookingNumber: true, ownerId: true, renterId: true, status: true, paymentStatus: true, paymentDueAt: true, createdAt: true, startDate: true, endDate: true, cancelledAt: true,
         shippingStatus: true, deliveryConfirmationStatus: true, returnStatus: true, returnConfirmationStatus: true, returnConfirmedAt: true,
         depositStatus: true, depositCents: true, depositClaim: true, settlementDecision: true, settlementCompletedAt: true, deliveryIssue: true, returnIssue: true, settlementLegacyReview: true, depositDecisionAt: true, listing: { select: { title: true } } } }),
     ]);

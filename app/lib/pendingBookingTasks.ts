@@ -1,5 +1,5 @@
 import type { Booking } from "@prisma/client";
-import { canActOnIncident } from "@/app/lib/incidentPolicy";
+import { canActOnIncident, canRecordDisputedDispatch } from "@/app/lib/incidentPolicy";
 import { canReceive } from "@/app/lib/logistics";
 import { readDepositClaim } from "@/app/lib/depositClaim";
 import { readIssue } from "@/app/lib/logisticsIssue";
@@ -9,7 +9,7 @@ import { isPaymentDeadlineExpired } from "@/app/lib/paymentDeadline";
 import { getDepositDecisionDeadline } from "@/app/lib/depositAutoReleasePolicy";
 import { DEPOSITS_ENABLED } from "@/app/lib/features";
 export type PendingTask = { id: string; bookingNumber: number | null; listing: string | null; title: string; description: string; href: string; deadline: string | null; priority: number; badge?: string; actionLabel?: string };
-export type TaskBooking = Pick<Booking, "id" | "bookingNumber" | "ownerId" | "renterId" | "status" | "paymentStatus" | "paymentDueAt" | "createdAt" | "startDate" | "endDate" | "cancelledAt" | "shippingStatus" | "deliveryConfirmationStatus" | "returnStatus" | "returnConfirmationStatus" | "returnConfirmedAt" | "depositStatus" | "depositCents" | "depositClaim" | "settlementDecision" | "settlementCompletedAt" | "deliveryIssue" | "returnIssue" | "settlementLegacyReview" | "depositDecisionAt"> & { incidents?: { stage: string; status: string }[]; listing: { title: string } };
+export type TaskBooking = Pick<Booking, "id" | "bookingNumber" | "ownerId" | "renterId" | "status" | "paymentStatus" | "paymentDueAt" | "createdAt" | "startDate" | "endDate" | "cancelledAt" | "shippingStatus" | "deliveryConfirmationStatus" | "returnStatus" | "returnConfirmationStatus" | "returnConfirmedAt" | "depositStatus" | "depositCents" | "depositClaim" | "settlementDecision" | "settlementCompletedAt" | "deliveryIssue" | "returnIssue" | "settlementLegacyReview" | "depositDecisionAt"> & { incidents?: { stage: string; status: string; reason?: string; acceptedAt?: Date | null; reportedDeliveryDate?: Date | null }[]; listing: { title: string } };
 export function bookingTask(b: TaskBooking, userId: string, now = new Date()): PendingTask | null {
   const owner = b.ownerId === userId, renter = b.renterId === userId;
   if ((!owner && !renter) || b.status === "CANCELLED" || b.cancelledAt) return null;
@@ -83,5 +83,21 @@ export function bookingTask(b: TaskBooking, userId: string, now = new Date()): P
   return null;
 }
 export function pendingTasks(bookings: TaskBooking[], userId: string, now = new Date()) {
-  return bookings.flatMap(b => { const t = bookingTask(b, userId, now); return t ? [t] : []; }).sort((a, b) => a.priority - b.priority || (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999") || (b.bookingNumber ?? 0) - (a.bookingNumber ?? 0));
+  return bookings.flatMap(b => {
+    const t = bookingTask(b, userId, now);
+    const tasks = t ? [t] : [];
+    const lateDispatch = b.incidents?.some(i => i.reason === "NOT_SHIPPED" &&
+      canRecordDisputedDispatch({ stage: i.stage, reason: i.reason, status: i.status as import("@prisma/client").IncidentStatus, acceptedAt: i.acceptedAt ?? null, reportedDeliveryDate: i.reportedDeliveryDate ?? null }));
+    if (lateDispatch && b.ownerId === userId && b.status !== "CANCELLED" && !b.cancelledAt &&
+        b.paymentStatus === "PAID" && b.deliveryConfirmationStatus === "DISPUTED" &&
+        ["PENDING", "READY"].includes(b.shippingStatus) && canRecordDispatchAt(b.startDate, now)) {
+      tasks.push({ id: b.id + ":ship", bookingNumber: b.bookingNumber, listing: b.listing.title,
+        title: "Przekaż lub wyślij przedmiot",
+        description: "Zapisz wysyłkę lub przekazanie w rezerwacji. Zgłoszenie pozostanie otwarte, a wypłata wstrzymana do uzgodnienia rozwiązania.",
+        href: "/bookings/" + encodeURIComponent(b.id), deadline: null, priority: 2,
+        actionLabel: "Zapisz dostawę",
+      });
+    }
+    return tasks;
+  }).sort((a, b) => a.priority - b.priority || (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999") || (b.bookingNumber ?? 0) - (a.bookingNumber ?? 0));
 }

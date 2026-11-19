@@ -47,3 +47,10 @@ res=await GET();
 assert.equal(res.body.total,0);
 n+=2;
 console.log(n+' checks passed: task states, roles, deadlines, completed/disputed exclusions, API isolation and cache policy.');})().catch(e=>{console.error(e);process.exitCode=1;});
+
+const missingDispatch={...base,deliveryConfirmationStatus:'DISPUTED',incidents:[{stage:'DELIVERY',status:'AWAITING_OWNER',reason:'NOT_SHIPPED',acceptedAt:null,reportedDeliveryDate:null}]};
+assert.equal(pendingTasks([missingDispatch],'owner',now).length,2);
+assert(pendingTasks([missingDispatch],'owner',now).some(t=>t.id==='b:ship'));
+for(const patch of [{shippingStatus:'SHIPPED'},{status:'CANCELLED'},{startDate:new Date(+now+8*86400000)},{incidents:[{...missingDispatch.incidents[0],reportedDeliveryDate:now}]},{incidents:[{...missingDispatch.incidents[0],status:'AGREEMENT_REACHED'}]}])assert(!pendingTasks([{...missingDispatch,...patch}],'owner',now).some(t=>t.id==='b:ship'));
+assert(!pendingTasks([missingDispatch],'renter',now).some(t=>t.id==='b:ship'));
+console.log('PASS late dispatch task stays alongside incident, and disappears after dispatch, arrival or agreement.');
