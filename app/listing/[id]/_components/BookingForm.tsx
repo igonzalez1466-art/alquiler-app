@@ -1,5 +1,6 @@
 "use client";
 
+import { warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -46,7 +47,7 @@ export default function BookingForm({
 }) {
   const minimumRentalDays = effectiveMinimumRentalDays(listingMinimumRentalDays);
   const router = useRouter();
-  const today = new Date().toISOString().split("T")[0];
+  const today = warsawCalendarDate(new Date());
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -68,8 +69,8 @@ export default function BookingForm({
   const summary = useMemo(() => {
     if (!startDate || !endDate) return null;
 
-    const start = new Date(startDate + "T00:00:00");
-    const end = new Date(endDate + "T00:00:00");
+    const start = new Date(startDate + "T00:00:00Z");
+    const end = new Date(endDate + "T00:00:00Z");
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       return { error: "Nieprawidłowa data." as const };
