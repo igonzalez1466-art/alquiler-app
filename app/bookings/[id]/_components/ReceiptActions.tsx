@@ -8,7 +8,10 @@ export default function ReceiptActions({ bookingId, stage, hideReport = false }:
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  function openProblem() {
+  function openProblem(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    const hash = `#incident-${stage.toLowerCase()}`;
+    window.history.replaceState(null, "", hash);
     const target = document.getElementById(`incident-${stage.toLowerCase()}`);
     if (!target) return;
     if (target instanceof HTMLDetailsElement) target.open = true;

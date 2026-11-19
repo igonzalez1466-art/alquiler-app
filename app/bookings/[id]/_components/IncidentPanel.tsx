@@ -2,7 +2,7 @@
 import { formatCalendarDate, warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { userMessage } from "@/app/lib/userMessage";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatIncidentMoney, formatIncidentEvidenceText } from "@/app/lib/incidentFormatting";
 import IncidentPhotoPicker from "./IncidentPhotoPicker";
 import IncidentFinancialAgreement from "./IncidentFinancialAgreement";
@@ -18,6 +18,19 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
   rentalStartDate: string; deliveryDispatched?: boolean; bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode; finance?: { platformFeeCents: number | null; ownerPayoutCents: number | null; settlementCompleted: boolean };
 }) {
   const router = useRouter();
+  useEffect(() => {
+    const openLinkedIncident = () => {
+      if (!["#incident-delivery", "#incident-return"].includes(window.location.hash)) return;
+      const target = document.getElementById(window.location.hash.slice(1));
+      if (!target) return;
+      if (target instanceof HTMLDetailsElement) target.open = true;
+      target.scrollIntoView({ block: "start" });
+      target.querySelector<HTMLElement>("select, textarea, button")?.focus({ preventScroll: true });
+    };
+    openLinkedIncident();
+    window.addEventListener("hashchange", openLinkedIncident);
+    return () => window.removeEventListener("hashchange", openLinkedIncident);
+  }, []);
   const missingCancellationAllowed = canRequestMissingDeliveryCancellation(new Date(rentalStartDate + "T00:00:00Z"));
   const missingCancellationDay = new Date(Date.parse(rentalStartDate + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
   const busy = useRef(false);
