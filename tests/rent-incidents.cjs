@@ -332,6 +332,26 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
       user='owner';await actions.incidentAction(form({operation:'accept'}));assert.equal(refunds,1);assert.equal(transfers,0);assert.equal(b.status,'CANCELLED');
     });
   }
+  await test('missing cancellation opens at next Polish midnight, including DST boundaries', () => {
+    for (const [start, before, after] of [
+      ['2026-11-20', '2026-11-20T22:59:59.999Z', '2026-11-20T23:00:00Z'],
+      ['2026-03-29', '2026-03-29T21:59:59.999Z', '2026-03-29T22:00:00Z'],
+      ['2026-10-25', '2026-10-25T22:59:59.999Z', '2026-10-25T23:00:00Z'],
+    ]) {
+      assert.equal(policy.canRequestMissingDeliveryCancellation(new Date(start), new Date(before)), false);
+      assert.equal(policy.canRequestMissingDeliveryCancellation(new Date(start), new Date(after)), true);
+    }
+  });
+  for (const reason of ['NOT_SHIPPED', 'NOT_RECEIVED']) {
+    await test(reason + ' rejects premature cancellation on server without changing proposal or money', async () => {
+      await reportMissing(reason);
+      b.startDate = new Date('2099-01-01');
+      const original = structuredClone(inc), emails = notificationEvents.length;
+      await assert.rejects(actions.incidentAction(form({operation:'request_cancel', comment:'Anuluj'})), /od dnia po rozpoczęciu/);
+      assert.deepEqual(inc, original); assert.equal(notificationEvents.length, emails);
+      assert.equal(refunds, 0); assert.equal(transfers, 0);
+    });
+  }
   await test('waiting keeps money blocked; only renter records arrival, clears stale cancellation and calculates delay',async()=>{
     await reportMissing();user='owner';await actions.incidentAction(form({operation:'wait_delivery',comment:'Przesyłka w drodze'}));assert.equal(inc.status,'AWAITING_RENTER');assert.equal(inc.refundCents,null);await assert.rejects(settle('b'));
     await assert.rejects(actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-03'})));

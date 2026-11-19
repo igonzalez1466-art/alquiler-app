@@ -1,3 +1,4 @@
+import { rentalCalendarDate, warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
 import type { IncidentReason, IncidentStage, IncidentStatus } from "@prisma/client";
 
 export const incidentReasons: Record<IncidentReason, string> = {
@@ -61,4 +62,9 @@ export function canRecordDisputedDispatch(incident: { stage: string; reason: str
 
 export function missingDelivery(incident: { stage?: string; reason?: string; reportedDeliveryDate?: Date | string | null }) {
   return incident.stage === "DELIVERY" && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(incident.reason ?? "") && !incident.reportedDeliveryDate;
+}
+
+// Eligibility starts on the following calendar day in Poland, including DST changes.
+export function canRequestMissingDeliveryCancellation(startDate: Date, now = new Date()): boolean {
+  return warsawCalendarDate(now) > rentalCalendarDate(startDate);
 }

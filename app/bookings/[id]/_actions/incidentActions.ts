@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
-import { missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
+import { canRequestMissingDeliveryCancellation, missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
@@ -137,6 +137,7 @@ export async function incidentAction(data: FormData) {
       return;
     }
     if (operation === "request_cancel") {
+      if (missing && !canRequestMissingDeliveryCancellation(b.startDate)) throw new Error("O anulowanie i zwrot z powodu braku dostawy możesz poprosić od dnia po rozpoczęciu najmu (czas polski).");
       if (userId !== b.renterId || inc.stage !== "DELIVERY" || !["NOT_AS_DESCRIBED", "NOT_SHIPPED", "NOT_RECEIVED"].includes(inc.reason) || inc.acceptedAt || inc.proposedById === userId ||
         b.paymentStatus !== "PAID" || b.status === "CANCELLED" || b.cancelledAt ||
         b.deliveryConfirmedAt || ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus) ||
