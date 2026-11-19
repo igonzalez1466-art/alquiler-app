@@ -12,11 +12,7 @@ export default function ReceiptActions({ bookingId, stage, hideReport = false }:
     event.preventDefault();
     const hash = `#incident-${stage.toLowerCase()}`;
     window.history.replaceState(null, "", hash);
-    const target = document.getElementById(`incident-${stage.toLowerCase()}`);
-    if (!target) return;
-    if (target instanceof HTMLDetailsElement) target.open = true;
-    target.scrollIntoView({ block: "start" });
-    target.querySelector<HTMLElement>("select, textarea, button")?.focus({ preventScroll: true });
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
   }
   async function confirm() {
     setPending(true); setError("");

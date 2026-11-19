@@ -18,19 +18,27 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
   rentalStartDate: string; deliveryDispatched?: boolean; bookingId: string; userId: string; isOwner: boolean; rentCents: number; canOpenDelivery: boolean; canOpenReturn: boolean; cases: Case[]; deliveryPhotos?: ReactNode; finance?: { platformFeeCents: number | null; ownerPayoutCents: number | null; settlementCompleted: boolean };
 }) {
   const router = useRouter();
+  const [reportVisible, setReportVisible] = useState(false);
   useEffect(() => {
     const openLinkedIncident = () => {
-      if (!["#incident-delivery", "#incident-return"].includes(window.location.hash)) return;
-      const target = document.getElementById(window.location.hash.slice(1));
-      if (!target) return;
-      if (target instanceof HTMLDetailsElement) target.open = true;
-      target.scrollIntoView({ block: "start" });
-      target.querySelector<HTMLElement>("select, textarea, button")?.focus({ preventScroll: true });
+      const hash = window.location.hash;
+      if (!["#incident-section", "#incident-delivery", "#incident-return"].includes(hash)) return;
+      setReportVisible(true);
+      requestAnimationFrame(() => {
+        const targetId = hash === "#incident-section"
+          ? canOpenDelivery ? "incident-delivery" : canOpenReturn ? "incident-return" : "incident-section"
+          : hash.slice(1);
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        if (target instanceof HTMLDetailsElement) target.open = true;
+        target.scrollIntoView({ block: "start" });
+        target.querySelector<HTMLElement>("select, textarea, button")?.focus({ preventScroll: true });
+      });
     };
     openLinkedIncident();
     window.addEventListener("hashchange", openLinkedIncident);
     return () => window.removeEventListener("hashchange", openLinkedIncident);
-  }, []);
+  }, [canOpenDelivery, canOpenReturn]);
   const missingCancellationAllowed = canRequestMissingDeliveryCancellation(new Date(rentalStartDate + "T00:00:00Z"));
   const missingCancellationDay = new Date(Date.parse(rentalStartDate + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
   const busy = useRef(false);
@@ -63,7 +71,7 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
     finally { busy.current = false; setPending(false); }
   }
   const button = "ui-btn";
-  return <section id="incident-section" className="surface-card space-y-5 p-5 sm:p-7 scroll-mt-24">
+  return <section hidden={cases.length === 0 && !reportVisible} id="incident-section" className="surface-card space-y-5 p-5 sm:p-7 scroll-mt-24">
     <h2 className="text-lg font-semibold">Zgłoszenia i uzgodnienia</h2>
     <p className="text-sm leading-6 text-slate-600">Przed potwierdzeniem odbioru problem z dostawą wstrzymuje wypłatę. Po potwierdzeniu odbioru najem nie stanowi zabezpieczenia. Problemy ze zwrotem nie zmniejszają należnego wynagrodzenia.</p>
     {cases.map(c => {
