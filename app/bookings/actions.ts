@@ -1,4 +1,6 @@
 "use server";
+import { shippingOverlapWhere } from "@/app/lib/bookingShippingBuffer";
+
 
 import { hasRequiredIdentity, getRequiredIdentity, IDENTITY_REQUIRED_MESSAGE, OWNER_IDENTITY_REQUIRED_MESSAGE } from "@/app/lib/identityRequirement";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
@@ -174,12 +176,7 @@ export async function createBookingAction(input: {
       where: {
         listingId: input.listingId,
         ...blockingBookingDates(),
-        startDate: {
-          lte: end,
-        },
-        endDate: {
-          gte: start,
-        },
+        ...shippingOverlapWhere(start, end),
       },
     });
 

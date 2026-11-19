@@ -1,4 +1,6 @@
 "use client";
+import { shippingRangesOverlap } from "@/app/lib/bookingShippingBuffer";
+
 
 import { warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { effectiveMinimumRentalDays } from "@/app/lib/minimumRentalDays";
@@ -64,7 +66,7 @@ export default function BookingForm({
   }, [startDate, endDate]);
 
   const days = getDays();
-  const selectedRangeOccupied = !!startDate && !!endDate && occupiedRanges.some(range => range.start <= endDate && range.end >= startDate);
+  const selectedRangeOccupied = !!startDate && !!endDate && occupiedRanges.some(range => shippingRangesOverlap({ start: startDate, end: endDate }, range));
 
   const summary = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -80,7 +82,7 @@ export default function BookingForm({
         error: "Data zakończenia nie może być wcześniej niż rozpoczęcia." as const,
       };
     }
-    if (selectedRangeOccupied) return { error: "Wybrany termin obejmuje zajęte dni. Wybierz inne daty." as const };
+    if (selectedRangeOccupied) return { error: "Wybrany termin koliduje z inną rezerwacją lub dniami wysyłki. Wybierz inne daty." as const };
 
     const d = getDays();
     if (d <= 0) return { error: "Nieprawidłowy zakres dat." as const };

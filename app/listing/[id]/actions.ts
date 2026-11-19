@@ -1,4 +1,6 @@
 "use server";
+import { shippingOverlapWhere } from "@/app/lib/bookingShippingBuffer";
+
 
 import { blockingBookingDates } from "@/app/lib/approvalExpiry";
 import { accountIdentityUrl, getRequiredIdentity } from "@/app/lib/identityRequirement";
@@ -261,18 +263,7 @@ export async function createBookingAction(
       where: {
         listingId,
         ...blockingBookingDates(),
-        AND: [
-          {
-            startDate: {
-              lte: endDate,
-            },
-          },
-          {
-            endDate: {
-              gte: startDate,
-            },
-          },
-        ],
+        ...shippingOverlapWhere(startDate, endDate),
       },
       select: {
         id: true,

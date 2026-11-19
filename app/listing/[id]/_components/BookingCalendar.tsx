@@ -1,5 +1,6 @@
 "use client";
 
+import { shippingRange, shippingRangesOverlap, shiftBookingDay } from "@/app/lib/bookingShippingBuffer";
 import { useState } from "react";
 
 type Range = { start: string; end: string };
@@ -33,16 +34,22 @@ export default function BookingCalendar({ today, occupiedRanges, startDate, endD
   const monthLabel = firstDay.toLocaleDateString("pl-PL", { month: "long", year: "numeric", timeZone: "UTC" });
   const blocked = (day: string) => occupiedRanges.some(range => range.start <= day && range.end >= day);
 
+  const shippingBlocked = (day: string) => occupiedRanges.some(range => {
+    const buffer = shippingRange(range);
+    return buffer.start <= day && buffer.end >= day && !(range.start <= day && range.end >= day);
+  });
+  const selectionBlocked = (day: string) => occupiedRanges.some(range => shippingRangesOverlap({ start: day, end: day }, range));
+
   const selectDay = (day: string) => {
-    if (day < today || blocked(day)) return;
+    if (day < today || selectionBlocked(day)) return;
     if (!startDate || endDate || day < startDate) {
       onChange(day, "");
       setMessage("");
       return;
     }
-    if (occupiedRanges.some(range => range.start <= day && range.end >= startDate)) {
+    if (occupiedRanges.some(range => shippingRangesOverlap({ start: startDate, end: day }, range))) {
       onChange(day, "");
-      setMessage("Zakres obejmował zajęte dni. Wybrano nowy początek.");
+      setMessage("Zakres kolidował z rezerwacją lub dniami wysyłki. Wybrano nowy początek.");
       return;
     }
     onChange(startDate, day);
@@ -55,18 +62,25 @@ export default function BookingCalendar({ today, occupiedRanges, startDate, endD
       <h3 className="font-semibold capitalize">{monthLabel}</h3>
       <button type="button" onClick={() => setVisibleMonth(changeMonth(visibleMonth, 1))} aria-label="Następny miesiąc" className="rounded border px-3 py-1">›</button>
     </div>
-    <p className="text-xs text-gray-600">Wybierz początek, a następnie koniec wynajmu.</p>
+    <p className="text-xs text-gray-600">Wybierz początek, a następnie koniec wynajmu. Dzień przed i dzień po rezerwujemy na wysyłkę — bez dodatkowej opłaty.</p>
     <div className="grid grid-cols-7 gap-1 text-center text-xs">
       {weekdays.map(day => <span key={day} className="py-1 font-semibold text-gray-600">{day}</span>)}
       {Array.from({ length: leadingDays }, (_, index) => <span key={`blank-${index}`} />)}
       {Array.from({ length: daysInMonth }, (_, index) => {
         const day = `${visibleMonth}-${String(index + 1).padStart(2, "0")}`;
         const occupied = blocked(day);
+        const bufferDay = shippingBlocked(day);
+        const unavailable = selectionBlocked(day);
+        const selectedBuffer = !!startDate && (day === shiftBookingDay(startDate, -1) || !!endDate && day === shiftBookingDay(endDate, 1));
         const past = day < today;
         const selected = day === startDate || day === endDate;
         const withinRange = !!endDate && day > startDate && day < endDate;
         const className = occupied
           ? "bg-red-100 text-red-700 line-through cursor-not-allowed"
+          : bufferDay || selectedBuffer
+            ? "bg-amber-200 text-amber-950"
+          : unavailable
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
           : past
             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
             : selected
@@ -77,9 +91,9 @@ export default function BookingCalendar({ today, occupiedRanges, startDate, endD
         return <button
           key={day}
           type="button"
-          disabled={occupied || past}
+          disabled={unavailable || past}
           aria-pressed={selected}
-          aria-label={`${dateLabel(day)}${occupied ? ", zajęty" : past ? ", minął" : selected ? ", wybrany" : ""}`}
+          aria-label={`${dateLabel(day)}${occupied ? ", zajęty" : bufferDay || selectedBuffer ? ", dzień na wysyłkę" : unavailable ? ", brak miejsca na dni wysyłki" : past ? ", minął" : selected ? ", wybrany" : ""}`}
           onClick={() => selectDay(day)}
           className={`aspect-square rounded border text-sm ${className}`}
         >{index + 1}</button>;
@@ -88,6 +102,7 @@ export default function BookingCalendar({ today, occupiedRanges, startDate, endD
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-700">
       <span><span className="mr-1 inline-block h-3 w-3 rounded bg-red-100 align-middle" />Zajęte</span>
       <span><span className="mr-1 inline-block h-3 w-3 rounded bg-emerald-600 align-middle" />Wybrane</span>
+      <span><span className="mr-1 inline-block h-3 w-3 rounded bg-amber-200 align-middle" />Dni na wysyłkę</span>
     </div>
     <p className="text-sm">Od: <strong>{startDate ? dateLabel(startDate) : "—"}</strong><br />Do: <strong>{endDate ? dateLabel(endDate) : "—"}</strong></p>
     {message && <p role="status" className="text-sm text-amber-800">{message}</p>}

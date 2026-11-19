@@ -171,7 +171,7 @@ export default async function ListingDetail({ params, searchParams }: PageProps)
     where: {
       listingId: listing.id,
       ...blockingBookingDates(),
-      endDate: { gte: new Date(`${today}T00:00:00Z`) },
+      endDate: { gte: new Date(Date.parse(`${today}T00:00:00Z`) - 2 * 86_400_000) },
     },
     select: { startDate: true, endDate: true },
   }) : [];
