@@ -28,6 +28,10 @@ export function validateIncidentReason(stage: IncidentStage, reason: string): In
   return reason as IncidentReason;
 }
 
+export function incidentAllowsPhotos(stage: string, reason: string): boolean {
+  return !(stage === "DELIVERY" && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(reason));
+}
+
 export function incidentRequiresPhotos(stage: string, reason: string): boolean {
   return stage === "DELIVERY" && ["NOT_AS_DESCRIBED", "DAMAGED_ON_ARRIVAL"].includes(reason);
 }

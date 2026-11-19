@@ -10,7 +10,7 @@ import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
-import { missingDelivery, incidentReasons, reasonsForStage, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
+import { missingDelivery, incidentReasons, reasonsForStage, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
 
 type Case = { reportedDeliveryDate?: string | null; lateDelivery?: { delayDays: number; totalDays: number; refundCents: number } | null; id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
@@ -110,7 +110,7 @@ export default function IncidentPanel({ bookingId, userId, isOwner, rentCents, c
         <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded-xl border border-slate-300 px-3 py-2.5">{(stage === "DELIVERY" ? deliveryReasons : reasonsForStage.RETURN).map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
         {stage === "DELIVERY" && selectedReasons[stage] === "LATE_DELIVERY" && <label className="block text-sm">Data odbioru przedmiotu (wymagana)<input name="reportedDeliveryDate" type="date" required max={warsawCalendarDate(new Date())} className="mt-1 block rounded-xl border border-slate-300 px-3 py-2.5" /><span className="mt-1 block text-xs text-slate-600">Podaj dzień, w którym rzeczywiście otrzymałeś przedmiot. Właściciel zobaczy datę i sugerowany zwrot za dni opóźnienia.</span></label>}
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded-xl border border-slate-300 px-3 py-2.5" /></label>
-        <IncidentPhotoPicker required={incidentRequiresPhotos(stage, selectedReasons[stage])} disabled={pending} />
+        {incidentAllowsPhotos(stage, selectedReasons[stage]) && <IncidentPhotoPicker key={`${stage}-${selectedReasons[stage]}`} required={incidentRequiresPhotos(stage, selectedReasons[stage])} disabled={pending} />}
         <ClaimActionButton disabled={pending} className={button}>Wyślij zgłoszenie</ClaimActionButton>
       </form>
     </details>)}

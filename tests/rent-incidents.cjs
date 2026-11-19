@@ -141,8 +141,17 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
       assert.equal(inc.reason, reason); assert.equal(b.deliveryConfirmationStatus, 'DISPUTED');
     });
   }
+  for (const reason of ['NOT_SHIPPED', 'NOT_RECEIVED']) {
+    await test(reason + ' rejects photo attachments before creating an incident', async () => {
+      const data = form({stage:'DELIVERY', reason, description:'Brak przedmiotu'});
+      data.append('photos', new File(['mock photo'], 'photo.jpg', {type:'image/jpeg'}));
+      await assert.rejects(actions.openIncidentAction(data), /nie dodajemy zdjęć/);
+      assert.equal(inc, null);
+    });
+  }
   await test('other incident reasons keep photos optional', () => {
     for (const [stage, reasons] of Object.entries(policy.reasonsForStage)) for (const reason of reasons) {
+      assert.equal(policy.incidentAllowsPhotos(stage, reason), !(stage === 'DELIVERY' && ['NOT_SHIPPED', 'NOT_RECEIVED'].includes(reason)));
       assert.equal(policy.incidentRequiresPhotos(stage, reason), stage === 'DELIVERY' && ['NOT_AS_DESCRIBED', 'DAMAGED_ON_ARRIVAL'].includes(reason));
     }
   });

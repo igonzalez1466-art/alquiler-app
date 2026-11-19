@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
-import { missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
+import { missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
@@ -33,6 +33,7 @@ export async function openIncidentAction(data: FormData) {
   const reason = validateIncidentReason(stage, String(data.get("reason")));
   const text = description(data, "description");
   const files = data.getAll("photos").filter((v): v is File => v instanceof File && v.size > 0);
+  if (files.length && !incidentAllowsPhotos(stage, reason)) throw new Error("Do zgłoszenia braku wysyłki lub odbioru nie dodajemy zdjęć przedmiotu.");
   if (files.length > 3) throw new Error("Maksymalnie 3 zdjęcia.");
   if (incidentRequiresPhotos(stage, reason) && files.length === 0) throw new Error(REQUIRED_INCIDENT_PHOTOS_MESSAGE);
   const photos = await prepareBookingEvidencePhotoFiles(files);
