@@ -64,6 +64,8 @@ export default function BookingEvidencePhotos({ bookingId, stage, userId, ownerI
     }
   }
 
+  if (photos.length === 0 && !(canUpload && remaining > 0)) return null;
+
   return <section className="rounded-lg border bg-gray-50 p-3 space-y-3" aria-label={stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}>
     <div>
       <h3 className="font-semibold">{stage === "DELIVERY" ? "Zdjęcia dostawy" : "Zdjęcia zwrotu"}</h3>
