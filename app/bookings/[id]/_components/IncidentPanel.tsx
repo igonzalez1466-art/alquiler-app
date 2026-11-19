@@ -1,5 +1,6 @@
 "use client";
 import { formatCalendarDate, warsawCalendarDate } from "@/app/lib/rentalCalendarDate";
+import { validateReceiptDate } from "@/app/lib/lateDelivery";
 import { userMessage } from "@/app/lib/userMessage";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -60,6 +61,13 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
         data.set("refundCents", String(Math.round(Number(value) * 100)));
       }
       if (open) {
+        const stage = String(data.get("stage")) as "DELIVERY" | "RETURN";
+        data.set("reason", selectedReasons[stage]);
+        if (stage === "DELIVERY" && selectedReasons[stage] === "LATE_DELIVERY") {
+          const received = String(data.get("reportedDeliveryDate") ?? "");
+          validateReceiptDate(received);
+          if (received <= rentalStartDate) throw new Error("Podaj datę odbioru późniejszą niż pierwszy dzień rezerwacji.");
+        }
         const files = data.getAll("photos").filter((v): v is File => v instanceof File && v.size > 0);
         if (incidentRequiresPhotos(String(data.get("stage")), String(data.get("reason"))) && files.length === 0) throw new Error(REQUIRED_INCIDENT_PHOTOS_MESSAGE);
         if (files.length > 3) throw new Error("Maksymalnie 3 zdjęcia.");
@@ -132,7 +140,7 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
     </article>; })}
     {(["DELIVERY", "RETURN"] as const).map(stage => (stage === "DELIVERY" ? canOpenDelivery : canOpenReturn) && !cases.some(c => c.stage === stage) && <details id={`incident-${stage.toLowerCase()}`} key={stage} className="rounded-2xl border border-slate-200 p-5 scroll-mt-24">
       <summary className="cursor-pointer font-medium">Zgłoś problem — {stage === "DELIVERY" ? "dostawa" : "zwrot"}</summary>
-      <form action={d => run(d, true)} className="mt-3 space-y-3">
+      <form onSubmit={event => { event.preventDefault(); void run(new FormData(event.currentTarget), true); }} className="mt-3 space-y-3">
         <input type="hidden" name="stage" value={stage} />
         <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded-xl border border-slate-300 px-3 py-2.5">{(stage === "DELIVERY" ? deliveryReasons : reasonsForStage.RETURN).map(r => <option key={r} value={r} disabled={stage === "DELIVERY" && !missingReportAllowed && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(r)}>{incidentReasons[r]}</option>)}</select></label>
         {stage === "DELIVERY" && !missingReportAllowed && <p className="text-sm text-amber-900">Brak wysyłki lub odbioru możesz zgłosić od {formatCalendarDate(missingReportDay)}, godz. 00:00 (czas polski).</p>}
