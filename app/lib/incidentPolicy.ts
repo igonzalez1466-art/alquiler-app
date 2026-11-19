@@ -68,3 +68,10 @@ export function missingDelivery(incident: { stage?: string; reason?: string; rep
 export function canRequestMissingDeliveryCancellation(startDate: Date, now = new Date()): boolean {
   return warsawCalendarDate(now) > rentalCalendarDate(startDate);
 }
+
+export function missingDeliveryReportDay(startDate: Date): string {
+  return new Date(Date.parse(rentalCalendarDate(startDate) + "T00:00:00Z") - 86_400_000).toISOString().slice(0, 10);
+}
+export function canReportMissingDelivery(startDate: Date, now = new Date()): boolean {
+  return warsawCalendarDate(now) >= missingDeliveryReportDay(startDate);
+}

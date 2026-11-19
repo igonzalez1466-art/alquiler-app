@@ -93,8 +93,8 @@ export function pendingTasks(bookings: TaskBooking[], userId: string, now = new 
         ["PENDING", "READY"].includes(b.shippingStatus) && canRecordDispatchAt(b.startDate, now)) {
       tasks.push({ id: b.id + ":ship", bookingNumber: b.bookingNumber, listing: b.listing.title,
         title: "Przekaż lub wyślij przedmiot",
-        description: "Zapisz wysyłkę lub przekazanie w rezerwacji. Zgłoszenie pozostanie otwarte, a wypłata wstrzymana do uzgodnienia rozwiązania.",
-        href: "/bookings/" + encodeURIComponent(b.id), deadline: null, priority: 2,
+        description: "Otwórz sekcję Dostawa, wybierz sposób przekazania i kliknij „Wysłano / Przekazano”. Sam komentarz w zgłoszeniu nie zapisuje wysyłki. Wypłata pozostaje wstrzymana.",
+        href: "/bookings/" + encodeURIComponent(b.id) + "#delivery-section", deadline: null, priority: 2,
         actionLabel: "Zapisz dostawę",
       });
     }

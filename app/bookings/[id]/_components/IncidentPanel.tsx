@@ -10,7 +10,7 @@ import ClaimActionButton from "@/app/components/ClaimActionButton";
 import { useRouter } from "next/navigation";
 import { incidentAction, openIncidentAction } from "../_actions/incidentActions";
 import { prepareBookingPhoto } from "@/app/lib/prepareBookingPhoto";
-import { canRequestMissingDeliveryCancellation, missingDelivery, incidentReasons, reasonsForStage, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
+import { canReportMissingDelivery, missingDeliveryReportDay, canRequestMissingDeliveryCancellation, missingDelivery, incidentReasons, reasonsForStage, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE } from "@/app/lib/incidentPolicy";
 
 type Case = { reportedDeliveryDate?: string | null; lateDelivery?: { delayDays: number; totalDays: number; refundCents: number } | null; id: string; stage: "DELIVERY" | "RETURN"; reason: keyof typeof incidentReasons; status: string; description: string; resolution: string | null; refundCents: number | null; proposedById: string | null; createdAt: string; resolvedAt: string | null; acceptedAt?: string | Date | null; evidence: { id: string; text: string; createdAt: string }[] };
 const statusLabels: Record<string, string> = { OPEN: "Otwarte", AWAITING_OWNER: "Czeka na właściciela", AWAITING_RENTER: "Czeka na najemcę", AGREEMENT_REACHED: "Uzgodnione — rozliczenie w toku", ESCALATED: "Wymaga wyjaśnienia", RESOLVED: "Zakończone" };
@@ -21,8 +21,10 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
   const missingCancellationAllowed = canRequestMissingDeliveryCancellation(new Date(rentalStartDate + "T00:00:00Z"));
   const missingCancellationDay = new Date(Date.parse(rentalStartDate + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
   const busy = useRef(false);
+  const missingReportAllowed = canReportMissingDelivery(new Date(rentalStartDate + "T00:00:00Z"));
+  const missingReportDay = missingDeliveryReportDay(new Date(rentalStartDate + "T00:00:00Z"));
   const deliveryReasons = reasonsForStage.DELIVERY.filter(reason => deliveryDispatched ? reason !== "NOT_SHIPPED" : reason !== "NOT_RECEIVED");
-  const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: deliveryReasons[0], RETURN: reasonsForStage.RETURN[0] });
+  const [selectedReasons, setSelectedReasons] = useState({ DELIVERY: deliveryReasons.find(reason => missingReportAllowed || !["NOT_SHIPPED", "NOT_RECEIVED"].includes(reason))!, RETURN: reasonsForStage.RETURN[0] });
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [responseMode, setResponseMode] = useState<Record<string, "reject" | "request_cancel" | undefined>>({});
@@ -73,6 +75,7 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
           <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending || c.status === "ESCALATED"} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>
         </>}
         {isOwner && <form action={d => run(d)}><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="escalate" /><ClaimActionButton disabled={pending || c.status === "ESCALATED"} className={button}>Poproś o wyjaśnienie sprawy</ClaimActionButton></form>}
+        {isOwner && !deliveryDispatched && c.reason === "NOT_SHIPPED" && <div className="rounded-xl border border-violet-200 bg-white p-3 space-y-2"><p>Aby zapisać wysyłkę lub przekazanie, przejdź do sekcji Dostawa w rezerwacji. Wybierz sposób przekazania i kliknij „Wysłano / Przekazano”. Komentarz poniżej nie zapisuje wysyłki.</p><a href={`/bookings/${encodeURIComponent(bookingId)}#delivery-section`} className="ui-btn ui-btn-primary">Przejdź do formularza dostawy →</a></div>}
         {isOwner && canActOnIncident(c, true) && <form action={d => run(d)} className="space-y-3"><input type="hidden" name="incidentId" value={c.id} /><input type="hidden" name="operation" value="wait_delivery" /><label className="block">Informacja o oczekiwanej dostawie<textarea required maxLength={2000} name="comment" className="mt-1 block w-full rounded-lg border bg-white p-2" /></label><ClaimActionButton disabled={pending} className={button}>Poczekaj na dostawę — pozostaw wypłatę wstrzymaną</ClaimActionButton></form>}
       </div>}
       {!["RESOLVED", "AGREEMENT_REACHED"].includes(c.status) && !canActOnIncident(c, isOwner) && <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">{INCIDENT_WAIT_MESSAGE}</p>}
@@ -110,7 +113,8 @@ export default function IncidentPanel({ rentalStartDate, bookingId, userId, isOw
       <summary className="cursor-pointer font-medium">Zgłoś problem — {stage === "DELIVERY" ? "dostawa" : "zwrot"}</summary>
       <form action={d => run(d, true)} className="mt-3 space-y-3">
         <input type="hidden" name="stage" value={stage} />
-        <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded-xl border border-slate-300 px-3 py-2.5">{(stage === "DELIVERY" ? deliveryReasons : reasonsForStage.RETURN).map(r => <option key={r} value={r}>{incidentReasons[r]}</option>)}</select></label>
+        <label className="block text-sm">Powód<select required name="reason" value={selectedReasons[stage]} onChange={event => setSelectedReasons(current => ({ ...current, [stage]: event.target.value as keyof typeof incidentReasons }))} className="block rounded-xl border border-slate-300 px-3 py-2.5">{(stage === "DELIVERY" ? deliveryReasons : reasonsForStage.RETURN).map(r => <option key={r} value={r} disabled={stage === "DELIVERY" && !missingReportAllowed && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(r)}>{incidentReasons[r]}</option>)}</select></label>
+        {stage === "DELIVERY" && !missingReportAllowed && <p className="text-sm text-amber-900">Brak wysyłki lub odbioru możesz zgłosić od {formatCalendarDate(missingReportDay)}, godz. 00:00 (czas polski).</p>}
         {stage === "DELIVERY" && selectedReasons[stage] === "LATE_DELIVERY" && <label className="block text-sm">Data odbioru przedmiotu (wymagana)<input name="reportedDeliveryDate" type="date" required max={warsawCalendarDate(new Date())} className="mt-1 block rounded-xl border border-slate-300 px-3 py-2.5" /><span className="mt-1 block text-xs text-slate-600">Podaj dzień, w którym rzeczywiście otrzymałeś przedmiot. Właściciel zobaczy datę i sugerowany zwrot za dni opóźnienia.</span></label>}
         <label className="block text-sm">Opis<textarea name="description" required maxLength={2000} className="block w-full rounded-xl border border-slate-300 px-3 py-2.5" /></label>
         {incidentAllowsPhotos(stage, selectedReasons[stage]) && <IncidentPhotoPicker key={`${stage}-${selectedReasons[stage]}`} required={incidentRequiresPhotos(stage, selectedReasons[stage])} disabled={pending} />}

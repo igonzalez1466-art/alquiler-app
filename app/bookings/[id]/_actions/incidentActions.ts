@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/app/lib/prisma";
-import { canRequestMissingDeliveryCancellation, missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
+import { canReportMissingDelivery, canRequestMissingDeliveryCancellation, missingDelivery, deliveryDispatchRecorded, reasonsForStage, validateIncidentReason, incidentRequiresPhotos, incidentAllowsPhotos, REQUIRED_INCIDENT_PHOTOS_MESSAGE, canActOnIncident, INCIDENT_WAIT_MESSAGE, INCIDENT_PHOTOS_LOCKED_MESSAGE } from "@/app/lib/incidentPolicy";
 import { prepareBookingEvidencePhotoFiles } from "@/app/lib/bookingEvidencePhotoFiles";
 import { queueIncidentEmail, sendPendingIncidentEmails } from "@/app/lib/incidentNotification";
 import { trySettleRentOnlyBooking } from "@/app/lib/rentOnlySettlement";
@@ -48,6 +48,7 @@ export async function openIncidentAction(data: FormData) {
       throw new Error("Odbiór został już potwierdzony. Najem nie jest już gwarancją.");
     }
     if (stage === "RETURN" && !["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus)) throw new Error("Najpierw potwierdź dostawę.");
+    if (stage === "DELIVERY" && ["NOT_SHIPPED", "NOT_RECEIVED"].includes(reason) && !canReportMissingDelivery(b.startDate)) throw new Error("Brak wysyłki lub odbioru możesz zgłosić od dnia przed rozpoczęciem najmu (czas polski).");
     if (reason === "NOT_SHIPPED" && deliveryDispatchRecorded(b)) throw new Error("Przedmiot oznaczono jako wysłany / przekazany. Wybierz: Nie otrzymałem przedmiotu.");
     if (reason === "NOT_RECEIVED" && !deliveryDispatchRecorded(b)) throw new Error("Nie zapisano wysyłki / przekazania. Wybierz: Przedmiot nie został wysłany / przekazany.");
     if ((reason === "NOT_RETURNED" || reason === "LATE_RETURN") && new Date() < b.endDate) throw new Error("Termin zwrotu jeszcze nie upłynął.");

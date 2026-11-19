@@ -352,6 +352,26 @@ async function test(name, fn) { reset(); await fn(); checks++; console.log('PASS
       assert.equal(refunds, 0); assert.equal(transfers, 0);
     });
   }
+  await test('missing delivery report opens at Polish midnight on the preceding day', () => {
+    for (const [start, before, after] of [
+      ['2026-11-20', '2026-11-18T22:59:59.999Z', '2026-11-18T23:00:00Z'],
+      ['2026-03-30', '2026-03-28T22:59:59.999Z', '2026-03-28T23:00:00Z'],
+      ['2026-10-26', '2026-10-24T21:59:59.999Z', '2026-10-24T22:00:00Z'],
+    ]) {
+      assert.equal(policy.canReportMissingDelivery(new Date(start), new Date(before)), false);
+      assert.equal(policy.canReportMissingDelivery(new Date(start), new Date(after)), true);
+    }
+  });
+  for (const reason of ['NOT_SHIPPED', 'NOT_RECEIVED']) {
+    await test(reason + ' cannot be reported prematurely even through a direct server call', async () => {
+      b.deliveryConfirmedAt = null; b.deliveryConfirmationStatus = 'AWAITING_CONFIRMATION';
+      b.shippingStatus = reason === 'NOT_SHIPPED' ? 'PENDING' : 'SHIPPED';
+      b.startDate = new Date('2099-01-01');
+      await assert.rejects(actions.openIncidentAction(form({stage:'DELIVERY', reason, description:'Za wcześnie'})), /od dnia przed rozpoczęciem/);
+      assert.equal(inc, null); assert.equal(b.deliveryIssue, null);
+      assert.equal(notificationEvents.length, 0); assert.equal(refunds, 0); assert.equal(transfers, 0);
+    });
+  }
   await test('waiting keeps money blocked; only renter records arrival, clears stale cancellation and calculates delay',async()=>{
     await reportMissing();user='owner';await actions.incidentAction(form({operation:'wait_delivery',comment:'Przesyłka w drodze'}));assert.equal(inc.status,'AWAITING_RENTER');assert.equal(inc.refundCents,null);await assert.rejects(settle('b'));
     await assert.rejects(actions.incidentAction(form({operation:'record_delivery',reportedDeliveryDate:'2020-01-03'})));
