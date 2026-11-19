@@ -1,4 +1,4 @@
-import { deliveryDispatchRecorded } from "@/app/lib/incidentPolicy";
+import { deliveryDispatchRecorded, missingDelivery } from "@/app/lib/incidentPolicy";
 import { lateDeliverySuggestion } from "@/app/lib/lateDelivery";
 import { rentalCalendarDate } from "@/app/lib/rentalCalendarDate";
 import { prisma } from "@/app/lib/prisma";
@@ -12,10 +12,11 @@ export default async function BookingIncidents({ bookingId, userId }: { bookingI
   if (!b || ![b.ownerId, b.renterId].includes(userId)) return null;
   const paid = b.paymentStatus === "PAID" && !b.cancelledAt && b.status !== "CANCELLED";
   const received = !!b.deliveryConfirmedAt || ["CONFIRMED", "AUTO_CONFIRMED"].includes(b.deliveryConfirmationStatus);
-  const photos = b.deliveryIssue !== null || b.incidents.some(i => i.stage === "DELIVERY")
+  const showDeliveryPhotos = (b.deliveryIssue !== null || b.incidents.some(i => i.stage === "DELIVERY")) && !b.incidents.some(missingDelivery);
+  const photos = showDeliveryPhotos
     ? await prisma.bookingEvidencePhoto.findMany({ where: { bookingId, stage: "DELIVERY" }, select: { id: true, stage: true, uploaderId: true, createdAt: true }, orderBy: { createdAt: "asc" } }) : [];
   const visiblePhotos = photos.filter(photo => canViewBookingEvidencePhoto(b, photo, userId));
-  const deliveryPhotos = (b.deliveryIssue !== null || b.incidents.some(i => i.stage === "DELIVERY"))
+  const deliveryPhotos = showDeliveryPhotos
     ? <BookingEvidencePhotos oneBatch bookingId={bookingId} stage="DELIVERY" userId={userId} ownerId={b.ownerId} renterId={b.renterId}
       canUpload={canUploadBookingEvidence(b, "DELIVERY", userId)}
       photos={visiblePhotos.map(photo => ({ id: photo.id, uploaderId: photo.uploaderId, createdAt: photo.createdAt.toISOString() }))} /> : null;
